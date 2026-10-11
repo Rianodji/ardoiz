@@ -51,6 +51,7 @@ Actifs critiques : **données scolaires des mineurs**, comptes (surtout le compt
 | M19 | Journaux insuffisants pour reconstituer un incident, ou au contraire journaux contenant copies, mots de passe ou jetons | Répudiation, Divulgation | A09 | Moyen | Moyenne | R12, R21 |
 | M20 | Mécaniques de jeu nuisibles pour des enfants : classement humiliant, pression des séries, notifications compulsives | (éthique, conception adaptée à l'âge) | A06 | Moyen | Élevée si non traité | R17 |
 | M21 | Session d'un enfant laissée ouverte sur un ordinateur partagé, ou session volée réutilisée longtemps | Usurpation | A07 | Moyen | Moyenne | R8 |
+| M22 | Altération inter-espaces via le relais de l'outbox : les fonctions `messaging.claim_pending_events` et `messaging.mark_events_published` (`SECURITY DEFINER`) sont appelables par le rôle applicatif depuis n'importe quel code ; un bug ou une injection SQL pourrait marquer « publié » un événement d'un autre espace (perte silencieuse de progression) ou lister les identifiants d'espaces | Altération, Divulgation | A01 | Moyen | Faible | R10 |
 
 ## 3. Fiches détaillées des menaces critiques
 
@@ -82,3 +83,4 @@ Actifs critiques : **données scolaires des mineurs**, comptes (surtout le compt
 | Un élève photographie l'écran pour partager une épreuve | Hors de portée technique ; enjeu faible en contexte familial |
 | La plateforme de visio elle-même | Hors périmètre ; le choix de Jitsi auto-hébergé reste possible plus tard |
 | Un parent consulte le compte de son enfant avec le mot de passe de l'enfant | Légitime : le parent est responsable du compte |
+| M22 — altération inter-espaces via le relais de l'outbox | Accepté au J1 (un seul espace), verdict du lot 00. À traiter avant l'ouverture multi-tuteurs (J3) : rôle dédié `ardoiz_relay` ou relais dans un processus séparé |
