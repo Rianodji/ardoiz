@@ -1,0 +1,41 @@
+{
+  "name": "ardoiz",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/contracts",
+    "packages/content-schema",
+    "apps/api",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace @ardoiz/api & npm run dev --workspace @ardoiz/web & wait",
+    "build": "npm run build --workspaces",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "vitest run --project api --project web --project contracts --project content-schema",
+    "test:integration": "vitest run --project api-integration",
+    "depcruise": "depcruise apps/api/src --config .dependency-cruiser.cjs",
+    "licenses": "node tools/check-licenses.mjs",
+    "db:migrate": "npm run db:migrate --workspace @ardoiz/api",
+    "sbom": "npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^5.0.3",
+    "dependency-cruiser": "^18.6.0",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  }
+}
