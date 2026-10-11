@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Branche** | `lot/00-socle` (non poussée : le dépôt n'a pas encore de remote GitHub) |
-| **Commits** | premier `d890f26` → dernier : commit de ce rapport |
+| **Branche** | `lot/00-socle`, PR [#1](https://github.com/Rianodji/ardoiz/pull/1) |
+| **Commits** | premier `a829766` → dernier : commit de ce rapport (après rebase sur `origin/main`) |
 | **Date** | 2026-10-11 |
 
 ## 1. Résumé
@@ -30,7 +30,7 @@ Le squelette démarre, se teste, se vérifie et se construit. Il comprend :
 | `password`, `token` et `cookie` masqués dans les logs (R21) | ✅ | `apps/api/test/platform/logger.test.ts` › « masque password, token et cookie à toutes les profondeurs (R21) » ; `server.test.ts` › « journalise l'identifiant de requête mais ni le cookie ni un jeton passé dans l'URL (R21) » |
 | `loadConfig` échoue sur une configuration incomplète (R20) | ✅ | `apps/api/test/platform/config.test.ts` › « refuse de démarrer : … (R20) » (15 cas), « le message d'erreur nomme la variable mais jamais sa valeur (R20) » |
 | dependency-cruiser échoue si `domain/` importe `infrastructure/` ou un autre module (test de la règle avec un fichier fixture) | ✅ | `apps/api/test/architecture/depcruise.test.ts` charge **la configuration réelle** `.dependency-cruiser.cjs` et l'exécute sur `fixtures/violations` (domaine → infrastructure, domaine → autre module, domaine → `node:crypto`, application → plateforme, noyau → module) et sur `fixtures/clean` (aucun faux positif) |
-| La CI est verte sur GitHub | ❌ | `.github/workflows/ci.yml` est écrit, et chacune de ses étapes passe en local (§4). Le dépôt **n'a pas de remote** : la création du dépôt GitHub revient au porteur (`HANDOFF_INFRA.md`, question 5). Je ne l'ai pas créé moi-même |
+| La CI est verte sur GitHub | ✅ | PR [#1](https://github.com/Rianodji/ardoiz/pull/1), [exécution 38174484885](https://github.com/Rianodji/ardoiz/actions/runs/38174484885) : les 3 jobs sont verts (« Lint, types, architecture, tests, licences et build » en 1 min 2 s, « Vulnérabilités connues et inventaire logiciel », « Détection de secrets (gitleaks) »). Le journal de la CI montre 98 tests unitaires et 30 tests d'intégration réussis, sur Postgres réel via Testcontainers |
 
 ## 3. Règles de sécurité traitées
 
@@ -45,7 +45,7 @@ Le squelette démarre, se teste, se vérifie et se construit. Il comprend :
 | R20 | `platform/config/loadConfig.ts › loadConfig`, `platform/config/Secret.ts › Secret` ; gitleaks en CI et dans `.githooks/pre-commit` | `config.test.ts` (R20) ; gitleaks 8.30.1 sur tout l'historique → « no leaks found » | 🛠️ image et compose en L7 |
 | R21 | `platform/logging/logger.ts › loggerOptions` (redaction à 5 niveaux de profondeur, URL sans chaîne de requête, pas d'adresse IP) | `logger.test.ts` (4 tests R21) ; `server.test.ts` (R21) | 🛠️ vert en local, CI non exécutée |
 
-Aucune règle n'est marquée ✅ : le catalogue réserve cet état à un test **vert en CI**, et la CI n'a pas encore tourné sur GitHub.
+Après la CI verte de la PR #1, R11, R19 et R21 passent à ✅ dans le catalogue. R10, R15, R18 et R20 s'étendent sur des lots ultérieurs : leur partie L0 est verte en CI, mais la règle reste 🛠️ jusqu'à son dernier lot.
 
 ## 4. Sortie des vérifications
 
@@ -101,3 +101,39 @@ J'ai aussi lancé à la main l'API compilée (`node apps/api/dist/app/main.js`) 
 - `/metrics` n'est pas encore exposé (prévu avec l'observabilité en L7).
 - Le relais n'est pas encore lancé en boucle par l'application : aucun événement n'existe avant L2 ou L3. Il est seulement testé.
 - `PgAuditTrail.record` ouvre sa propre transaction. Il conviendra pour les refus d'accès ; une variante dans la transaction métier sera ajoutée en L1 pour les actions réussies.
+
+## 9. Traitement du verdict (accepté avec réserves) et mise en ligne
+
+### Remote, rebase et historique
+
+- Remote `origin` = `https://github.com/Rianodji/ardoiz.git`. `main` a été rebasé sur `origin/main` (commit `LICENSE` de GitHub), puis `lot/00-socle` sur ce nouveau `main`. La réécriture est autorisée par le porteur, car aucun commit local n'avait été poussé.
+- Vérifications demandées :
+
+```
+$ git ls-files LICENSE
+LICENSE
+$ git log --format=%B --all | grep -ci co-authored
+0
+$ git log --all --name-only --format= | grep -c HANDOFF_INFRA
+0
+```
+
+- gitleaks sur tout l'historique avant le push : « no leaks found ».
+
+### Réserves
+
+| Réserve | Traitement | Preuve |
+|---|---|---|
+| R-1 · CI sur GitHub | `main` puis `lot/00-socle` poussées, PR #1 ouverte, CI verte. `gitleaks-action` est conservée (dépôt personnel) | §2, dernière ligne |
+| R-2 · Erreurs Postgres dans les logs | `logger.ts › serializeError` : liste blanche `type`, `message`, `stack`, `code` (SQLSTATE), `constraint`. `email` ajouté aux clés masquées | `errorLogging.int.test.ts` › « une violation d'unicité ne fait fuir la valeur ni dans la réponse ni dans le journal (R21) » (vraie erreur 23505 sur Postgres) ; `logger.test.ts` › « masque une adresse e-mail… (R21) », « ne garde d'une erreur que type, message, pile, code et contrainte (R21) » |
+| R-3 · IP derrière Traefik | **Écart** : `TRUSTED_PROXIES` (liste d'adresses ou de réseaux CIDR) au lieu de `TRUSTED_PROXY_HOPS=1`. Fastify 5.12 refuse la confiance au simple nombre de sauts : `trustProxy: 1` fait confiance à **rien**, car un nombre de sauts ne vérifie pas le pair immédiat et un client direct pourrait forger X-Forwarded-For. L'adresse de Traefik ne change pas d'un démarrage à l'autre si son réseau Docker a un sous-réseau fixe ; la question est posée à la session infra dans `HANDOFF_INFRA.md`. Les réseaux plus larges que /8 (IPv4) ou /32 (IPv6) sont refusés. L'IP reste hors des journaux ; sa troncature (/24, /48) arrive avec `auth_sessions` en L1 | `server.test.ts` › « sans mandataire de confiance, ignore X-Forwarded-For », « derrière Traefik (réseau de confiance), retient l'adresse ajoutée par Traefik… », « ignore X-Forwarded-For envoyé directement par un client hors du réseau de confiance » ; `config.test.ts` (3 refus et 1 lecture) |
+| R-4 · Codes 405 et 429 | `problems.ts` : `http.method-not-allowed`, `http.too-many-requests` + `Retry-After` (valeur annoncée par l'erreur, sinon 60 s) ; message correspondant côté front | `server.test.ts` › « traduit un 405 technique… », « traduit un 429… avec l'en-tête Retry-After annoncé », « pose un Retry-After par défaut… » |
+| R-5 · BlueOak | BlueOak-1.0.0 et 0BSD dans la liste blanche ; exceptions nominatives supprimées | `npm run licenses` → 99 dépendances, toutes permissives |
+| R-6 · Stash | `git stash drop` puis purge du reflog et `git gc --prune=now` ; `git fsck --unreachable` ne trouve plus rien | `git stash list` vide |
+
+### Autres demandes
+
+- **Licence** : section « Licence » dans le README (« Ardoiz est distribué sous licence GNU AGPL-3.0 (voir LICENSE). ») ; `"license": "AGPL-3.0-only"` dans le `package.json` racine, les workspaces restant privés. `tools/check-licenses.mjs` exclut explicitement la racine du dépôt et nos workspaces `@ardoiz/*` : seule la licence des dépendances est contrôlée.
+- **M22** ajoutée au registre des menaces et aux risques acceptés (verdict §4).
+- **Méthode** : remarque reçue. Toute information sur le serveur passera désormais par `HANDOFF_INFRA.md`, sans ouvrir `hetzner_server`.
+
