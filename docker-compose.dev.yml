@@ -1,0 +1,34 @@
+# Environnement de développement local : Postgres (même version que le serveur) et Mailpit.
+# Les mots de passe viennent du fichier .env (non versionné), jamais de ce fichier (R20).
+name: ardoiz-dev
+
+services:
+  postgres:
+    # Même image que le Postgres partagé du serveur, épinglée par empreinte.
+    image: postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DEV_POSTGRES_ADMIN_PASSWORD:?à définir dans .env}
+      POSTGRES_DB: postgres
+      ARDOIZ_OWNER_PASSWORD: ${DEV_ARDOIZ_OWNER_PASSWORD:?à définir dans .env}
+      ARDOIZ_USER_PASSWORD: ${DEV_ARDOIZ_USER_PASSWORD:?à définir dans .env}
+    volumes:
+      - ./db/dev/init-roles.sh:/docker-entrypoint-initdb.d/10-init-roles.sh:ro
+      - ardoiz-dev-pg:/var/lib/postgresql/data
+    # Uniquement sur la boucle locale : la base n'est jamais exposée au réseau (R20).
+    ports:
+      - "127.0.0.1:5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ardoiz"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea
+    ports:
+      - "127.0.0.1:1025:1025" # SMTP
+      - "127.0.0.1:8025:8025" # interface web
+
+volumes:
+  ardoiz-dev-pg:
