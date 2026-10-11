@@ -11,7 +11,7 @@ import { ForbiddenError, NotFoundError } from "../../src/shared-kernel/DomainErr
 import { captureLogs } from "../support/logs.js";
 
 const ORIGIN = "https://ardoiz.example.test";
-const config: ServerConfig = { publicOrigin: ORIGIN, logLevel: "info" };
+const config: ServerConfig = { publicOrigin: ORIGIN, logLevel: "info", trustedProxies: [] };
 
 /**
  * Route d'essai ajoutée par le test pour exercer la plateforme HTTP : schéma strict,
@@ -28,6 +28,16 @@ function addProbeRoutes(app: FastifyInstance): void {
   app.get("/api/probe/forbidden", () => {
     throw new ForbiddenError("tutor-only");
   });
+  app.get("/api/probe/method", () => {
+    throw Object.assign(new Error("Method Not Allowed"), { statusCode: 405 });
+  });
+  app.get("/api/probe/limited", () => {
+    throw Object.assign(new Error("Rate limit exceeded"), { statusCode: 429, retryAfter: 30 });
+  });
+  app.get("/api/probe/limited-default", () => {
+    throw Object.assign(new Error("Rate limit exceeded"), { statusCode: 429 });
+  });
+  app.get("/api/probe/ip", (request, reply) => reply.send({ ip: request.ip }));
   app.get("/api/probe/crash", () => {
     throw new Error('relation "identity.accounts" does not exist at character 42');
   });
@@ -204,6 +214,25 @@ describe("Serveur HTTP (plateforme L0)", () => {
       expect(logs.text()).toContain(body.requestId);
     });
 
+    it("traduit un 405 technique en code stable, pas en 500 (réserve R-4)", async () => {
+      const res = await app.inject({ method: "GET", url: "/api/probe/method" });
+      expect(res.statusCode).toBe(405);
+      expect(res.json()).toMatchObject({ status: 405, code: "http.method-not-allowed" });
+    });
+
+    it("traduit un 429 en code stable avec l'en-tête Retry-After annoncé (réserve R-4)", async () => {
+      const res = await app.inject({ method: "GET", url: "/api/probe/limited" });
+      expect(res.statusCode).toBe(429);
+      expect(res.json()).toMatchObject({ status: 429, code: "http.too-many-requests" });
+      expect(res.headers["retry-after"]).toBe("30");
+    });
+
+    it("pose un Retry-After par défaut quand l'erreur 429 n'en annonce pas (réserve R-4)", async () => {
+      const res = await app.inject({ method: "GET", url: "/api/probe/limited-default" });
+      expect(res.statusCode).toBe(429);
+      expect(res.headers["retry-after"]).toBe("60");
+    });
+
     it("ignore un identifiant de requête fourni par le client", async () => {
       const res = await app.inject({
         method: "GET",
@@ -294,5 +323,36 @@ describe("Service de la SPA sur la même origine (ADR-0006)", () => {
     const res = await app.inject({ method: "GET", url: "/api/inconnue" });
     expect(res.statusCode).toBe(404);
     expect(res.headers["content-type"]).toContain("application/problem+json");
+  });
+});
+
+describe("Adresse du client derrière Traefik (réserve R-3, préalable à R8)", () => {
+  const ipSeenWith = async (trustedProxies: string[], remoteAddress = "10.0.0.2"): Promise<string> => {
+    const app = await buildServer({
+      config: { ...config, trustedProxies },
+      readiness: () => Promise.resolve(true),
+      logStream: captureLogs().stream,
+    });
+    addProbeRoutes(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/probe/ip",
+      remoteAddress,
+      headers: { "x-forwarded-for": "198.51.100.7, 203.0.113.9" },
+    });
+    await app.close();
+    return res.json<{ ip: string }>().ip;
+  };
+
+  it("sans mandataire de confiance, ignore X-Forwarded-For (un client ne choisit pas son adresse)", async () => {
+    expect(await ipSeenWith([])).toBe("10.0.0.2");
+  });
+
+  it("derrière Traefik (réseau de confiance), retient l'adresse ajoutée par Traefik, pas celle forgée par le client", async () => {
+    expect(await ipSeenWith(["10.0.0.0/24"])).toBe("203.0.113.9");
+  });
+
+  it("ignore X-Forwarded-For envoyé directement par un client hors du réseau de confiance", async () => {
+    expect(await ipSeenWith(["10.0.0.0/24"], "198.51.100.50")).toBe("198.51.100.50");
   });
 });

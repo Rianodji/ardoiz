@@ -48,8 +48,19 @@ describe("loadConfig (R20)", () => {
     ["pool trop grand pour le serveur partagé", { DATABASE_POOL_MAX: "50" }],
     ["port non numérique", { PORT: "trois-mille" }],
     ["niveau de journal inconnu", { LOG_LEVEL: "trace" }],
+    ["mandataire de confiance qui n'est pas une adresse", { TRUSTED_PROXIES: "traefik" }],
+    ["mandataire de confiance universel", { TRUSTED_PROXIES: "0.0.0.0/0" }],
+    ["préfixe CIDR impossible", { TRUSTED_PROXIES: "172.18.0.0/40" }],
   ])("refuse de démarrer : %s (R20)", (_label, override) => {
     expect(() => loadConfig({ ...validEnv, ...override })).toThrow(ConfigurationError);
+  });
+
+  it("lit les mandataires de confiance (réseau Docker de Traefik), vides par défaut (réserve R-3)", () => {
+    expect(loadConfig(validEnv).trustedProxies).toEqual([]);
+    expect(loadConfig({ ...validEnv, TRUSTED_PROXIES: "172.18.0.0/16, 10.0.0.2" }).trustedProxies).toEqual([
+      "172.18.0.0/16",
+      "10.0.0.2",
+    ]);
   });
 
   it("accepte HTTP sur localhost uniquement en développement", () => {

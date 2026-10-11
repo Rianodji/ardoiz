@@ -11,7 +11,8 @@ const MESSAGES: Readonly<Record<string, string>> = {
   "http.origin-rejected": "Cette action a été bloquée par sécurité. Recharge la page, puis réessaie.",
   "http.invalid-request": "Certaines informations ne sont pas valides. Vérifie le formulaire.",
   "http.payload-too-large": "C'est trop volumineux pour être envoyé.",
-  "http.rate-limited": "Trop d'essais d'un coup. Attends un peu, puis réessaie.",
+  "http.method-not-allowed": "Cette action n'est pas possible ici.",
+  "http.too-many-requests": "Trop d'essais d'un coup. Attends un peu, puis réessaie.",
 };
 
 const GENERIC = "Un problème est survenu. Réessaie dans un moment ; si ça continue, préviens ton tuteur.";

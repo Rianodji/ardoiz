@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { Secret } from "./Secret.js";
 
 export type Environment = "production" | "development" | "test";
@@ -12,6 +13,12 @@ export interface AppConfig {
   readonly logLevel: LogLevel;
   readonly databaseUrl: Secret;
   readonly databasePoolMax: number;
+  /**
+   * Adresses ou réseaux (CIDR) des mandataires de confiance : en production, le réseau Docker
+   * de Traefik. Vide : l'en-tête X-Forwarded-For est ignoré. L'adresse du client ne sert qu'en
+   * mémoire, à la limitation de débit (R8) ; elle n'est jamais journalisée (R21).
+   */
+  readonly trustedProxies: readonly string[];
   /** Répertoire de la SPA compilée, servie par l'API sur la même origine (ADR-0006). */
   readonly webDistDir?: string;
 }
@@ -91,6 +98,27 @@ function databaseUrl(env: Env, name: string, check: (user: string) => string | n
   return new Secret(raw);
 }
 
+/** Liste d'adresses IP ou de réseaux CIDR ; jamais « tout le monde » (0.0.0.0/0, ::/0). */
+function trustedProxies(env: Env): string[] {
+  const name = "TRUSTED_PROXIES";
+  const raw = optional(env, name);
+  if (raw === undefined) return [];
+  return raw.split(",").map((entry) => {
+    const [address = "", prefix, extra] = entry.trim().split("/");
+    const version = isIP(address);
+    const maxPrefix = version === 4 ? 32 : 128;
+    const validPrefix = prefix === undefined || (/^\d{1,3}$/.test(prefix) && Number(prefix) <= maxPrefix);
+    if (version === 0 || extra !== undefined || !validPrefix) {
+      throw new ConfigurationError(name, "liste d'adresses IP ou de réseaux CIDR attendue");
+    }
+    // Un réseau trop large ferait croire n'importe quel client sur parole.
+    if (prefix !== undefined && Number(prefix) < (version === 4 ? 8 : 32)) {
+      throw new ConfigurationError(name, "réseau trop large");
+    }
+    return entry.trim();
+  });
+}
+
 /**
  * Lecture et validation de la configuration AU DÉMARRAGE (R20) : une application mal configurée
  * refuse de démarrer plutôt que de fonctionner en mode dégradé ou non sécurisé (A02, ADR-0010).
@@ -111,6 +139,7 @@ export function loadConfig(env: Env): AppConfig {
     ),
     // Au plus 10 connexions sur le Postgres partagé du serveur (ADR-0008).
     databasePoolMax: integer(env, "DATABASE_POOL_MAX", 10, 1, 10),
+    trustedProxies: trustedProxies(env),
     ...(webDistDir === undefined ? {} : { webDistDir }),
   };
 }

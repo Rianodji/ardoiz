@@ -8,7 +8,7 @@ import { registerHealthRoutes, type ReadinessProbe } from "../platform/http/heal
 import { registerProblemHandlers, sendProblem } from "../platform/http/problems.js";
 import { loggerOptions } from "../platform/logging/logger.js";
 
-export type ServerConfig = Pick<AppConfig, "publicOrigin" | "logLevel" | "webDistDir">;
+export type ServerConfig = Pick<AppConfig, "publicOrigin" | "logLevel" | "webDistDir" | "trustedProxies">;
 
 export interface ServerDependencies {
   readonly config: ServerConfig;
@@ -25,14 +25,17 @@ export const DEFAULT_BODY_LIMIT = 1024 * 1024;
  * L'ordre compte : durcissement et erreurs d'abord, routes ensuite.
  */
 export async function buildServer(deps: ServerDependencies): Promise<FastifyInstance> {
+  // Seul Traefik est devant l'application (ADR-0008) : X-Forwarded-For n'est cru que s'il vient
+  // d'une adresse de confiance, sinon un client choisirait son adresse et échapperait à la limitation
+  // de débit (R8). Un simple nombre de sauts ne vérifie pas le pair : Fastify le refuse, et nous aussi.
+  const trustProxy = deps.config.trustedProxies.length > 0 ? [...deps.config.trustedProxies] : false;
   const app = Fastify({
     bodyLimit: DEFAULT_BODY_LIMIT,
     // Identifiant de requête généré par le serveur : un client ne choisit pas l'identifiant de corrélation.
     genReqId: () => randomUUID(),
     requestIdHeader: false,
     logController: new LogController({ requestIdLogLabel: "requestId" }),
-    // Traefik est le seul mandataire ; l'adresse du client n'est pas utilisée au lot L0.
-    trustProxy: false,
+    trustProxy,
     return503OnClosing: true,
     // Validation stricte (règle 5) : aucun champ supplémentaire retiré en silence, aucune coercition.
     ajv: {

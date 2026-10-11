@@ -29,9 +29,19 @@ const STATUS_BY_DOMAIN_CODE: Readonly<Record<string, number>> = {
 /** Erreurs techniques de Fastify qui décrivent une requête invalide, et leur code stable. */
 const CLIENT_ERROR_CODES: Readonly<Record<number, string>> = {
   400: "http.invalid-request",
+  405: "http.method-not-allowed",
   413: "http.payload-too-large",
   415: "http.unsupported-media-type",
+  429: "http.too-many-requests",
 };
+
+/** Délai par défaut annoncé au client limité, quand l'erreur ne précise pas le sien. */
+const DEFAULT_RETRY_AFTER_SECONDS = 60;
+
+function retryAfterSeconds(error: FastifyError): number {
+  const announced = "retryAfter" in error ? Number(error.retryAfter) : Number.NaN;
+  return Number.isInteger(announced) && announced > 0 ? announced : DEFAULT_RETRY_AFTER_SECONDS;
+}
 
 export function sendProblem(
   request: FastifyRequest,
@@ -71,6 +81,7 @@ export function registerProblemHandlers(app: FastifyInstance): void {
         error.validation === undefined ? CLIENT_ERROR_CODES[error.statusCode ?? 0] : "http.invalid-request";
       if (code !== undefined) {
         request.log.info({ code, status: error.statusCode }, "requête refusée");
+        if (error.statusCode === 429) reply.header("retry-after", String(retryAfterSeconds(error)));
         return sendProblem(request, reply, error.statusCode ?? 400, code);
       }
     }
