@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Laisser à la communauté le temps de détecter une version piégée avant de l'adopter (R19, M17).
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    groups:
+      outils-de-test:
+        patterns:
+          ["vitest", "@vitest/*", "@testcontainers/*", "testcontainers", "jsdom", "@testing-library/*"]
+      outils-de-qualite:
+        patterns:
+          [
+            "eslint",
+            "@eslint/*",
+            "typescript-eslint",
+            "eslint-plugin-*",
+            "prettier",
+            "dependency-cruiser",
+            "globals",
+          ]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7

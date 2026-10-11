@@ -4,5 +4,7 @@ dist/
 *.local.*
 coverage/
 playwright-report/
+*.tsbuildinfo
+sbom.cdx.json
 .claude/settings.local.json
 HANDOFF_INFRA.md

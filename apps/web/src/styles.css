@@ -1,0 +1,157 @@
+/* Feuille de style de base. Contrastes vérifiés au niveau AA (WCAG 2.2) ; focus toujours visible. */
+:root {
+  --ink: #1d2433;
+  --ink-soft: #4a5468;
+  --paper: #fbfaf7;
+  --card: #ffffff;
+  --slate: #2f4858;
+  --accent: #1f6f5c;
+  --accent-ink: #ffffff;
+  --focus: #b4530a;
+  --radius: 12px;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Noto Sans",
+    sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+#root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+main {
+  flex: 1;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+main:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--card);
+  padding: 0.5rem 1rem;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 10;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: var(--slate);
+  color: #ffffff;
+}
+.app-header a {
+  color: #ffffff;
+}
+.brand {
+  font-weight: 700;
+  font-size: 1.3rem;
+  text-decoration: none;
+  display: inline-flex;
+  gap: 0.4rem;
+}
+.app-footer {
+  padding: 1rem 1.5rem;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1.5rem 2rem;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 8%);
+  width: 100%;
+  max-width: 46rem;
+}
+.card.narrow {
+  max-width: 28rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+label {
+  font-weight: 600;
+  margin-top: 0.6rem;
+}
+input {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  border: 2px solid var(--ink-soft);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.button,
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 0.6rem 1.1rem;
+  border: 2px solid var(--accent);
+}
+.button {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-decoration: none;
+  margin-top: 1rem;
+}
+.mode-switch {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.mode-switch button {
+  background: #ffffff;
+  color: var(--accent);
+}
+.mode-switch button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.notice {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #e6f2ee;
+}

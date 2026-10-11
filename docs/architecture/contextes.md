@@ -88,7 +88,7 @@ Outils : **npm workspaces** (comme le code compagnon du livre).
 | CI/CD | GitHub Actions (actions épinglées par SHA), image sur GHCR, déploiement SSH sur Hetzner (staging automatique, prod avec approbation) | ADR-0008 |
 | Observabilité | Logs JSON (pino) collectés par Alloy → Loki ; métriques Prometheus `/metrics` (réseau interne uniquement) | Stack déjà en place |
 
-**Licences** : toute dépendance runtime doit être sous licence permissive (MIT, Apache-2.0, BSD, ISC). Vérification automatique en CI (`license-checker` avec liste blanche). Pas de tldraw (licence commerciale en production), pas de GeoGebra (usage non commercial uniquement), pas d'extensions TipTap « Pro ».
+**Licences** : toute dépendance runtime doit être sous licence permissive (MIT, Apache-2.0, BSD, ISC, BlueOak-1.0.0, 0BSD). Vérification automatique en CI (`license-checker` avec liste blanche). Pas de tldraw (licence commerciale en production), pas de GeoGebra (usage non commercial uniquement), pas d'extensions TipTap « Pro ».
 
 ## 5. Modèle des agrégats (indicatif, à affiner au lot concerné)
 

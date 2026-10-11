@@ -27,7 +27,7 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | Lot | Contenu | État |
 |---|---|---|
 | Cadrage | Phases 0 à 4 de la routine : cadrage, domaine, menaces, règles, ADR, plan | ✅ 2026-10-11 |
-| L0 | Socle technique et CI | ⏳ |
+| L0 | Socle technique et CI | 🔍 |
 | L1 | Identité & Famille | ⏳ |
 | L2 | Programme et contenu de cours | ⏳ |
 | L3 | Évaluation (QCM, numérique, réponse courte) | ⏳ |
@@ -40,4 +40,56 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 
 ## Démarrage développeur
 
-*Section complétée au lot L0.*
+### Prérequis
+
+- Node.js 24 (`.nvmrc`) et npm 11 ;
+- Docker (Postgres et Mailpit en développement, Testcontainers pour les tests d'intégration).
+
+### Premier démarrage
+
+```bash
+npm ci --ignore-scripts                          # installation exacte du lockfile, sans scripts d'installation
+cp .env.example .env                             # puis remplacer chaque « changeme » par une valeur aléatoire
+docker compose -f docker-compose.dev.yml up -d   # Postgres 16.14 (127.0.0.1:5434) et Mailpit (http://127.0.0.1:8025)
+npm run db:migrate                               # migrations avec le rôle propriétaire ardoiz_owner
+npm run dev                                      # API sur :3000, SPA sur http://localhost:5173 (relaie /api)
+git config core.hooksPath .githooks              # gitleaks avant chaque commit (R20)
+```
+
+### Commandes
+
+| Commande | Rôle |
+|---|---|
+| `npm run lint` | ESLint (typescript-eslint strict, directives `eslint-disable` impossibles) et Prettier |
+| `npm run typecheck` | TypeScript strict sur tous les workspaces |
+| `npm test` | Tests unitaires, HTTP et front (sans base) |
+| `npm run test:integration` | Tests sur un vrai PostgreSQL 16.14 démarré par Testcontainers |
+| `npm run depcruise` | Règles d'architecture (frontières de modules, domaine pur) |
+| `npm run licenses` | Licences des dépendances livrées (liste blanche) |
+| `npm run build` | Compilation des packages, de l'API et de la SPA |
+| `npm run sbom` | Inventaire logiciel CycloneDX |
+
+### Architecture en une page
+
+```
+apps/api/src/
+  app/            racine de composition (seul endroit qui assemble Fastify, adaptateurs et modules)
+  shared-kernel/  identifiants typés, Clock, DomainError, Result, Decision, ports AuditTrail et Inbox
+  platform/       adaptateurs techniques : config (Secret, loadConfig), http (durcissement, RFC 9457, sondes),
+                  logging (pino + redaction), postgres (pool, migrations, withTenantTransaction, audit),
+                  messaging (outbox, relais, inbox)
+  <module>/       identity, curriculum, scheduling, assessment, progress, feedback (à partir du lot L1)
+    domain/ application/ infrastructure/ index.ts
+apps/web/         SPA React (Vite, React Router, TanStack Query), servie par l'API sur la même origine
+packages/contracts/       schémas TypeBox partagés (ProblemDetails RFC 9457, santé)
+packages/content-schema/  schéma fermé du contenu des cours (lot L2)
+db/migrations/    SQL versionné, immuable une fois livré
+```
+
+- **Isolation** : toute donnée porte `tutor_space_id` ; chaque transaction passe par `withTenantTransaction`, qui déclare l'espace à la RLS **forcée**. Le rôle `ardoiz_user` n'est pas propriétaire ; les migrations tournent avec `ardoiz_owner` (ADR-0002).
+- **Erreurs** : documents RFC 9457 avec un code stable et l'identifiant de requête ; toute erreur inattendue devient un 500 générique (ADR-0010).
+- **Événements** : outbox écrite dans la transaction métier, relais qui livre chaque événement dans une transaction de son espace, inbox idempotente.
+
+## Licence
+
+Ardoiz est distribué sous licence GNU AGPL-3.0 (voir [`LICENSE`](LICENSE)).

@@ -1,0 +1,76 @@
+# Vérification de chaque push et de chaque pull request (R19, R20, ADR-0008).
+# Aucune étape ne peut être désactivée pour « faire passer » la CI.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Moindre privilège : le jeton du workflow ne peut que lire le dépôt.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, types, architecture, tests, licences et build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      # Actions épinglées par empreinte de commit : une étiquette peut être déplacée, une empreinte non (R19).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # Installation exacte du lockfile, sans exécuter les scripts d'installation des dépendances (R19).
+      - run: npm ci --ignore-scripts
+      - run: npm audit signatures
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run depcruise
+      - run: npm test
+      # PostgreSQL 16.14 réel, démarré par Testcontainers (Docker est disponible sur le runner).
+      - run: npm run test:integration
+      - run: npm run licenses
+      - run: npm run build
+
+  dependencies:
+    name: Vulnérabilités connues et inventaire logiciel
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Bloquant (R19).
+      - run: npm audit --audit-level=high
+      - name: Inventaire logiciel (SBOM CycloneDX)
+        run: npm ci --ignore-scripts && npm run sbom
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom
+          path: sbom.cdx.json
+          retention-days: 90
+
+  secrets:
+    name: Détection de secrets (gitleaks)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # tout l'historique : un secret supprimé reste dans les anciens commits
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
