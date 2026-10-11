@@ -89,3 +89,7 @@ db/migrations/    SQL versionné, immuable une fois livré
 - **Isolation** : toute donnée porte `tutor_space_id` ; chaque transaction passe par `withTenantTransaction`, qui déclare l'espace à la RLS **forcée**. Le rôle `ardoiz_user` n'est pas propriétaire ; les migrations tournent avec `ardoiz_owner` (ADR-0002).
 - **Erreurs** : documents RFC 9457 avec un code stable et l'identifiant de requête ; toute erreur inattendue devient un 500 générique (ADR-0010).
 - **Événements** : outbox écrite dans la transaction métier, relais qui livre chaque événement dans une transaction de son espace, inbox idempotente.
+
+## Licence
+
+Ardoiz est distribué sous licence GNU AGPL-3.0 (voir [`LICENSE`](LICENSE)).
