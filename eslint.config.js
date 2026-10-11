@@ -45,6 +45,12 @@ export default tseslint.config(
     languageOptions: { ...tseslint.configs.disableTypeChecked.languageOptions, globals: globals.node },
   },
   {
+    // Fichiers de configuration CommonJS des outils (dependency-cruiser) : require est leur syntaxe.
+    files: ["**/*.cjs"],
+    languageOptions: { sourceType: "commonjs" },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
+  {
     // Domaine pur (règle 11) : ni horloge système, ni aléa ; on passe par les ports Clock et IdGenerator.
     files: ["apps/api/src/*/domain/**/*.ts"],
     rules: {
