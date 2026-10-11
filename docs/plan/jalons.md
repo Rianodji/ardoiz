@@ -23,7 +23,7 @@ Livrables :
 - Monorepo npm workspaces (`apps/api`, `apps/web`, `packages/contracts`, `packages/content-schema`), TypeScript strict, ESLint, Prettier, `.editorconfig`, `.nvmrc`.
 - `docker-compose.dev.yml` : Postgres (version identique à la prod), Mailpit.
 - API Fastify : `loadConfig` validé (échec au démarrage si invalide), type `Secret`, logs pino avec redaction (R21), en-têtes de durcissement et CSP (R11), vérification de l'`Origin`, `bodyLimit` (R15), erreurs RFC 9457, gestionnaire d'erreurs en mode fermé (R18), `/healthz`, `/readyz`.
-- Base : outil de migration SQL (fichiers `db/migrations/NNN_*.sql`, table de suivi), rôles `ardoiz_owner`/`ardoiz_app`, table `tutor_spaces`, helper `withTenantTransaction` et RLS forcée (R10), table `audit_log` en ajout seul.
+- Base : outil de migration SQL (fichiers `db/migrations/NNN_*.sql`, table de suivi), rôles `ardoiz_owner`/`ardoiz_user`, table `tutor_spaces`, helper `withTenantTransaction` et RLS forcée (R10), table `audit_log` en ajout seul.
 - Noyau partagé : identifiants UUIDv7 préfixés typés (`lrn_`, `gdn_`, `les_`…), `Clock`, `DomainError`, `Result`, `Decision`.
 - Outbox transactionnelle + relais + inbox idempotente (squelette testé, réutilisé dès L3).
 - Front : Vite + React + Router + TanStack Query, mise en page de base, page de connexion factice, client HTTP qui gère les erreurs RFC 9457.
@@ -53,7 +53,8 @@ Livrables :
 - Mot de passe oublié pour les adultes (jeton haché, 30 min, usage unique, réponse identique que le compte existe ou non).
 - Politiques d'accès d'`identity` + le **harnais de test de la matrice des droits**, réutilisé par tous les lots suivants (R2).
 - Audit : connexions du tuteur, liens, consentements, accès refusés (R12).
-- Écrans : connexion (deux modes), enrôlement TOTP, gestion des familles (tuteur), espace famille (parent : mes enfants, inviter un co-parent), page de consentement, pages *Mentions légales* et *Confidentialité* (contenu fourni par le PO, mettre un texte provisoire marqué `À VALIDER`).
+- Port `Mailer` avec adaptateur Brevo (API HTTP) et adaptateur SMTP/Mailpit pour le dev ; gabarits d'e-mails (invitation, co-parent, réinitialisation, alerte de connexion du tuteur) en texte et HTML, sans lien de visio.
+- Écrans : connexion (deux modes), enrôlement TOTP, gestion des familles (tuteur), espace famille (parent : mes enfants, inviter un co-parent), page de consentement, pages *Mentions légales*, *Confidentialité* et *Mes données* (élève). **Textes fournis dans `docs/juridique/`, affichés sans modification** ; le consentement enregistre l'identifiant de version `consentement-v1` et l'empreinte SHA-256 du texte.
 
 Critères d'acceptation :
 - [ ] Gherkin `features/lien-parental.feature` exécuté et vert.
@@ -66,7 +67,7 @@ Critères d'acceptation :
 ## L2 — Programme et contenu de cours
 
 Livrables :
-- Matières et référentiel de compétences, avec un **seed** : Mathématiques cycle 3/4 (arithmétique, géométrie, grandeurs et mesures : une douzaine de compétences rédigées à partir du programme officiel du collège) et Initiation à l'informatique (5 à 8 compétences).
+- Matières et référentiel de compétences, avec un **seed** issu de `docs/domaine/referentiel-competences.md` (codes stables `NUM-`, `GEO-`, `MES-`, `INF-`).
 - Modules, cours (brouillon / publié), ordre ; groupes ; déverrouillage et reverrouillage par élève ou groupe (R3).
 - `packages/content-schema` + éditeur TipTap restreint (ADR-0005) : titres, listes, tableaux, encadrés, formules KaTeX (inline et bloc), images importées, vidéos YouTube (R4, R13).
 - Ingestion d'images (R14) et route `/media/:id` autorisée.
@@ -150,7 +151,7 @@ Critères d'acceptation :
 Livrables :
 - `deploy/Dockerfile` multi-étapes (non root, `HEALTHCHECK`), `deploy/compose.prod.yml` et `deploy/compose.staging.yml` (labels Traefik, réseaux `web` + `infra`, volume de fichiers, limites mémoire) — ADR-0008.
 - `release.yml` : build, SBOM, push GHCR, migrations, déploiement staging, test de fumée, prod sur approbation.
-- PR prête pour le dépôt `infra` (création des bases et rôles) : **le développeur la prépare dans un fichier `deploy/infra-pr.md`, il ne modifie pas ce dépôt lui-même**.
+- Coordination avec la **session infra** via `HANDOFF_INFRA.md` : lire ses réponses, s'aligner sur ses conventions (registre, déclencheur, secrets), poster la clé SSH publique de déploiement et le compte rendu dans la section « Session développement ». **Le développeur ne modifie ni le dépôt `teamnoble-infra` ni le VPS.**
 - Sauvegarde : vérifier que la base `ardoiz` est incluse dans `postgres-backup` ; sauvegarde du volume de fichiers ; **procédure de restauration testée** et documentée.
 - `docs/exploitation/runbook.md` : déployer, revenir en arrière (tag précédent), restaurer, faire tourner un secret, répondre à une demande RGPD (accès, suppression) à la main.
 - Tests E2E Playwright du parcours complet (invitation → consentement → élève → cours → devoir cahier → correction → tableau de bord parent) lancés contre le staging.
@@ -161,4 +162,5 @@ Critères d'acceptation :
 - [ ] Un merge sur `main` déploie le staging sans intervention ; la prod attend l'approbation.
 - [ ] La restauration d'une sauvegarde sur une base vide a été exécutée et le compte rendu est dans le runbook.
 - [ ] Toutes les règles du catalogue planifiées dans L0–L7 sont ✅.
-- [ ] Les critères de succès du J1 (`cadrage.md` §6) sont démontrés sur le staging.
+- [ ] Les critères de succès du J1 (`cadrage.md` §6) sont démontrés sur le staging (ou sur la prod si la session infra a écarté le staging).
+- [ ] Plus aucun `[[…]]` dans `docs/juridique/` (test bloquant avant le déploiement en prod).

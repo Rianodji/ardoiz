@@ -18,7 +18,7 @@ Tu travailles avec trois exigences, par ordre de priorité :
 
 Ardoiz est une plateforme web de **tutorat à distance**. Un **tuteur** publie un programme (cours en contenu riche), le **déverrouille** progressivement pour ses **élèves** (mineurs, ≈ 12 ans), **planifie** des séances de visio (lien externe Jitsi/Meet/Zoom), crée des **épreuves** (QCM, réponse numérique avec unité, réponse courte, devoir sur **cahier virtuel** de type tableau) et les **corrige**. Les **parents** suivent la progression de leurs enfants (notes et compétences) en lecture seule et peuvent envoyer des **suggestions**. Une **gamification éthique** (XP, niveaux, badges, séries hebdomadaires, sans classement) motive les élèves.
 
-Premier usage réel : les neveux du porteur, en mathématiques (arithmétique, géométrie, grandeurs et mesures) et en initiation à l'informatique. Ouverture prévue plus tard à d'autres familles et d'autres tuteurs.
+Adresse : **https://ardoiz.teamnoble.fr** (serveur Hetzner partagé avec les autres projets du porteur). Premier usage réel : les neveux du porteur, en mathématiques (arithmétique, géométrie, grandeurs et mesures) et en initiation à l'informatique. Ouverture prévue plus tard à d'autres familles et d'autres tuteurs.
 
 ## 2. Lis ces documents avant d'écrire une ligne de code (dans cet ordre)
 
@@ -27,6 +27,7 @@ Premier usage réel : les neveux du porteur, en mathématiques (arithmétique, g
 | 1 | `docs/cadrage.md` | Vision, acteurs, périmètre **et hors périmètre**, données sensibles |
 | 2 | `docs/domaine/big-picture.md` | Événements, commandes, règles métier, **formules de calcul** (§8), hotspots tranchés |
 | 3 | `docs/domaine/glossaire.md` | Nom exact de chaque concept dans le code (**obligatoire**) |
+| 3 bis | `docs/domaine/referentiel-competences.md` | Compétences à charger en seed (lot L2) |
 | 4 | `docs/architecture/contextes.md` | Modules, couches, arborescence, stack imposée |
 | 5 | `docs/adr/0001` → `0010` | Décisions structurantes et leurs raisons |
 | 6 | `docs/securite/registre-menaces.md` | Menaces M1–M21 |
@@ -35,6 +36,8 @@ Premier usage réel : les neveux du porteur, en mathématiques (arithmétique, g
 | 9 | `docs/plan/jalons.md` | **Ton plan de travail** : lots L0 → L7, livrables, critères d'acceptation |
 | 10 | `docs/revue/protocole-de-revue.md` | Cycle d'un lot, Definition of Done, arrêt pour revue |
 | 11 | `features/*.feature` | Scénarios Gherkin à rendre exécutables |
+| 12 | `docs/juridique/` | Mentions légales, confidentialité, consentement versionné : à afficher **sans les modifier** (lot L1) |
+| 13 | `HANDOFF_INFRA.md` | Coordination avec la session infra du serveur (domaines, base, secrets, déploiement) |
 
 **En cas de conflit** : verdict du lead le plus récent > ADR > catalogue des règles > jalons > big picture > ce prompt. Signale tout conflit dans ton rapport de lot.
 
@@ -76,7 +79,7 @@ Utilise les **dernières versions stables** au moment de l'installation et véri
 
 ## 5. Comment tu travailles
 
-1. **Avant le premier lot** : si le dépôt n'a aucun commit, fais un commit initial de `docs/`, `features/`, `README.md`, `CLAUDE.md` et de ce fichier sur `main` (`docs: cadrage initial d'Ardoiz`).
+1. **Avant le premier lot** : si le dépôt n'a aucun commit, fais un commit initial de tout le contenu existant (`docs/`, `features/`, `README.md`, `CLAUDE.md`, `HANDOFF_INFRA.md`, `.gitignore` et ce fichier) sur `main` (`docs: cadrage initial d'Ardoiz`).
 2. Prends le **premier lot non accepté** dans `docs/plan/jalons.md`. Lis aussi le dernier `docs/revue/verdict-lot-NN.md`, s'il existe, et traite d'abord ses remarques.
 3. Crée la branche `lot/NN-nom`. Découpe le lot en étapes ; pour chaque étape : test qui échoue → code minimal → refactorisation → commit.
 4. Exécute **réellement** les commandes de vérification. Ne déclare jamais qu'un test passe sans l'avoir lancé. Si une commande échoue, corrige ou signale l'échec dans le rapport, avec sa sortie.
@@ -88,7 +91,8 @@ Utilise les **dernières versions stables** au moment de l'installation et véri
 
 - Commencer le lot suivant sans verdict ✅ ou 🔁 du lead.
 - Implémenter quelque chose de listé **hors périmètre** dans `cadrage.md` §3 (chat, paiement, classement, visio intégrée, téléchargement de PDF…), même si « ce serait facile ».
-- Modifier le dépôt `infra` du serveur, te connecter au serveur de production, ou pousser une image en production : tu prépares, le porteur exécute.
+- Modifier le dépôt `teamnoble-infra`, te connecter au VPS ou pousser une image en production. Tout besoin côté serveur s'exprime dans `HANDOFF_INFRA.md` (section « Session développement ») ; la session infra y répond et exécute.
+- Réécrire les textes de `docs/juridique/` : si un texte ne correspond plus au comportement de l'application, signale-le au lead.
 - Désactiver un contrôle de la CI pour la faire passer.
 - Affaiblir une règle de sécurité pour simplifier une fonctionnalité.
 - Écrire un test qui ne vérifie qu'un mock, ou un test « vert » sans assertion.

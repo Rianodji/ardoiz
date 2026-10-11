@@ -1,6 +1,6 @@
 # Ardoiz
 
-Plateforme web de tutorat à distance : cours déverrouillés progressivement, séances de visio planifiées, épreuves et **cahier virtuel**, suivi de la progression par note et par compétence pour les parents, gamification éthique.
+**https://ardoiz.teamnoble.fr** — plateforme web de tutorat à distance : cours déverrouillés progressivement, séances de visio planifiées, épreuves et **cahier virtuel**, suivi de la progression par note et par compétence pour les parents, gamification éthique.
 
 Conçu en **security by design** selon la routine du *Manuel de l'architecte* (DDD, architecture hexagonale, OWASP Top 10 2025).
 
@@ -14,6 +14,9 @@ Conçu en **security by design** selon la routine du *Manuel de l'architecte* (D
 | Sécurité | [`docs/securite/registre-menaces.md`](docs/securite/registre-menaces.md), [`docs/securite/catalogue-des-regles.md`](docs/securite/catalogue-des-regles.md), [`docs/securite/matrice-des-droits.md`](docs/securite/matrice-des-droits.md) |
 | Plan de livraison | [`docs/plan/jalons.md`](docs/plan/jalons.md) |
 | Revue des lots | [`docs/revue/`](docs/revue/) |
+| Référentiel de compétences | [`docs/domaine/referentiel-competences.md`](docs/domaine/referentiel-competences.md) |
+| Textes juridiques | [`docs/juridique/`](docs/juridique/) |
+| Coordination avec l'infra du serveur | [`HANDOFF_INFRA.md`](HANDOFF_INFRA.md) |
 | Questions en attente | [`docs/questions-ouvertes.md`](docs/questions-ouvertes.md) |
 | Instructions de l'IA développeuse | [`PROMPT-DEVELOPPEUR.md`](PROMPT-DEVELOPPEUR.md), [`CLAUDE.md`](CLAUDE.md) |
 

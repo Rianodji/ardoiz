@@ -10,4 +10,5 @@ Lis d'abord `PROMPT-DEVELOPPEUR.md` : c'est ton contrat. Résumé des règles qu
 - Code en anglais (noms du glossaire) ; commentaires, tests, commits, docs et interface en français.
 - Lance réellement `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:integration` et `npm run depcruise` avant de déclarer quoi que ce soit terminé.
 - Règle métier manquante : option la plus restrictive + `// QUESTION Qn` + `docs/questions-ouvertes.md`. N'invente pas.
-- Ne touche jamais au serveur de production ni au dépôt `infra`.
+- Ne touche jamais au VPS ni au dépôt `teamnoble-infra` : les besoins serveur passent par `HANDOFF_INFRA.md`.
+- Les textes de `docs/juridique/` s'affichent tels quels ; ne les réécris pas.

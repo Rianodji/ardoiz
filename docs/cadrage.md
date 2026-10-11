@@ -24,7 +24,7 @@
 | **Tuteur** | Propriétaire d'un *espace tuteur*. Au MVP : un seul, le porteur du projet. | Invite les familles, crée le programme, déverrouille les contenus, planifie les séances, crée et corrige les épreuves, lit les suggestions |
 | **Parent** | Adulte responsable d'un ou plusieurs élèves. Invité par le tuteur. | Consent, crée les comptes de ses enfants, consulte leur profil et leur progression (lecture seule), envoie des suggestions au tuteur, invite un second parent |
 | **Élève** | Mineur (≈ 12 ans au MVP). Compte créé par un parent, **sans e-mail**. | Consulte les cours déverrouillés, rejoint les séances, passe les épreuves, travaille sur son cahier virtuel, voit sa progression et ses récompenses |
-| *Systèmes externes* | Visio (Jitsi / Google Meet / Zoom), YouTube, serveur SMTP | Ardoiz **ne fait que référencer** la visio et les vidéos ; il envoie des e-mails transactionnels |
+| *Systèmes externes* | Visio (Jitsi / Google Meet / Zoom), YouTube, Brevo (e-mails) | Ardoiz **ne fait que référencer** la visio et les vidéos ; il envoie des e-mails transactionnels |
 
 Relations : un parent ↔ plusieurs élèves, un élève ↔ plusieurs parents (N-N). Le tuteur regroupe ses élèves en **groupes** (par exemple « Neveux 5e »).
 
@@ -86,7 +86,7 @@ Relations : un parent ↔ plusieurs élèves, un élève ↔ plusieurs parents (
 
 **Conservation (proposition à valider au J3)** : compte inactif depuis 12 mois → préavis au parent puis suppression ; copies et notes conservées jusqu'à la fin de l'année scolaire suivante ; trace de consentement conservée pendant toute la durée du compte, plus 3 ans.
 
-**Hébergement** : Union européenne (Hetzner, Allemagne). Sous-traitants : Hetzner, fournisseur SMTP européen, YouTube (uniquement après clic de l'élève, voir R13).
+**Hébergement** : Union européenne (Hetzner, Allemagne). Sous-traitants : Hetzner Online GmbH (hébergement), Brevo / Sendinblue SAS (e-mails). YouTube n'intervient qu'après un clic de l'élève (R13). Textes juridiques : `docs/juridique/`.
 
 ## 6. Critères de succès du J1
 

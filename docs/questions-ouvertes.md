@@ -4,8 +4,9 @@
 
 | ID | Question | Posée par | Lot | Option provisoire | Réponse du PO |
 |---|---|---|---|---|---|
-| Q1 | Nom de domaine définitif (prod et staging) | Lead | L7 | `ardoiz.<domaine-du-porteur>` | |
-| Q2 | Fournisseur SMTP européen (Brevo, Scaleway TEM, autre) | Lead | L1 | Mailpit en dev, adaptateur SMTP générique | |
-| Q3 | Textes juridiques : mentions légales, politique de confidentialité, texte de consentement v1 | Lead | L1 | Texte provisoire marqué `À VALIDER` | |
-| Q4 | Liste détaillée des compétences du référentiel de maths et d'informatique | Lead | L2 | Seed rédigé d'après le programme officiel du cycle 4, à relire par le tuteur | |
-| Q5 | Hôte Jitsi auto-hébergé à ajouter à la liste blanche ? | Lead | L5 | Non (liste : meet.jit.si, meet.google.com, *.zoom.us) | |
+| Q1 | Nom de domaine définitif (prod et staging) | Lead | L7 | — | ✅ 2026-10-11 : prod `ardoiz.teamnoble.fr` ; staging `ardoiz-staging.teamnoble.fr` proposé, à confirmer par la session infra (`HANDOFF_INFRA.md`) |
+| Q2 | Fournisseur d'e-mail | Lead | L1 | — | ✅ 2026-10-11 : **Brevo, API HTTP transactionnelle** (comme les autres projets du serveur), expéditeur `no-reply@teamnoble.fr` ; Mailpit en dev |
+| Q3 | Textes juridiques | Lead | L1 | — | ✅ 2026-10-11 : rédigés par le lead dans `docs/juridique/` |
+| Q4 | Liste des compétences du référentiel | Lead | L2 | `docs/domaine/referentiel-competences.md` (33 compétences) | ⏳ À relire par le tuteur avant le lot L2 |
+| Q5 | Jitsi auto-hébergé | Lead | L5 | — | ✅ 2026-10-11 : non ; liste blanche `meet.jit.si`, `meet.google.com`, `*.zoom.us`. L'hôte supplémentaire reste configurable (`MEETING_EXTRA_HOST`), vide par défaut |
+| Q6 | Adresse e-mail de contact affichée dans les textes juridiques (`[[…]]`) | Lead | L7 | Bloque seulement la mise en production | ⏳ À fournir par Rianodji (suggestion : créer `contact@teamnoble.fr`) |

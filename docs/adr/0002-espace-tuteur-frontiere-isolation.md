@@ -12,7 +12,7 @@ Au J1 il n'y a qu'un tuteur, mais l'ouverture à d'autres tuteurs est prévue (M
 3. **Colonne `tutor_space_id` + filtre applicatif + RLS Postgres forcée** : défense en profondeur.
 
 ## Décision
-Option 3. Toutes les tables métier ont `tutor_space_id NOT NULL` et des clés étrangères composites `(tutor_space_id, id)`. Chaque transaction exécute `set_config('app.tutor_space_id', $1, true)`. RLS `ENABLE` + `FORCE` ; le rôle applicatif `ardoiz_app` n'est pas propriétaire ; les migrations tournent avec le rôle `ardoiz_owner`.
+Option 3. Toutes les tables métier ont `tutor_space_id NOT NULL` et des clés étrangères composites `(tutor_space_id, id)`. Chaque transaction exécute `set_config('app.tutor_space_id', $1, true)`. RLS `ENABLE` + `FORCE` ; le rôle applicatif `ardoiz_user` n'est pas propriétaire ; les migrations tournent avec le rôle `ardoiz_owner`.
 
 ## Conséquences
 - Toute requête passe par `withTenantTransaction(spaceId, fn)`.

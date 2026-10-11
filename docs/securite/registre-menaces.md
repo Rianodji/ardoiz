@@ -13,7 +13,7 @@ flowchart LR
   TR -- "F4 réseau web" --> API["Ardoiz (API + SPA)"]
   API -- "F5 réseau infra" --> DB[("PostgreSQL<br/>base ardoiz")]
   API -- "F6" --> FS[("Volume fichiers")]
-  API -- "F7 SMTP TLS" --> SMTP["SMTP UE"]
+  API -- "F7 HTTPS (API)" --> SMTP["Brevo"]
   E -. "F8 lien visio (hors Ardoiz)" .-> V["Visio"]
   E -. "F9 iframe après clic" .-> YT["YouTube nocookie"]
   subgraph Frontière de confiance : serveur Hetzner

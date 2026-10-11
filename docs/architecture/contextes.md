@@ -21,7 +21,7 @@ flowchart LR
   PL -- "SéanceRejointe" --> PG
   PL -. "lien https" .-> VISIO[("Jitsi / Meet / Zoom")]
   PR -. "ID de vidéo, après clic" .-> YT[("YouTube nocookie")]
-  ID -. "e-mails transactionnels" .-> SMTP[("SMTP UE")]
+  ID -. "e-mails transactionnels" .-> SMTP[("Brevo (API)")]
 ```
 
 | Contexte | Module | Rôle | Relation |
@@ -81,7 +81,7 @@ Outils : **npm workspaces** (comme le code compagnon du livre).
 | Cahier virtuel | `@excalidraw/excalidraw` (MIT), MathLive (MIT) pour les formules | ADR-0004 |
 | Rendu mathématique | KaTeX (MIT), `trust: false`, `maxSize`, `maxExpand` bornés | |
 | Images | `sharp` : réencodage WebP, suppression EXIF, dimensions bornées | R14 |
-| E-mail | Port `Mailer` ; adaptateur SMTP (fournisseur UE) ; Mailpit en dev | |
+| E-mail | Port `Mailer` ; adaptateur **Brevo API HTTP** (`POST https://api.brevo.com/v3/smtp/email`, header `api-key`, délai 10 s) en prod, adaptateur SMTP vers Mailpit en dev | Convention des autres projets du serveur. L'adaptateur ne journalise **pas** l'adresse du destinataire en clair (R21) |
 | Fichiers | Port `FileStorage` ; adaptateur volume local au J1 (S3 compatible plus tard) ; servis par une route autorisée, jamais en statique public | R3, R14 |
 | Tests | Vitest, Testcontainers (Postgres réel), `@cucumber/gherkin` pour les features, Playwright (E2E) | Pyramide du ch. 6 du livre |
 | Qualité | ESLint (typescript-eslint strict), Prettier, dependency-cruiser, `npm audit`, gitleaks, SBOM CycloneDX | |
