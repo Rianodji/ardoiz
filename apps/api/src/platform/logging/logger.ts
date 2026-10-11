@@ -7,6 +7,7 @@ import { stdTimeFunctions, type LoggerOptions } from "pino";
  */
 export const SENSITIVE_KEYS = [
   "password",
+  "email",
   "newPassword",
   "currentPassword",
   "token",
@@ -44,6 +45,21 @@ function redactionPaths(): string[] {
 export const REDACTED = "[masqué]";
 
 /**
+ * Sérialiseur d'erreur à liste blanche (R21, réserve R-2). Le sérialiseur standard de pino copie
+ * toutes les propriétés énumérables : une erreur `pg` y ajouterait `detail`
+ * (« Key (email)=(awa@example.org) already exists. »), `where`, `table`… On ne garde que
+ * le type, le message, la pile, le code SQLSTATE et le nom de la contrainte.
+ */
+export function serializeError(error: unknown): Record<string, string> {
+  if (!(error instanceof Error)) return { type: typeof error };
+  const safe: Record<string, string> = { type: error.name, message: error.message };
+  if (error.stack !== undefined) safe["stack"] = error.stack;
+  if ("code" in error && typeof error.code === "string") safe["code"] = error.code;
+  if ("constraint" in error && typeof error.constraint === "string") safe["constraint"] = error.constraint;
+  return safe;
+}
+
+/**
  * Le chemin seul, sans la chaîne de requête : un jeton d'invitation ou de réinitialisation
  * passé dans l'URL ne doit pas finir dans les journaux (R21).
  */
@@ -65,6 +81,7 @@ export function loggerOptions(level: string): LoggerOptions {
     redact: { paths: redactionPaths(), censor: REDACTED },
     serializers: {
       req: (request: FastifyRequest) => ({ method: request.method, url: pathOnly(request.url) }),
+      err: serializeError,
     },
   };
 }

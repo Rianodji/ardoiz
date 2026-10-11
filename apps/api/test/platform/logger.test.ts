@@ -1,6 +1,11 @@
 import pino from "pino";
 import { describe, expect, it } from "vitest";
-import { loggerOptions, REDACTED, SENSITIVE_KEYS } from "../../src/platform/logging/logger.js";
+import {
+  loggerOptions,
+  REDACTED,
+  SENSITIVE_KEYS,
+  serializeError,
+} from "../../src/platform/logging/logger.js";
 import { captureLogs } from "../support/logs.js";
 
 describe("Redaction des journaux (R21)", () => {
@@ -50,5 +55,35 @@ describe("Redaction des journaux (R21)", () => {
     const line = logs.lines()[0] as { time?: unknown };
     expect(line).toMatchObject({ level: 30, service: "ardoiz-api", msg: "démarrage" });
     expect(typeof line.time).toBe("string");
+  });
+
+  it("masque une adresse e-mail, y compris celle du destinataire d'un e-mail (R21)", () => {
+    const logs = captureLogs();
+    pino(loggerOptions("info"), logs.stream).info({ mail: { email: "awa@example.org" } }, "e-mail envoyé");
+    expect(logs.text()).not.toContain("awa@example.org");
+  });
+
+  it("ne garde d'une erreur que type, message, pile, code et contrainte (R21)", () => {
+    const error = Object.assign(
+      new Error('duplicate key value violates unique constraint "accounts_email_key"'),
+      {
+        code: "23505",
+        constraint: "accounts_email_key",
+        detail: "Key (email)=(awa@example.org) already exists.",
+        table: "accounts",
+        where: "SQL statement",
+      },
+    );
+    const logs = captureLogs();
+    pino(loggerOptions("info"), logs.stream).error({ err: error }, "erreur inattendue");
+    expect(logs.text()).not.toContain("awa@example.org");
+    expect(logs.text()).not.toContain("SQL statement");
+    expect(Object.keys(serializeError(error)).sort()).toEqual([
+      "code",
+      "constraint",
+      "message",
+      "stack",
+      "type",
+    ]);
   });
 });
