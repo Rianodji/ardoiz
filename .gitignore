@@ -4,3 +4,5 @@ dist/
 *.local.*
 coverage/
 playwright-report/
+.claude/settings.local.json
+HANDOFF_INFRA.md

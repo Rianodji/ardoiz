@@ -12,3 +12,5 @@ Lis d'abord `PROMPT-DEVELOPPEUR.md` : c'est ton contrat. Résumé des règles qu
 - Règle métier manquante : option la plus restrictive + `// QUESTION Qn` + `docs/questions-ouvertes.md`. N'invente pas.
 - Ne touche jamais au VPS ni au dépôt `teamnoble-infra` : les besoins serveur passent par `HANDOFF_INFRA.md`.
 - Les textes de `docs/juridique/` s'affichent tels quels ; ne les réécris pas.
+- Commits et PR **sans signature** : pas de `Co-Authored-By`, pas de « Generated with Claude Code ».
+- Dépôt **public** : jamais de secret, et `HANDOFF_INFRA.md` reste local (ignoré par Git).

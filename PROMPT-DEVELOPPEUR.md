@@ -79,7 +79,7 @@ Utilise les **dernières versions stables** au moment de l'installation et véri
 
 ## 5. Comment tu travailles
 
-1. **Avant le premier lot** : si le dépôt n'a aucun commit, fais un commit initial de tout le contenu existant (`docs/`, `features/`, `README.md`, `CLAUDE.md`, `HANDOFF_INFRA.md`, `.gitignore` et ce fichier) sur `main` (`docs: cadrage initial d'Ardoiz`).
+1. **Avant le premier lot** : si le dépôt n'a aucun commit, fais un commit initial du contenu existant (`docs/`, `features/`, `README.md`, `CLAUDE.md`, `.claude/settings.json`, `.gitignore`, `LICENSE` s'il existe, et ce fichier ; **pas** `HANDOFF_INFRA.md`) sur `main` (`docs: cadrage initial d'Ardoiz`).
 2. Prends le **premier lot non accepté** dans `docs/plan/jalons.md`. Lis aussi le dernier `docs/revue/verdict-lot-NN.md`, s'il existe, et traite d'abord ses remarques.
 3. Crée la branche `lot/NN-nom`. Découpe le lot en étapes ; pour chaque étape : test qui échoue → code minimal → refactorisation → commit.
 4. Exécute **réellement** les commandes de vérification. Ne déclare jamais qu'un test passe sans l'avoir lancé. Si une commande échoue, corrige ou signale l'échec dans le rapport, avec sa sortie.
@@ -98,6 +98,8 @@ Utilise les **dernières versions stables** au moment de l'installation et véri
 - Écrire un test qui ne vérifie qu'un mock, ou un test « vert » sans assertion.
 - Ajouter de la télémétrie, des traceurs, des polices ou scripts chargés depuis un CDN tiers.
 - Supprimer ou réécrire l'historique Git.
+- Signer tes commits ou tes PR : **aucune** ligne `Co-Authored-By`, aucune mention « Generated with Claude Code » ni lien de session. Les messages de commit ne contiennent que le message Conventional Commits. (`.claude/settings.json` désactive déjà l'attribution automatique ; ne la réactive pas.)
+- Committer `HANDOFF_INFRA.md` : il décrit l'infrastructure du serveur et reste **local** (il est dans `.gitignore`, le dépôt est public).
 
 ## 7. Points de vigilance par lot (le lead les vérifiera en priorité)
 
