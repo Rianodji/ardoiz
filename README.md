@@ -27,8 +27,8 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | Lot | Contenu | État |
 |---|---|---|
 | Cadrage | Phases 0 à 4 de la routine : cadrage, domaine, menaces, règles, ADR, plan | ✅ 2026-10-11 |
-| L0 | Socle technique et CI | 🔍 |
-| L1 | Identité & Famille | ⏳ |
+| L0 | Socle technique et CI | ✅ 2026-10-11 (réserves traitées, PR #1) |
+| L1 | Identité & Famille | 🛠️ |
 | L2 | Programme et contenu de cours | ⏳ |
 | L3 | Évaluation (QCM, numérique, réponse courte) | ⏳ |
 | L4 | Cahier virtuel | ⏳ |
