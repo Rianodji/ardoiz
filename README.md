@@ -70,7 +70,8 @@ git config core.hooksPath .githooks              # gitleaks avant chaque commit 
 | `npm run licenses` | Licences des dépendances livrées (liste blanche) |
 | `npm run build` | Compilation des packages, de l'API et de la SPA |
 | `npm run sbom` | Inventaire logiciel CycloneDX |
-| `npm run ardoiz -- init-space …` | Crée l'espace tuteur et son tuteur (TOTP à activer à la première connexion) |
+| `npm run ardoiz -- init-space …` | Crée l'espace tuteur et son tuteur (TOTP à activer à la première connexion), et charge le référentiel de compétences |
+| `npm run ardoiz -- seed-referential --space-code dicard` | Recharge le référentiel validé (`docs/domaine/referentiel-competences.md`) sans rien écraser |
 
 ### Architecture en une page
 
@@ -82,17 +83,19 @@ apps/api/src/
                   logging (pino + redaction), postgres (pool, migrations, withTenantTransaction, audit),
                   messaging (outbox, relais, inbox)
   identity/       comptes, sessions serveur, TOTP, invitations, liens parentaux, consentement (L1)
-  <module>/       curriculum, scheduling, assessment, progress, feedback (lots suivants)
+  curriculum/     matières, référentiel de compétences, modules, cours, médias, groupes, déverrouillages (L2)
+  <module>/       scheduling, assessment, progress, feedback (lots suivants)
     domain/ application/ infrastructure/ index.ts
 apps/web/         SPA React (Vite, React Router, TanStack Query), servie par l'API sur la même origine
 packages/contracts/       schémas TypeBox partagés (ProblemDetails RFC 9457, santé)
-packages/content-schema/  schéma fermé du contenu des cours (lot L2)
+packages/content-schema/  schéma fermé du contenu des cours : validateur partagé API/front, KaTeX, YouTube (L2)
 db/migrations/    SQL versionné, immuable une fois livré
 ```
 
 - **Isolation** : toute donnée porte `tutor_space_id` ; chaque transaction passe par `withTenantTransaction`, qui déclare l'espace à la RLS **forcée**. Le rôle `ardoiz_user` n'est pas propriétaire ; les migrations tournent avec `ardoiz_owner` (ADR-0002).
 - **Erreurs** : documents RFC 9457 avec un code stable et l'identifiant de requête ; toute erreur inattendue devient un 500 générique (ADR-0010).
 - **Accès** : l'`Actor` vient de la session (cookie `__Host-ardoiz_session`, seule son empreinte est en base). Chaque route déclare son niveau d'accès (`public`, `mfa-pending`, `enrollment`, `business` par défaut) ; le tuteur sans TOTP n'atteint aucune route métier (R7). Les politiques `allow/deny/hide` d'`identity` sont vérifiées par le harnais de la matrice des droits (`apps/api/test/integration/support/rightsMatrix.ts`).
+- **Contenu des cours** : un document JSON à schéma fermé (ADR-0005), validé à l'écriture par l'API et relu par le front avant rendu ; rendu par des composants React, formules en MathML (ADR-0011 proposée), vidéo YouTube chargée après un clic. Les images importées sont réencodées en WebP sans métadonnées et servies par `/api/media/:id`, avec les droits du cours.
 - **E-mails** : Mailpit en développement (http://127.0.0.1:8025), Brevo en production ; les jetons des liens sont dans le fragment `#jeton=`.
 - **Événements** : outbox écrite dans la transaction métier, relais qui livre chaque événement dans une transaction de son espace, inbox idempotente.
 
