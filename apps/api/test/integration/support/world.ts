@@ -52,6 +52,8 @@ export class World {
   readonly logs = captureLogs();
   identity!: IdentityModule;
   app!: FastifyInstance;
+  /** Routes enregistrées par le serveur, avec leur niveau d'accès déclaré (pour les tests transverses). */
+  readonly routes: Array<{ method: string; url: string; access: string }> = [];
 
   private constructor(
     readonly database: string,
@@ -112,7 +114,20 @@ export class World {
       config: { publicOrigin: ORIGIN, logLevel: "info", trustedProxies: [] },
       readiness: () => Promise.resolve(true),
       logStream: world.logs.stream,
-      modules: [world.identity],
+      modules: [
+        {
+          statuses: {},
+          register: (app) => {
+            app.addHook("onRoute", (route) => {
+              for (const method of [route.method].flat()) {
+                world.routes.push({ method, url: route.url, access: route.config?.access ?? "business" });
+              }
+            });
+            return Promise.resolve();
+          },
+        },
+        world.identity,
+      ],
     });
     await world.app.ready();
     return world;

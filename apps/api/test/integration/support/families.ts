@@ -34,13 +34,16 @@ export interface Tutor {
 export const SPACE_CODE = "dicard";
 
 /** Espace et tuteur créés par la CLI, puis première connexion et activation du TOTP (R7). */
-export async function setupTutor(world: World, options: { enrollTotp?: boolean } = {}): Promise<Tutor> {
+export async function setupTutor(
+  world: World,
+  options: { enrollTotp?: boolean; spaceName?: string; tutorName?: string } = {},
+): Promise<Tutor> {
   const email = "tuteur@example.org";
   await world.identity.initSpace({
-    spaceName: "Espace Dicard",
+    spaceName: options.spaceName ?? "Espace Dicard",
     spaceCode: SPACE_CODE,
     tutorEmail: email,
-    tutorName: "Dicard",
+    tutorName: options.tutorName ?? "Dicard",
     tutorPassword: ADULT_PASSWORD,
   });
   const login = await world.http({
