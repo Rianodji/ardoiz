@@ -101,6 +101,19 @@ db/migrations/    SQL versionné, immuable une fois livré
 - **E-mails** : Mailpit en développement (http://127.0.0.1:8025), Brevo en production ; les jetons des liens sont dans le fragment `#jeton=`.
 - **Événements** : outbox écrite dans la transaction métier, relais qui livre chaque événement dans une transaction de son espace, inbox idempotente.
 
+### Dépendances : pourquoi Excalidraw est déclaré à la racine
+
+`@excalidraw/excalidraw` sert seulement le front (`apps/web`), mais il est déclaré dans le **`package.json` racine** (verdict L4, ADR-0012). Ce n'est pas un oubli.
+
+- **Pourquoi.** Excalidraw 0.18.1 fige des versions vulnérables ou incompatibles : `nanoid` 3.3.3, `sass` 1.51 et `@radix-ui/react-tabs` 1.0.2, qui fait revenir React 18. Les `overrides` du `package.json` racine les remplacent. Or npm (11.6) ne les applique qu'aux dépendances déclarées **à la racine** : déclaré dans `apps/web`, Excalidraw garde ses versions, `npm ls` échoue et `npm audit` trouve 6 failles hautes.
+- **Résolution.** Vite résout le paquet depuis le `node_modules` racine, où il est installé, comme les autres dépendances partagées.
+- **Paquet Mermaid.** `@excalidraw/mermaid-to-excalidraw` est remplacé par un module vide (workspace `tools/stubs/mermaid-to-excalidraw`) : son arbre de dépendances était vulnérable, et la conversion Mermaid n'est pas proposée.
+- **Mise à jour d'Excalidraw** :
+  1. Changer la version à la racine et vérifier que les `overrides` sont toujours nécessaires.
+  2. npm ne réapplique pas les `overrides` à un lockfile existant : retirer du lockfile les entrées de l'arbre d'Excalidraw avant `npm install`.
+  3. Vérifier que `npm ls` est propre, puis `npm audit` et `npm run licenses`.
+  4. Lancer `npm run test:e2e` : le plugin `apps/web/excalidrawAssets.ts` fait échouer le build si le repli CDN des polices a changé de forme, et l'E2E échoue à toute violation de CSP.
+
 ## Licence
 
 Ardoiz est distribué sous licence GNU AGPL-3.0 (voir [`LICENSE`](LICENSE)).
