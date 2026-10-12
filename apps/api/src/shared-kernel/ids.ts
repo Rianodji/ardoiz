@@ -32,6 +32,7 @@ export const ID_PREFIXES = {
   PasswordResetId: "pwr",
   CompetencyDomainId: "dom",
   MediaId: "med",
+  NotebookMediaId: "nmd",
   RectificationId: "rec",
   AuditEntryId: "aud",
   EventId: "evt",
@@ -56,6 +57,7 @@ export type ModuleId = Id<"ModuleId">;
 export type GroupId = Id<"GroupId">;
 export type UnlockId = Id<"UnlockId">;
 export type MediaId = Id<"MediaId">;
+export type NotebookMediaId = Id<"NotebookMediaId">;
 export type AssessmentId = Id<"AssessmentId">;
 export type QuestionId = Id<"QuestionId">;
 export type AssignmentId = Id<"AssignmentId">;
@@ -95,6 +97,7 @@ export const ModuleId = idParser("ModuleId");
 export const GroupId = idParser("GroupId");
 export const UnlockId = idParser("UnlockId");
 export const MediaId = idParser("MediaId");
+export const NotebookMediaId = idParser("NotebookMediaId");
 export const AssessmentId = idParser("AssessmentId");
 export const QuestionId = idParser("QuestionId");
 export const AssignmentId = idParser("AssignmentId");

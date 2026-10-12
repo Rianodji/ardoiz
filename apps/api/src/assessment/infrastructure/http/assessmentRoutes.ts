@@ -1,5 +1,7 @@
 import {
+  AnnotationRequest,
   AnswersRequest,
+  NotebookMediaResponse,
   AssignmentRequest,
   AssignmentsResponse,
   AuthorAssessmentResponse,
@@ -25,9 +27,11 @@ import {
   AttemptId,
   GroupId,
   LearnerId,
+  NotebookMediaId,
   QuestionId,
   SubjectId,
 } from "../../../shared-kernel/ids.js";
+import { MAX_IMAGE_BYTES } from "../../../platform/media/SharpImageIngestion.js";
 import type { AttemptService } from "../../application/AttemptService.js";
 import type { AuthoringService } from "../../application/AuthoringService.js";
 import type { GradingService } from "../../application/GradingService.js";
@@ -49,6 +53,8 @@ export const ASSESSMENT_STATUSES: Readonly<Record<string, number>> = {
   "assessment.grading-incomplete": 409,
   "assessment.already-published": 409,
   "assessment.not-published": 409,
+  // Scène de plus de 2 000 éléments ou de 5 Mo : « cahier trop volumineux » (R15).
+  "assessment.notebook-too-large": 413,
 };
 
 const closed = { additionalProperties: false } as const;
@@ -58,9 +64,20 @@ const AssessmentParams = params("assessmentId");
 const AssignmentParams = params("assignmentId");
 const AttemptParams = params("attemptId");
 const LearnerParams = params("learnerId");
+const NotebookMediaParams = params("mediaId");
+const AnnotationParams = Type.Object(
+  { attemptId: Type.String({ maxLength: 60 }), questionId: Type.String({ maxLength: 60 }) },
+  closed,
+);
+
+/** Corps des routes qui portent une scène du cahier : 5 Mo de scène et la marge du reste de la copie (R15). */
+export const NOTEBOOK_BODY_LIMIT = 5 * 1024 * 1024 + 256 * 1024;
 
 /** Routes HTTP de l'évaluation. Chaque corps et chaque paramètre ont un schéma fermé (règle 5). */
-export function assessmentRoutes(app: FastifyInstance, services: AssessmentHttpServices): Promise<void> {
+export async function assessmentRoutes(
+  app: FastifyInstance,
+  services: AssessmentHttpServices,
+): Promise<void> {
   const { authoring, attempts, grading } = services;
 
   // --- Épreuves et attributions (tuteur) -------------------------------------------------------
@@ -171,7 +188,7 @@ export function assessmentRoutes(app: FastifyInstance, services: AssessmentHttpS
 
   app.put<{ Params: Static<typeof AttemptParams>; Body: Static<typeof AnswersRequest> }>(
     "/api/attempts/:attemptId/answers",
-    { schema: { params: AttemptParams, body: AnswersRequest } },
+    { schema: { params: AttemptParams, body: AnswersRequest }, bodyLimit: NOTEBOOK_BODY_LIMIT },
     async (request, reply) => {
       await attempts.saveDraft(actorOf(request), AttemptId(request.params.attemptId), request.body.answers);
       return reply.code(204).send();
@@ -180,7 +197,10 @@ export function assessmentRoutes(app: FastifyInstance, services: AssessmentHttpS
 
   app.post<{ Params: Static<typeof AttemptParams>; Body: Static<typeof SubmitRequest> }>(
     "/api/attempts/:attemptId/submit",
-    { schema: { params: AttemptParams, body: SubmitRequest, response: { 200: LearnerAttemptResponse } } },
+    {
+      schema: { params: AttemptParams, body: SubmitRequest, response: { 200: LearnerAttemptResponse } },
+      bodyLimit: NOTEBOOK_BODY_LIMIT,
+    },
     async (request) =>
       attempts.submit(actorOf(request), AttemptId(request.params.attemptId), request.body.answers),
   );
@@ -249,5 +269,60 @@ export function assessmentRoutes(app: FastifyInstance, services: AssessmentHttpS
       return reply.code(204).send();
     },
   );
-  return Promise.resolve();
+  // --- Cahier virtuel (ADR-0004) -----------------------------------------------------------------
+  app.put<{ Params: Static<typeof AnnotationParams>; Body: Static<typeof AnnotationRequest> }>(
+    "/api/grading/attempts/:attemptId/annotations/:questionId",
+    { schema: { params: AnnotationParams, body: AnnotationRequest }, bodyLimit: NOTEBOOK_BODY_LIMIT },
+    async (request, reply) => {
+      await grading.annotate(
+        actorOf(request),
+        AttemptId(request.params.attemptId),
+        QuestionId(request.params.questionId),
+        request.body,
+      );
+      return reply.code(204).send();
+    },
+  );
+
+  // Import d'image dans le cahier : seule route de l'évaluation qui reçoit des octets bruts (R14, R15).
+  await app.register((scoped, _options, done) => {
+    scoped.addContentTypeParser(
+      "application/octet-stream",
+      { parseAs: "buffer", bodyLimit: MAX_IMAGE_BYTES },
+      (_request, body, parsed) => {
+        parsed(null, body);
+      },
+    );
+    scoped.post<{ Params: Static<typeof AttemptParams>; Body: Buffer }>(
+      "/api/attempts/:attemptId/media",
+      {
+        schema: { params: AttemptParams, response: { 201: NotebookMediaResponse } },
+        bodyLimit: MAX_IMAGE_BYTES,
+      },
+      async (request, reply) => {
+        const uploaded = await attempts.uploadImage(
+          actorOf(request),
+          AttemptId(request.params.attemptId),
+          request.body,
+        );
+        return reply.code(201).send(uploaded);
+      },
+    );
+    done();
+  });
+
+  /** Image d'un cahier (R3, R14) : visible comme la copie qui la contient ; type fixé, nom généré. */
+  app.get<{ Params: Static<typeof NotebookMediaParams> }>(
+    "/api/notebook-media/:mediaId",
+    { schema: { params: NotebookMediaParams } },
+    async (request, reply) => {
+      const mediaId = NotebookMediaId(request.params.mediaId);
+      const { bytes, sha256 } = await attempts.readImage(actorOf(request), mediaId);
+      return reply
+        .type("image/webp")
+        .header("content-disposition", `inline; filename="${mediaId}.webp"`)
+        .header("etag", `"${sha256}"`)
+        .send(bytes);
+    },
+  );
 }

@@ -1,3 +1,4 @@
+import { validateNotebookScene, type NotebookScene } from "@ardoiz/content-schema";
 import type { Pool, PoolClient } from "pg";
 import { fromUuid, toUuid } from "../../platform/ids/UuidV7IdGenerator.js";
 import { appendToOutbox } from "../../platform/messaging/PgOutbox.js";
@@ -8,6 +9,7 @@ import type {
   AssignmentId,
   AttemptId,
   LearnerId,
+  NotebookMediaId,
   TutorId,
   TutorSpaceId,
 } from "../../shared-kernel/ids.js";
@@ -21,9 +23,11 @@ import type {
   AssignmentRecord,
   AttemptRecord,
   AttemptStatus,
+  NotebookMediaRecord,
   OptionAlias,
   QuestionResult,
   RectificationRecord,
+  StoredScene,
 } from "../application/ports.js";
 
 interface QuestionRow {
@@ -101,6 +105,54 @@ function toAttempt(row: AttemptRow): AttemptRecord {
 
 const ATTEMPT_COLUMNS = `id, assignment_id, learner_id, number, status, option_aliases, answers, answers_sha256,
   started_at, last_saved_at, submitted_at, late, grade, published_at`;
+
+interface MediaRow {
+  id: string;
+  attempt_id: string;
+  width: number;
+  height: number;
+  byte_size: number;
+  sha256: string;
+  created_at: Date;
+}
+
+function toMedia(row: MediaRow): NotebookMediaRecord {
+  return {
+    id: fromUuid("NotebookMediaId", row.id),
+    attemptId: fromUuid("AttemptId", row.attempt_id),
+    width: row.width,
+    height: row.height,
+    byteSize: row.byte_size,
+    sha256: row.sha256,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Une scène relue en base repasse par le schéma fermé (R4) : une donnée altérée hors de l'application
+ * n'est jamais servie telle quelle. Les références d'images ont été vérifiées à l'écriture ; ici, seule
+ * leur forme compte.
+ */
+function storedNotebook(raw: unknown, annotation: boolean): NotebookScene {
+  const ids = new Set<string>();
+  if (typeof raw === "object" && raw !== null && "elements" in raw && Array.isArray(raw.elements)) {
+    for (const element of raw.elements as unknown[]) {
+      if (
+        typeof element === "object" &&
+        element !== null &&
+        "fileId" in element &&
+        typeof element.fileId === "string"
+      )
+        ids.add(element.fileId);
+    }
+  }
+  const validation = validateNotebookScene(raw, {
+    mediaIds: ids,
+    ...(annotation ? { annotation: true } : {}),
+  });
+  if (!validation.ok) throw new Error("Scène de cahier invalide en base.");
+  return validation.value;
+}
 
 /** Adaptateur Postgres de l'évaluation, dans une transaction déclarée à la RLS (R10). */
 export class PgAssessmentStore implements AssessmentStore {
@@ -470,6 +522,102 @@ export class PgAssessmentStore implements AssessmentStore {
       rectifiedAt: row.rectified_at,
       rectifiedBy: fromUuid("TutorId", row.rectified_by),
     }));
+  }
+
+  async notebookScenesOf(attemptId: AttemptId): Promise<Map<string, NotebookScene>> {
+    const result = await this.client.query<{ question_id: string; scene: unknown }>(
+      `SELECT question_id, scene FROM assessment.notebook_scenes WHERE attempt_id = $1`,
+      [toUuid(attemptId)],
+    );
+    return new Map(
+      result.rows.map((row) => [
+        fromUuid("QuestionId", row.question_id) as string,
+        storedNotebook(row.scene, false),
+      ]),
+    );
+  }
+
+  async upsertNotebookScene(attemptId: AttemptId, scene: StoredScene, at: Date): Promise<void> {
+    await this.client.query(
+      `INSERT INTO assessment.notebook_scenes (tutor_space_id, attempt_id, question_id, scene, scene_sha256, byte_size, saved_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (attempt_id, question_id) DO UPDATE
+         SET scene = EXCLUDED.scene, scene_sha256 = EXCLUDED.scene_sha256, byte_size = EXCLUDED.byte_size, saved_at = EXCLUDED.saved_at`,
+      [
+        this.#space,
+        toUuid(attemptId),
+        toUuid(scene.questionId),
+        JSON.stringify(scene.scene),
+        scene.sha256,
+        scene.byteSize,
+        at,
+      ],
+    );
+  }
+
+  async annotationsOf(attemptId: AttemptId): Promise<Map<string, NotebookScene>> {
+    const result = await this.client.query<{ question_id: string; scene: unknown }>(
+      `SELECT question_id, scene FROM assessment.notebook_annotations WHERE attempt_id = $1`,
+      [toUuid(attemptId)],
+    );
+    return new Map(
+      result.rows.map((row) => [
+        fromUuid("QuestionId", row.question_id) as string,
+        storedNotebook(row.scene, true),
+      ]),
+    );
+  }
+
+  async upsertAnnotation(attemptId: AttemptId, scene: StoredScene, at: Date, by: TutorId): Promise<void> {
+    await this.client.query(
+      `INSERT INTO assessment.notebook_annotations (tutor_space_id, attempt_id, question_id, scene, byte_size, updated_at, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (attempt_id, question_id) DO UPDATE
+         SET scene = EXCLUDED.scene, byte_size = EXCLUDED.byte_size, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by`,
+      [
+        this.#space,
+        toUuid(attemptId),
+        toUuid(scene.questionId),
+        JSON.stringify(scene.scene),
+        scene.byteSize,
+        at,
+        toUuid(by),
+      ],
+    );
+  }
+
+  async notebookMediaOf(attemptId: AttemptId): Promise<NotebookMediaRecord[]> {
+    const result = await this.client.query<MediaRow>(
+      `SELECT id, attempt_id, width, height, byte_size, sha256, created_at FROM assessment.notebook_media WHERE attempt_id = $1 ORDER BY created_at, id`,
+      [toUuid(attemptId)],
+    );
+    return result.rows.map(toMedia);
+  }
+
+  async notebookMediaById(id: NotebookMediaId): Promise<NotebookMediaRecord | null> {
+    const result = await this.client.query<MediaRow>(
+      `SELECT id, attempt_id, width, height, byte_size, sha256, created_at FROM assessment.notebook_media WHERE id = $1`,
+      [toUuid(id)],
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : toMedia(row);
+  }
+
+  async insertNotebookMedia(media: NotebookMediaRecord): Promise<void> {
+    await this.client.query(
+      `INSERT INTO assessment.notebook_media (id, tutor_space_id, attempt_id, width, height, byte_size, sha256, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        toUuid(media.id),
+        this.#space,
+        toUuid(media.attemptId),
+        media.width,
+        media.height,
+        media.byteSize,
+        media.sha256,
+        media.createdAt,
+      ],
+    );
   }
 
   async audit(entry: AuditEntry): Promise<void> {

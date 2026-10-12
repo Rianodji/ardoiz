@@ -30,8 +30,8 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | L0 | Socle technique et CI | ✅ 2026-10-11 (réserves traitées, PR #1) |
 | L1 | Identité & Famille | ✅ 2026-10-12 (réserves traitées, PR #4) |
 | L2 | Programme et contenu de cours | ✅ (PR #5) |
-| L3 | Évaluation (QCM, numérique, réponse courte) | 🔍 (PR #6) |
-| L4 | Cahier virtuel | ⏳ |
+| L3 | Évaluation (QCM, numérique, réponse courte) | ✅ (PR #6) |
+| L4 | Cahier virtuel | 🔍 (PR #7) |
 | L5 | Planification | ⏳ |
 | L6 | Progression, gamification, tableau de bord parent, suggestions | ⏳ |
 | L7 | Mise en production | ⏳ |
@@ -66,6 +66,7 @@ git config core.hooksPath .githooks              # gitleaks avant chaque commit 
 | `npm run typecheck` | TypeScript strict sur tous les workspaces |
 | `npm test` | Tests unitaires, HTTP et front (sans base) |
 | `npm run test:integration` | Tests sur un vrai PostgreSQL 16.14 démarré par Testcontainers |
+| `npm run test:e2e` | Bout en bout (Playwright, Chromium) : construit la SPA, démarre la vraie application avec la CSP de production sur une base jetable ; toute violation de CSP fait échouer. Installer le navigateur une fois : `npx playwright install chromium` |
 | `npm run depcruise` | Règles d'architecture (frontières de modules, domaine pur) |
 | `npm run licenses` | Licences des dépendances livrées (liste blanche) |
 | `npm run build` | Compilation des packages, de l'API et de la SPA |
@@ -84,7 +85,7 @@ apps/api/src/
                   messaging (outbox, relais, inbox)
   identity/       comptes, sessions serveur, TOTP, invitations, liens parentaux, consentement (L1)
   curriculum/     matières, référentiel de compétences, modules, cours, médias, groupes, déverrouillages (L2)
-  assessment/     épreuves, attributions, copies, correction automatique et manuelle, publication, rectification (L3)
+  assessment/     épreuves, attributions, copies, correction automatique et manuelle, publication, rectification (L3), cahier virtuel (L4)
   <module>/       scheduling, assessment, progress, feedback (lots suivants)
     domain/ application/ infrastructure/ index.ts
 apps/web/         SPA React (Vite, React Router, TanStack Query), servie par l'API sur la même origine

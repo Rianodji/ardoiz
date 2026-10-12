@@ -9,3 +9,6 @@ sbom.cdx.json
 .claude/settings.local.json
 HANDOFF_INFRA.md
 var/
+
+# Résultats des tests de bout en bout (Playwright)
+test-results/

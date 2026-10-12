@@ -240,7 +240,7 @@ describe("Programme et contenu de cours (L2)", () => {
       const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>');
       const res = await upload(svg);
       expect(res.status).toBe(415);
-      expect(res.body).toMatchObject({ code: "curriculum.image-unsupported-type" });
+      expect(res.body).toMatchObject({ code: "media.image-unsupported-type" });
     });
 
     it("refuse un polyglotte : signature d'image suivie de HTML (R14)", async () => {
@@ -250,7 +250,7 @@ describe("Programme et contenu de cours (L2)", () => {
       ]);
       const res = await upload(polyglot);
       expect(res.status).toBe(422);
-      expect(res.body).toMatchObject({ code: "curriculum.image-undecodable" });
+      expect(res.body).toMatchObject({ code: "media.image-undecodable" });
     });
 
     it("rend inoffensive une image valide suivie d'un script : il disparaît au réencodage (R14)", async () => {
@@ -268,7 +268,7 @@ describe("Programme et contenu de cours (L2)", () => {
         .toBuffer();
       const res = await upload(giant);
       expect(res.status).toBe(422);
-      expect(res.body).toMatchObject({ code: "curriculum.image-undecodable" });
+      expect(res.body).toMatchObject({ code: "media.image-undecodable" });
     });
 
     it("refuse un fichier de plus de 10 Mo (R14, R15)", async () => {

@@ -46,7 +46,7 @@ export async function loginTutor(world: World, family: Family): Promise<string> 
 }
 
 export interface QuestionPayload {
-  readonly kind: "mcq" | "numeric" | "short_text";
+  readonly kind: "mcq" | "numeric" | "short_text" | "notebook";
   readonly [key: string]: unknown;
 }
 

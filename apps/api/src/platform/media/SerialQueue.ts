@@ -2,7 +2,7 @@ import { DomainError } from "../../shared-kernel/DomainError.js";
 
 /** Le service d'import est occupé : réessayer plus tard (503, Retry-After). */
 export class ImportBusyError extends DomainError {
-  readonly code = "curriculum.import-busy";
+  readonly code = "media.import-busy";
 
   constructor(readonly retryAfterSeconds: number) {
     super("Un import d'image est déjà en cours.");

@@ -23,7 +23,9 @@ export type QuestionSpec =
       /** « imposed » : une autre unité est fausse, même équivalente (exercice de conversion) ; « free » : convertie. */
       readonly unitMode: "imposed" | "free";
     }
-  | { readonly kind: "short_text"; readonly modelAnswer: string | null };
+  | { readonly kind: "short_text"; readonly modelAnswer: string | null }
+  /** Devoir sur le cahier virtuel (ADR-0004) : corrigé par le tuteur ; la réponse modèle est un texte. */
+  | { readonly kind: "notebook"; readonly modelAnswer: string | null };
 
 export interface Question {
   readonly id: QuestionId;
@@ -130,6 +132,16 @@ export function parseSpec(raw: { kind: QuestionKind } & Record<string, unknown>)
       const model = raw["modelAnswer"];
       return {
         kind: "short_text",
+        modelAnswer:
+          model === undefined || model === null || model === ""
+            ? null
+            : plainText(model, 1000, "assessment.invalid-model-answer"),
+      };
+    }
+    case "notebook": {
+      const model = raw["modelAnswer"];
+      return {
+        kind: "notebook",
         modelAnswer:
           model === undefined || model === null || model === ""
             ? null

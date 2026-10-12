@@ -1,4 +1,5 @@
 import type { Answer } from "../domain/grading.js";
+import type { NotebookScene } from "@ardoiz/content-schema";
 import type { Question } from "../domain/questions.js";
 import { quantityOfQuestion } from "../domain/questions.js";
 import { unitsOf } from "../domain/units.js";
@@ -63,13 +64,26 @@ export type LearnerQuestionView =
       readonly points: number;
       readonly units: readonly string[];
     }
-  | { readonly id: string; readonly kind: "short_text"; readonly prompt: string; readonly points: number };
+  | { readonly id: string; readonly kind: "short_text"; readonly prompt: string; readonly points: number }
+  | { readonly id: string; readonly kind: "notebook"; readonly prompt: string; readonly points: number };
 
 /** Réponse de l'élève telle qu'il la revoit : avec les identifiants opaques de SA tentative. */
 export type LearnerAnswerView =
   | { readonly kind: "mcq"; readonly optionIds: readonly string[] }
   | { readonly kind: "numeric"; readonly value: string; readonly unit: string }
-  | { readonly kind: "short_text"; readonly text: string };
+  | { readonly kind: "short_text"; readonly text: string }
+  /** Scène du cahier : la sienne, telle qu'il l'a enregistrée (aucune annotation du tuteur ici). */
+  | {
+      readonly kind: "notebook";
+      readonly elements: readonly unknown[];
+      readonly formulas?: readonly unknown[];
+    };
+
+/** Scènes et calques d'une copie, par question ; le calque n'est fourni qu'avec la correction publiée. */
+export interface NotebookContext {
+  readonly scenes: ReadonlyMap<string, NotebookScene>;
+  readonly annotations: ReadonlyMap<string, NotebookScene> | null;
+}
 
 /** Ce qui apparaît à la PUBLICATION : la note et les points obtenus par question, sans réponse attendue. */
 export interface PublishedCorrection {
@@ -78,6 +92,8 @@ export interface PublishedCorrection {
     readonly questionId: string;
     readonly earned: number;
     readonly comment: string | null;
+    /** Calque d'annotation du tuteur (cahier), superposé à la scène de l'élève, jamais fusionné (R6). */
+    readonly annotation: { readonly elements: readonly unknown[] } | null;
   }>;
 }
 
@@ -97,7 +113,7 @@ export interface AnswerKey {
           readonly unit: string;
           readonly unitMode: "imposed" | "free";
         }
-      | { readonly kind: "short_text"; readonly modelAnswer: string | null };
+      | { readonly kind: "short_text" | "notebook"; readonly modelAnswer: string | null };
   }>;
 }
 
@@ -136,6 +152,8 @@ function learnerQuestion(question: Question, attempt: AttemptRecord): LearnerQue
       return { ...base, kind: "numeric", units: unitsOf(quantityOfQuestion(question.spec)) };
     case "short_text":
       return { ...base, kind: "short_text" };
+    case "notebook":
+      return { ...base, kind: "notebook" };
   }
 }
 
@@ -143,7 +161,12 @@ function learnerQuestion(question: Question, attempt: AttemptRecord): LearnerQue
 export function toLearnerAnswer(
   answer: Answer,
   aliases: readonly { alias: string; optionId: string }[],
-): LearnerAnswerView {
+  scene: NotebookScene | undefined,
+): LearnerAnswerView | null {
+  if (answer.kind === "notebook")
+    return scene === undefined
+      ? null
+      : { kind: "notebook", elements: scene.elements, formulas: scene.formulas };
   if (answer.kind !== "mcq") return answer;
   const byOption = new Map(aliases.map((entry) => [entry.optionId, entry.alias]));
   return {
@@ -159,11 +182,17 @@ export function attemptForLearner(
   published: { results: readonly QuestionResult[] } | null,
   /** `answersRevealed(assignment, now)` : décidé par le domaine, jamais par l'appelant HTTP. */
   revealed: boolean,
+  notebooks: NotebookContext,
 ): LearnerAttemptView {
   const isPublished = attempt.status === "published" && attempt.grade !== null && published !== null;
   const answers: Record<string, LearnerAnswerView> = {};
   for (const [questionId, answer] of Object.entries(attempt.answers)) {
-    answers[questionId] = toLearnerAnswer(answer, attempt.optionAliases[questionId] ?? []);
+    const view = toLearnerAnswer(
+      answer,
+      attempt.optionAliases[questionId] ?? [],
+      notebooks.scenes.get(questionId),
+    );
+    if (view !== null) answers[questionId] = view;
   }
   return {
     attemptId: attempt.id,
@@ -177,7 +206,9 @@ export function attemptForLearner(
     questions: assessment.questions.map((question) => learnerQuestion(question, attempt)),
     answers,
     // La note n'est construite QUE pour une copie publiée (R5, ADR-0007)…
-    correction: isPublished ? correctionFor(assessment, attempt, published.results) : null,
+    correction: isPublished
+      ? correctionFor(assessment, attempt, published.results, notebooks.annotations)
+      : null,
     // …et le corrigé QUE pour une copie publiée dont l'attribution a révélé son corrigé (R5, R-1 du verdict L3).
     answerKey: isPublished && revealed ? answerKeyFor(assessment, attempt) : null,
   };
@@ -187,13 +218,20 @@ function correctionFor(
   assessment: AssessmentRecord,
   attempt: AttemptRecord,
   results: readonly QuestionResult[],
+  annotations: ReadonlyMap<string, NotebookScene> | null,
 ): PublishedCorrection {
   const earned = new Map(results.map((result) => [result.questionId as string, result]));
   return {
     grade: attempt.grade ?? 0,
     questions: assessment.questions.map((question) => {
       const result = earned.get(question.id);
-      return { questionId: question.id, earned: result?.earned ?? 0, comment: result?.comment ?? null };
+      const layer = annotations?.get(question.id);
+      return {
+        questionId: question.id,
+        earned: result?.earned ?? 0,
+        comment: result?.comment ?? null,
+        annotation: layer === undefined ? null : { elements: layer.elements },
+      };
     }),
   };
 }
@@ -213,7 +251,7 @@ function answerKeyFor(assessment: AssessmentRecord, attempt: AttemptRecord): Ans
             }
           : spec.kind === "numeric"
             ? { kind: "numeric", expected: spec.expected, unit: spec.unit, unitMode: spec.unitMode }
-            : { kind: "short_text", modelAnswer: spec.modelAnswer };
+            : { kind: spec.kind, modelAnswer: spec.modelAnswer };
       return { questionId: question.id, explanation: question.explanation, expected };
     }),
   };
@@ -225,7 +263,20 @@ export function attemptForTutor(
   attempt: AttemptRecord,
   results: readonly QuestionResult[],
   rectifications: readonly RectificationRecord[],
+  notebooks: NotebookContext,
 ) {
+  // Réponses complètes pour le tuteur : la scène de l'élève remplace son empreinte.
+  const answers: Record<string, unknown> = {};
+  for (const [questionId, answer] of Object.entries(attempt.answers)) {
+    const scene = notebooks.scenes.get(questionId);
+    answers[questionId] =
+      answer.kind === "notebook"
+        ? { kind: "notebook", elements: scene?.elements ?? [], formulas: scene?.formulas ?? [] }
+        : answer;
+  }
+  const annotations: Record<string, { elements: readonly unknown[] }> = {};
+  for (const [questionId, layer] of notebooks.annotations ?? [])
+    annotations[questionId] = { elements: layer.elements };
   return {
     attemptId: attempt.id,
     assignmentId: attempt.assignmentId,
@@ -238,7 +289,8 @@ export function attemptForTutor(
     answersSha256: attempt.answersSha256,
     grade: attempt.grade,
     questions: assessmentForAuthor(assessment, true).questions,
-    answers: attempt.answers,
+    answers,
+    annotations,
     results: results.map((result) => ({ ...result, gradedAt: result.gradedAt?.toISOString() ?? null })),
     rectifications: rectifications.map((entry) => ({
       ...entry,

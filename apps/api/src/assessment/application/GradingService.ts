@@ -1,7 +1,8 @@
 import type { Actor } from "../../identity/index.js";
 import { NotFoundError } from "../../shared-kernel/DomainError.js";
 import type { AssignmentId, AttemptId, LearnerId, QuestionId } from "../../shared-kernel/ids.js";
-import { GradingError } from "../domain/errors.js";
+import { GradingError, InvalidAssessmentInput } from "../domain/errors.js";
+import { storedScene, type RawNotebook } from "./notebook.js";
 import { gradeOutOf20 } from "../domain/grading.js";
 import { halfPoints, plainText } from "../domain/questions.js";
 import { loadAttempt } from "./AttemptService.js";
@@ -60,6 +61,45 @@ export class GradingService {
         found.attempt,
         await store.resultsOf(attemptId),
         await store.rectificationsOf(attemptId),
+        {
+          scenes: await store.notebookScenesOf(attemptId),
+          annotations: await store.annotationsOf(attemptId),
+        },
+      );
+    });
+  }
+
+  /**
+   * Calque d'annotation du tuteur sur le cahier d'une copie rendue et non publiée (ADR-0004, R6) :
+   * une seconde scène, sans image ni formule, jamais fusionnée dans celle de l'élève. La copie et son
+   * empreinte restent inchangées ; la base refuse le calque après la publication (QUESTION Q19 : pas de
+   * rectification du calque, option restrictive).
+   */
+  async annotate(
+    actor: Actor,
+    attemptId: AttemptId,
+    questionId: QuestionId,
+    raw: RawNotebook,
+  ): Promise<void> {
+    await authorize(this.deps, actor, canAuthorOrGrade(actor), "assessment.annotate", attemptId);
+    if (actor.kind !== "tutor") throw new NotFoundError();
+    const tutorId = actor.id;
+    await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
+      const found = await loadAttempt(store, attemptId);
+      if (found === null) throw new NotFoundError();
+      const question = found.assessment.questions.find((candidate) => candidate.id === questionId);
+      if (question === undefined) throw new NotFoundError();
+      if (question.spec.kind !== "notebook")
+        throw new InvalidAssessmentInput("assessment.invalid-annotation");
+      if (found.attempt.status === "draft") throw new GradingError("assessment.not-gradable");
+      if (found.attempt.status === "published") throw new GradingError("assessment.already-published");
+      const layer = storedScene(this.deps.hasher, question.id, raw, {
+        mediaIds: new Set(),
+        annotation: true,
+      });
+      await store.upsertAnnotation(attemptId, layer, this.deps.clock.now(), tutorId);
+      await store.audit(
+        auditOf(this.deps, actor, "assessment.annotated", "success", { targetId: attemptId }),
       );
     });
   }

@@ -65,3 +65,32 @@ export async function apiFetch<T>(
   if (!guard(body)) throw new ApiError(response.status, "http.unexpected-response");
   return body;
 }
+
+/**
+ * Envoi d'octets bruts (import d'image, R14) : le serveur reconnaît le type par signature et réencode.
+ * Même traitement des erreurs que `apiFetch` : un code stable, jamais le texte du serveur.
+ */
+export async function uploadBytes<T>(url: string, file: Blob, isExpected: ResponseGuard<T>): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream", accept: "application/json" },
+      credentials: "same-origin",
+      body: file,
+    });
+  } catch {
+    throw new ApiError(0, "network.unavailable");
+  }
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null);
+    const code =
+      typeof body === "object" && body !== null && "code" in body && typeof body.code === "string"
+        ? body.code
+        : "http.unexpected";
+    throw new ApiError(response.status, code);
+  }
+  const body: unknown = await response.json();
+  if (!isExpected(body)) throw new ApiError(response.status, "http.unexpected-response");
+  return body;
+}

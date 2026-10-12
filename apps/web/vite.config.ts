@@ -1,5 +1,6 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { excalidrawAssets } from "./excalidrawAssets";
 
 /**
  * En développement, Vite sert la SPA et relaie l'API : le navigateur ne voit qu'une origine,
@@ -7,8 +8,9 @@ import { defineConfig } from "vite";
  * l'en-tête Origin du navigateur parvient intact à l'API, qui le vérifie (R11).
  */
 export default defineConfig({
-  plugins: [react()],
-  resolve: { conditions: ["@ardoiz/source"] },
+  plugins: [react(), excalidrawAssets()],
+  // Conditions par défaut de Vite conservées (Excalidraw distingue production et développement).
+  resolve: { conditions: ["@ardoiz/source", "module", "browser", "development|production"] },
   server: {
     port: 5173,
     strictPort: true,

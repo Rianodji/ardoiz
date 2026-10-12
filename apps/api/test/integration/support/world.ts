@@ -19,6 +19,8 @@ import { InMemoryLoginThrottle } from "../../../src/identity/infrastructure/InMe
 import { InMemoryMailer } from "../../../src/identity/infrastructure/mailers.js";
 import { Secret } from "../../../src/platform/config/Secret.js";
 import { UuidV7IdGenerator } from "../../../src/platform/ids/UuidV7IdGenerator.js";
+import { LocalFileStorage } from "../../../src/platform/media/LocalFileStorage.js";
+import { SharpImageIngestion } from "../../../src/platform/media/SharpImageIngestion.js";
 import { loggerOptions } from "../../../src/platform/logging/logger.js";
 import { FixedClock } from "../../support/clock.js";
 import { captureLogs } from "../../support/logs.js";
@@ -157,6 +159,8 @@ export class World {
           pool: world.pool,
           curriculum: world.curriculum.directory,
           learners: new PgLearnerDirectory(world.pool),
+          images: new SharpImageIngestion(),
+          files: new LocalFileStorage(world.mediaDir),
           clock: world.clock,
           ids: world.ids,
         }),

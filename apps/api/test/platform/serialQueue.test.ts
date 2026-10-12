@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ImportBusyError, SerialQueue } from "../../src/curriculum/infrastructure/SerialQueue.js";
+import { ImportBusyError, SerialQueue } from "../../src/platform/media/SerialQueue.js";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -35,7 +35,7 @@ describe("File d'import d'images (verdict L2, S-3)", () => {
       return Promise.resolve("en retard");
     });
     await expect(late).rejects.toBeInstanceOf(ImportBusyError);
-    await expect(late).rejects.toMatchObject({ code: "curriculum.import-busy", retryAfterSeconds: 1 });
+    await expect(late).rejects.toMatchObject({ code: "media.import-busy", retryAfterSeconds: 1 });
     expect(await slow).toBe("lent");
     expect(lateStarted).toBe(false);
     expect(await queue.run(() => Promise.resolve("ensuite"))).toBe("ensuite");

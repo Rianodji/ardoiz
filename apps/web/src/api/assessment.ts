@@ -6,6 +6,7 @@ import {
   IdResponse,
   LearnerAssignmentsResponse,
   LearnerAttemptResponse,
+  NotebookMediaResponse,
   PublishedResultsResponse,
   TutorAttemptResponse,
   type AssignmentRequest,
@@ -13,7 +14,7 @@ import {
   type QuestionRequest,
 } from "@ardoiz/contracts";
 import type { Static } from "typebox";
-import { apiFetch } from "./client";
+import { apiFetch, uploadBytes } from "./client";
 import { empty, guard } from "./identity";
 
 /**
@@ -74,3 +75,11 @@ export const rectifyGrade = (
 ) => apiFetch(path("/api/grading/attempts/:id/rectifications", attemptId), empty, { method: "POST", body });
 export const revealAnswers = (assignmentId: string) =>
   apiFetch(path("/api/assignments/:id/reveal", assignmentId), empty, { method: "POST" });
+export const uploadNotebookImage = (attemptId: string, file: Blob) =>
+  uploadBytes(path("/api/attempts/:id/media", attemptId), file, guard(NotebookMediaResponse));
+export const saveAnnotation = (attemptId: string, questionId: string, elements: readonly unknown[]) =>
+  apiFetch(
+    `/api/grading/attempts/${encodeURIComponent(attemptId)}/annotations/${encodeURIComponent(questionId)}`,
+    empty,
+    { method: "PUT", body: { elements } },
+  );

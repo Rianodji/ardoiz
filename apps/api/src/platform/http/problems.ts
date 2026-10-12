@@ -25,6 +25,10 @@ const STATUS_BY_DOMAIN_CODE: Readonly<Record<string, number>> = {
   "shared.invalid-identifier": 404,
   "application.forbidden": 403,
   "http.too-many-requests": 429,
+  // Import d'images (R14), partagé par les cours et le cahier.
+  "media.image-too-large": 413,
+  "media.image-unsupported-type": 415,
+  "media.import-busy": 503,
 };
 
 /** Erreurs techniques de Fastify qui décrivent une requête invalide, et leur code stable. */

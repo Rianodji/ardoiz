@@ -5,6 +5,8 @@ import { createIdentityModule, PgLearnerDirectory } from "../identity/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
+import { LocalFileStorage } from "../platform/media/LocalFileStorage.js";
+import { SharpImageIngestion } from "../platform/media/SharpImageIngestion.js";
 import { createPool, databaseReadiness } from "../platform/postgres/pool.js";
 import { SystemClock } from "../platform/time/SystemClock.js";
 import { buildServer } from "./buildServer.js";
@@ -25,9 +27,13 @@ async function main(): Promise<void> {
     ids: new UuidV7IdGenerator(clock),
     log,
   });
+  // Une seule ingestion d'images pour les cours et le cahier : un import à la fois dans 512 Mo (R14, S-3).
+  const images = new SharpImageIngestion();
+  const mediaDir = config.mediaDir ?? DEFAULT_MEDIA_DIR;
   const curriculum = createCurriculumModule({
     pool,
-    mediaDir: config.mediaDir ?? DEFAULT_MEDIA_DIR,
+    mediaDir,
+    images,
     referentialFile: REFERENTIAL_FILE,
     clock,
     ids: new UuidV7IdGenerator(clock),
@@ -36,6 +42,8 @@ async function main(): Promise<void> {
     pool,
     curriculum: curriculum.directory,
     learners: new PgLearnerDirectory(pool),
+    images,
+    files: new LocalFileStorage(mediaDir),
     clock,
     ids: new UuidV7IdGenerator(clock),
   });
