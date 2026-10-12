@@ -26,7 +26,7 @@ export class Rational {
   static parseDecimal(raw: string): Rational | null {
     const compact = raw
       .trim()
-      .replace(/[\s  ]/g, "")
+      .replace(/[\s\u00a0\u202f]/g, "")
       .replace(",", ".");
     const match = /^(-?)(\d{1,15})(?:\.(\d{1,12}))?$/.exec(compact);
     if (match === null) return null;
