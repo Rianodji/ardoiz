@@ -11,6 +11,7 @@ import {
   publishAttempt,
   rectifyGrade,
   revealAnswers,
+  saveAnnotation,
   saveQuestions,
   type AuthorAssessment,
   type QuestionInput,
@@ -19,6 +20,7 @@ import {
 import { fetchCompetencyChoices, fetchGroups, fetchProgramme } from "../api/curriculum";
 import { fetchFamilies } from "../api/identity";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { formulasOf, NotebookField } from "../notebook/NotebookField";
 
 /** Unités proposées pour une question numérique : le serveur valide contre le même catalogue fermé. */
 const UNIT_CHOICES = [
@@ -60,7 +62,12 @@ const UNIT_CHOICES = [
   "j",
 ] as const;
 
-const KIND_LABELS = { mcq: "QCM", numeric: "Numérique", short_text: "Réponse courte" } as const;
+const KIND_LABELS = {
+  mcq: "QCM",
+  numeric: "Numérique",
+  short_text: "Réponse courte",
+  notebook: "Cahier",
+} as const;
 const ASSESSMENTS = ["assessments"] as const;
 
 /** Question en cours d'écriture : champs texte du formulaire, convertis à l'enregistrement. */
@@ -127,8 +134,9 @@ function toInput(draft: QuestionDraft): QuestionInput {
         unitMode: draft.unitMode,
       };
     case "short_text":
+    case "notebook":
       return {
-        kind: "short_text",
+        kind: draft.kind,
         ...base,
         ...(draft.modelAnswer.trim() === "" ? {} : { modelAnswer: draft.modelAnswer }),
       };
@@ -171,8 +179,9 @@ function QuestionEditor({ assessment }: { readonly assessment: AuthorAssessment 
                 unitMode: spec.unitMode,
               };
             case "short_text":
+            case "notebook":
               return {
-                kind: "short_text",
+                kind: spec.kind,
                 ...base,
                 ...(spec.modelAnswer === null ? {} : { modelAnswer: spec.modelAnswer }),
               };
@@ -322,7 +331,7 @@ function QuestionEditor({ assessment }: { readonly assessment: AuthorAssessment 
           </select>
         </>
       )}
-      {draft.kind === "short_text" && (
+      {(draft.kind === "short_text" || draft.kind === "notebook") && (
         <>
           <label htmlFor={`${id}-model`}>Réponse modèle (montrée après publication)</label>
           <textarea
@@ -617,7 +626,66 @@ function answerText(attempt: TutorAttempt, questionId: string): string {
       return `${answer.value} ${answer.unit}`;
     case "short_text":
       return answer.text;
+    case "notebook":
+      return "(cahier ci-dessous)";
   }
+}
+
+/** Calque d'annotation d'une question de cahier : stylo rouge, texte, tampons ✓ ✗ (ADR-0004, R6). */
+function NotebookAnnotation({
+  attempt,
+  questionId,
+}: {
+  readonly attempt: TutorAttempt;
+  readonly questionId: string;
+}) {
+  const queryClient = useQueryClient();
+  const answer = attempt.answers[questionId];
+  const saved = attempt.annotations[questionId]?.elements ?? [];
+  const [layer, setLayer] = useState<readonly unknown[] | null>(null);
+  const [done, setDone] = useState(false);
+  const save = useMutation({
+    mutationFn: (elements: readonly unknown[]) => saveAnnotation(attempt.attemptId, questionId, elements),
+    onSuccess: async () => {
+      setDone(true);
+      setLayer(null);
+      await queryClient.invalidateQueries({ queryKey: ["tutor-attempt", attempt.attemptId] });
+    },
+  });
+  if (answer?.kind !== "notebook") return null;
+  const editable = attempt.status === "submitted" || attempt.status === "graded";
+  return (
+    <div className="stack">
+      <NotebookField
+        mode={editable ? "annotate" : "view"}
+        label="Cahier de l'élève et calque d'annotation"
+        value={{ elements: answer.elements, formulas: formulasOf(answer.formulas) }}
+        annotation={saved}
+        {...(editable
+          ? {
+              onAnnotate: (elements: readonly unknown[]) => {
+                setDone(false);
+                setLayer(elements);
+              },
+            }
+          : {})}
+      />
+      {editable && (
+        <button
+          type="button"
+          className="button secondary"
+          disabled={layer === null || save.isPending}
+          onClick={() => {
+            if (layer !== null) save.mutate(layer);
+          }}
+        >
+          Enregistrer le calque
+        </button>
+      )}
+      {done && <p role="status">Calque enregistré.</p>}
+      <ErrorMessage error={save.error} />
+    </div>
+  );
 }
 
 /** Détail d'une copie pour le tuteur : correction manuelle, publication, rectification motivée (R6, R12). */
@@ -690,6 +758,7 @@ export function GradingAttemptPage() {
                 {question.prompt} ({question.points} pt)
               </p>
               <p>Réponse : {answerText(data, question.id)}</p>
+              <NotebookAnnotation attempt={data} questionId={question.id} />
               <p>
                 Points : {result?.earned ?? "à corriger"}{" "}
                 {result?.gradedBy === "auto" && <span className="hint">(corrigé automatiquement)</span>}

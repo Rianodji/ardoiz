@@ -12,6 +12,7 @@ import {
   type LearnerAttempt,
 } from "../api/assessment";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { formulasOf, NotebookField } from "../notebook/NotebookField";
 
 const dateTime = (iso: string) =>
   new Intl.DateTimeFormat("fr-FR", {
@@ -113,11 +114,13 @@ export function PublishedResults({ learnerId }: { readonly learnerId: string }) 
 }
 
 function AnswerField({
+  attempt,
   question,
   answer,
   disabled,
   onChange,
 }: {
+  readonly attempt: LearnerAttempt;
   readonly question: LearnerAttempt["questions"][number];
   readonly answer: Answer | undefined;
   readonly disabled: boolean;
@@ -202,6 +205,28 @@ function AnswerField({
           />
         </>
       );
+    case "notebook": {
+      const value = {
+        elements: answer?.kind === "notebook" ? answer.elements : [],
+        formulas: formulasOf(answer?.kind === "notebook" ? answer.formulas : []),
+      };
+      // Copie corrigée : le calque du tuteur se superpose à la scène, sans la modifier (R6).
+      const annotation = attempt.correction?.questions.find(
+        (entry) => entry.questionId === question.id,
+      )?.annotation;
+      return (
+        <NotebookField
+          mode={disabled ? "view" : "edit"}
+          label={`Cahier : ${question.prompt}`}
+          value={value}
+          attemptId={attempt.attemptId}
+          {...(annotation === null || annotation === undefined ? {} : { annotation: annotation.elements })}
+          onChange={(next) => {
+            onChange({ kind: "notebook", elements: [...next.elements], formulas: [...next.formulas] });
+          }}
+        />
+      );
+    }
   }
 }
 
@@ -258,7 +283,7 @@ export function AttemptPage() {
   const draft = useMutation({
     mutationFn: (current: Record<string, Answer>) => saveDraft(attemptId, current),
     onSuccess: () => {
-      setStatus("Brouillon enregistré.");
+      setStatus("Enregistré.");
     },
   });
   const submit = useMutation({
@@ -284,7 +309,7 @@ export function AttemptPage() {
   const change = (questionId: string, answer: Answer) => {
     const next = { ...current, [questionId]: answer };
     setAnswers(next);
-    setStatus(null);
+    setStatus("Modifications pas encore enregistrées…");
     // Sauvegarde automatique, espacée : le serveur refuse plus d'une sauvegarde toutes les 5 s (R15).
     if (timer.current !== null) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
@@ -313,6 +338,7 @@ export function AttemptPage() {
               {question.prompt} <span className="hint">({points(question.points)})</span>
             </p>
             <AnswerField
+              attempt={data}
               question={question}
               answer={current[question.id]}
               disabled={!editable}

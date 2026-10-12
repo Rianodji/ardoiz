@@ -88,8 +88,8 @@ describe("Copie de l'élève (R5)", () => {
       correction: {
         grade: 13.5,
         questions: [
-          { questionId: "qst_1", earned: 2, comment: null },
-          { questionId: "qst_2", earned: 0, comment: "Revois les conversions." },
+          { questionId: "qst_1", earned: 2, comment: null, annotation: null },
+          { questionId: "qst_2", earned: 0, comment: "Revois les conversions.", annotation: null },
         ],
       },
       answerKey,

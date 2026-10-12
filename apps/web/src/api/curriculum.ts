@@ -11,7 +11,7 @@ import {
   UnlocksResponse,
 } from "@ardoiz/contracts";
 import { validateLessonContent, type LessonContent } from "@ardoiz/content-schema";
-import { ApiError, apiFetch } from "./client";
+import { ApiError, apiFetch, uploadBytes } from "./client";
 import { empty, guard } from "./identity";
 
 const path = (template: string, id: string) => template.replace(":id", encodeURIComponent(id));
@@ -42,30 +42,8 @@ export const unpublishLesson = (id: string) =>
   apiFetch(path("/api/lessons/:id/unpublish", id), empty, { method: "POST" });
 
 /** Import d'une image : octets bruts, le serveur vérifie le type par signature et réencode (R14). */
-export async function uploadLessonImage(lessonId: string, file: Blob) {
-  let response: Response;
-  try {
-    response = await fetch(path("/api/lessons/:id/media", lessonId), {
-      method: "POST",
-      headers: { "content-type": "application/octet-stream", accept: "application/json" },
-      credentials: "same-origin",
-      body: file,
-    });
-  } catch {
-    throw new ApiError(0, "network.unavailable");
-  }
-  if (!response.ok) {
-    const body: unknown = await response.json().catch(() => null);
-    const code =
-      typeof body === "object" && body !== null && "code" in body && typeof body.code === "string"
-        ? body.code
-        : "http.unexpected";
-    throw new ApiError(response.status, code);
-  }
-  const body: unknown = await response.json();
-  if (!guard(MediaResponse)(body)) throw new ApiError(response.status, "http.unexpected-response");
-  return body;
-}
+export const uploadLessonImage = (lessonId: string, file: Blob) =>
+  uploadBytes(path("/api/lessons/:id/media", lessonId), file, guard(MediaResponse));
 
 export const fetchGroups = () => apiFetch("/api/groups", guard(GroupsResponse));
 export const createGroup = (name: string) =>

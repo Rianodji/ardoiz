@@ -578,3 +578,23 @@ form.inline label {
   font-weight: 700;
   color: var(--accent);
 }
+
+/* Cahier virtuel : Excalidraw occupe toute la largeur, sur une hauteur confortable au doigt et au stylet. */
+.notebook {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.notebook-canvas {
+  height: min(70vh, 640px);
+  min-height: 420px;
+  border: 1px solid var(--ink-soft);
+  border-radius: var(--radius);
+  overflow: hidden;
+  touch-action: none;
+}
+
+.formula-list ul {
+  list-style: none;
+  padding: 0;
+}
