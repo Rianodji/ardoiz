@@ -85,6 +85,15 @@ describe("Réserves du verdict L1", () => {
       ).toHaveLength(10);
     });
 
+    it("un attaquant patient n'échappe pas à l'alarme : 9 échecs, 2 h d'attente, 1 échec → l'alarme part (R7, reliquat de R-1)", async () => {
+      let evaluated = 0;
+      while (evaluated < 9) if ((await failTotpAfterFreshLogin()) === "evaluated") evaluated++;
+      world.clock.advanceBy(2 * 60 * 60_000);
+      expect(await failTotpAfterFreshLogin()).toBe("evaluated");
+      await world.identity.background.idle();
+      expect(world.mailer.sent.filter((mail) => mail.template === "mfa-failures-alert")).toHaveLength(1);
+    });
+
     it("au 10e échec, les sessions en attente du compte sont révoquées (R7)", async () => {
       let evaluated = 0;
       while (evaluated < 10) if ((await failTotpAfterFreshLogin()) === "evaluated") evaluated++;
