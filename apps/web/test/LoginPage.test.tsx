@@ -59,7 +59,7 @@ describe("Page de connexion", () => {
     const router = renderAt("/connexion");
     fireEvent.click(await screen.findByRole("button", { name: "Je suis parent ou tuteur" }));
     fireEvent.change(screen.getByLabelText("Adresse e-mail"), { target: { value: "tuteur@example.org" } });
-    fireEvent.change(screen.getByLabelText("Mot de passe"), { target: { value: "Tortue-bleue-du-lac-42" } });
+    fireEvent.change(screen.getByLabelText("Mot de passe"), { target: { value: "mot-de-passe-de-test" } });
     fireEvent.click(screen.getByRole("button", { name: "Me connecter" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/double-authentification/activer");

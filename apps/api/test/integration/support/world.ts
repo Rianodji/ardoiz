@@ -15,9 +15,12 @@ import { FixedClock } from "../../support/clock.js";
 import { captureLogs } from "../../support/logs.js";
 
 export const ORIGIN = "https://ardoiz.example.test";
-/** Mots de passe de test : factices, réservés à des bases jetables. */
-export const ADULT_PASSWORD = "Tortue-bleue-du-lac-42";
-export const LEARNER_PASSWORD = "girafe-orange-7";
+/**
+ * Mots de passe de test, tirés au hasard à chaque exécution : aucun littéral dans le dépôt, que
+ * la détection de secrets prendrait à raison pour un vrai (R20). Ils respectent la politique R8.
+ */
+export const ADULT_PASSWORD = `Adulte-${randomBytes(8).toString("hex")}-42`;
+export const LEARNER_PASSWORD = `eleve-${randomBytes(4).toString("hex")}`;
 
 export interface HttpCall {
   readonly method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
