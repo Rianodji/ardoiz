@@ -62,6 +62,13 @@ export interface IdentityStore {
   updateSession(session: AuthSession): Promise<void>;
   sessionsOf(accountId: string): Promise<AuthSession[]>;
   revokeSessionsOf(accountId: string, now: Date): Promise<void>;
+  /** Révoque les sessions qui attendent encore leur code TOTP. */
+  revokePendingSessionsOf(accountId: string, now: Date): Promise<void>;
+  /**
+   * Consomme un pas de temps TOTP, atomiquement : réussit seulement s'il est postérieur au dernier
+   * pas utilisé. Deux requêtes simultanées avec le même code ne passent pas toutes les deux (R7).
+   */
+  useTotpStep(accountId: string, step: number): Promise<boolean>;
 
   replaceRecoveryCodes(
     accountId: string,
@@ -88,6 +95,8 @@ export interface IdentityStore {
   insertPasswordReset(reset: PasswordReset): Promise<void>;
   passwordResetByTokenHash(tokenHash: string): Promise<PasswordReset | null>;
   consumePasswordReset(reset: PasswordReset, now: Date): Promise<void>;
+  /** Une nouvelle demande rend caducs les liens de réinitialisation précédents du compte. */
+  invalidatePasswordResetsOf(accountId: string, now: Date): Promise<void>;
 
   audit(entry: AuditEntry): Promise<void>;
   /** Dernières entrées du journal d'audit de l'espace, les plus récentes d'abord. */
@@ -164,7 +173,8 @@ export type OutgoingMail =
       readonly to: EmailAddress;
       readonly at: Date;
       readonly userAgent: string | null;
-    };
+    }
+  | { readonly template: "mfa-failures-alert"; readonly to: EmailAddress; readonly at: Date };
 
 /** Port d'envoi d'e-mails (Brevo en production, Mailpit en développement). */
 export interface Mailer {
@@ -179,6 +189,23 @@ export interface LoginThrottle {
   check(keys: readonly string[], now: Date): ThrottleDecision;
   recordFailure(keys: readonly string[], now: Date): void;
   recordSuccess(keys: readonly string[]): void;
+  /** Nombre d'échecs encore comptés pour cette clé. */
+  failureCount(key: string, now: Date): number;
+}
+
+/** Quota de demandes sur une fenêtre glissante (mot de passe oublié : par adresse et par IP). */
+export interface RequestQuota {
+  /** Vrai si la demande entre dans le quota (et la compte), faux sinon. */
+  take(key: string, limit: number, windowMs: number, now: Date): boolean;
+}
+
+/**
+ * Tâches faites APRÈS la réponse, au mieux (envoi d'alertes, e-mail de réinitialisation) :
+ * leur durée ne doit rien révéler (M9) et leur échec ne doit pas bloquer l'utilisateur. Un échec
+ * est journalisé au niveau « error » avec un code stable, sans donnée personnelle (R21).
+ */
+export interface BackgroundTasks {
+  run(failureCode: string, task: () => Promise<void>): void;
 }
 
 export interface ConsentTexts {

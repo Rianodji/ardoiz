@@ -39,6 +39,10 @@ export class InMemoryLoginThrottle implements LoginThrottle {
     if (this.#counters.size > 100_000) this.#prune(now.getTime());
   }
 
+  failureCount(key: string, now: Date): number {
+    return this.#current(key, now.getTime())?.failures ?? 0;
+  }
+
   recordSuccess(keys: readonly string[]): void {
     for (const key of keys) this.#counters.delete(key);
   }

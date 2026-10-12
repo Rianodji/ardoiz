@@ -31,6 +31,7 @@ export interface HttpCall {
 
 export interface HttpResult {
   readonly status: number;
+  readonly headers: Readonly<Record<string, string | string[] | number | undefined>>;
   readonly body: unknown;
   readonly setCookie: string | undefined;
 }
@@ -151,6 +152,7 @@ export class World {
     const setCookie = response.headers["set-cookie"];
     return {
       status: response.statusCode,
+      headers: response.headers,
       body: response.body === "" ? null : (JSON.parse(response.body) as unknown),
       setCookie: Array.isArray(setCookie) ? setCookie[0] : setCookie,
     };

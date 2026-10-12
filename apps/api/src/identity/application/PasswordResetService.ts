@@ -4,6 +4,11 @@ import { EmailAddress } from "../domain/values.js";
 import { PASSWORD_RESET_LIFETIME_MS } from "./sessionRules.js";
 import { auditEntry, type IdentityDependencies } from "./support.js";
 
+/** Demandes de réinitialisation acceptées par heure, par adresse et par IP (verdict L1, R-3). */
+export const RESET_REQUESTS_PER_EMAIL = 3;
+export const RESET_REQUESTS_PER_IP = 10;
+const QUOTA_WINDOW_MS = 60 * 60 * 1000;
+
 /**
  * Mot de passe oublié, pour les adultes seulement (ADR-0003 : l'élève passe par son parent).
  * La demande produit la même réponse que le compte existe ou non (R8) ; le jeton est haché,
@@ -12,20 +17,31 @@ import { auditEntry, type IdentityDependencies } from "./support.js";
 export class PasswordResetService {
   constructor(private readonly deps: IdentityDependencies) {}
 
-  async request(rawEmail: unknown): Promise<void> {
+  /**
+   * Toujours la même réponse, dans le même délai : l'e-mail part APRÈS la réponse, en tâche de fond
+   * (verdict L1, R-3), et les quotas jouent en silence. Un tiers ne peut ni savoir si le compte
+   * existe, ni inonder une boîte, ni épuiser le quota Brevo partagé avec les autres applications.
+   */
+  async request(rawEmail: unknown, client: { readonly ipKey: string }): Promise<void> {
+    const now = this.deps.clock.now();
+    if (!this.deps.quota.take(`reset-ip:${client.ipKey}`, RESET_REQUESTS_PER_IP, QUOTA_WINDOW_MS, now))
+      return;
     let email: EmailAddress;
     try {
       email = EmailAddress(rawEmail);
     } catch {
       return; // même réponse qu'une adresse inconnue
     }
+    // Quota par adresse, qu'elle ait un compte ou non : il ne doit rien révéler.
+    if (!this.deps.quota.take(`reset-email:${email}`, RESET_REQUESTS_PER_EMAIL, QUOTA_WINDOW_MS, now)) return;
     const found = await this.deps.gateway.adultByEmail(email);
     if (found === null) return;
-    const now = this.deps.clock.now();
     const { token, hash } = this.deps.tokens.generate();
-    const sent = await this.deps.gateway.inSpace(found.tutorSpaceId, async (store) => {
+    const created = await this.deps.gateway.inSpace(found.tutorSpaceId, async (store) => {
       const account = await store.accountById(found.accountId);
       if (account === null || account.role === "learner" || account.status !== "active") return false;
+      // Un seul lien valable à la fois : la nouvelle demande rend les précédentes caduques.
+      await store.invalidatePasswordResetsOf(account.id, now);
       await store.insertPasswordReset({
         id: this.deps.ids.next("PasswordResetId"),
         tutorSpaceId: found.tutorSpaceId,
@@ -37,12 +53,15 @@ export class PasswordResetService {
       });
       return true;
     });
-    if (sent)
-      await this.deps.mailer.send({
-        template: "password-reset",
-        to: email,
-        link: this.deps.links.passwordReset(token),
-      });
+    if (created) {
+      this.deps.background.run("identity.password-reset-mail-failed", () =>
+        this.deps.mailer.send({
+          template: "password-reset",
+          to: email,
+          link: this.deps.links.passwordReset(token),
+        }),
+      );
+    }
   }
 
   /** Nouveau mot de passe : toutes les sessions du compte sont révoquées (R8). */

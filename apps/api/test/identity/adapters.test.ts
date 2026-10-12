@@ -6,7 +6,8 @@ import { escapeHtml, renderMail } from "../../src/identity/infrastructure/mailTe
 import { AesGcmTotpService, base32Encode, totpAt } from "../../src/identity/infrastructure/TotpCodec.js";
 import { DisplayName, EmailAddress } from "../../src/identity/domain/values.js";
 import { Secret } from "../../src/platform/config/Secret.js";
-import { shortUserAgent, truncateIp } from "../../src/platform/http/clientAddress.js";
+import { shortUserAgent, throttleKeyForIp, truncateIp } from "../../src/platform/http/clientAddress.js";
+import { InMemoryRequestQuota } from "../../src/identity/infrastructure/InMemoryRequestQuota.js";
 
 const key = new Secret(Buffer.alloc(32, 3).toString("base64"));
 
@@ -197,3 +198,48 @@ function decodeBase32(input: string): Buffer {
   }
   return Buffer.from(out);
 }
+
+describe("Clé de limitation par adresse (R8, verdict L1 R-5)", () => {
+  it("garde l'IPv4 entière", () => {
+    expect(throttleKeyForIp("203.0.113.57")).toBe("203.0.113.57");
+    expect(throttleKeyForIp("::ffff:203.0.113.57")).toBe("203.0.113.57");
+  });
+
+  it("réduit l'IPv6 à son /64 : changer d'adresse dans le même réseau ne remet pas le compteur à zéro (R8)", () => {
+    const keys = [
+      "2001:db8:abcd:12::1",
+      "2001:db8:abcd:12:ffff:ffff:ffff:fffe",
+      "2001:0db8:abcd:0012:0:0:0:42",
+    ].map(throttleKeyForIp);
+    expect(new Set(keys)).toEqual(new Set(["2001:db8:abcd:12::/64"]));
+    expect(throttleKeyForIp("2001:db8:abcd:13::1")).not.toBe(keys[0]);
+  });
+});
+
+describe("Compteur d'échecs du limiteur (R7, R-1)", () => {
+  it("compte les échecs d'une clé jusqu'à un succès", () => {
+    const throttle = new InMemoryLoginThrottle();
+    const t0 = new Date("2026-10-12T08:00:00Z");
+    throttle.recordFailure(["mfa-account:x"], t0);
+    throttle.recordFailure(["mfa-account:x"], t0);
+    expect(throttle.failureCount("mfa-account:x", t0)).toBe(2);
+    throttle.recordSuccess(["mfa-account:x"]);
+    expect(throttle.failureCount("mfa-account:x", t0)).toBe(0);
+  });
+});
+
+describe("Quota de demandes (R-3)", () => {
+  it("accepte 3 demandes par heure, refuse la 4e, puis libère la fenêtre", () => {
+    const quota = new InMemoryRequestQuota();
+    const t0 = new Date("2026-10-12T08:00:00Z");
+    const hour = 60 * 60 * 1000;
+    expect([1, 2, 3, 4].map(() => quota.take("reset-email:awa@example.org", 3, hour, t0))).toEqual([
+      true,
+      true,
+      true,
+      false,
+    ]);
+    expect(quota.take("reset-email:awa@example.org", 3, hour, new Date(t0.getTime() + hour + 1))).toBe(true);
+    expect(quota.take("reset-email:autre@example.org", 3, hour, t0)).toBe(true);
+  });
+});

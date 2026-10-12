@@ -1,6 +1,6 @@
 import { NotFoundError } from "../../shared-kernel/DomainError.js";
 import type { AuthSessionId, LearnerId, TutorSpaceId } from "../../shared-kernel/ids.js";
-import { mfaEnrolled, type Account } from "../domain/Account.js";
+import { mfaEnrolled, type Account, type AdultAccount } from "../domain/Account.js";
 import { isActive } from "../domain/Guardianship.js";
 import { EmailAddress, SpaceCode, Username } from "../domain/values.js";
 import type { Actor } from "./Actor.js";
@@ -10,8 +10,11 @@ import { ABSOLUTE_LIFETIME_MS, isSessionAlive } from "./sessionRules.js";
 import { auditEntry, type IdentityDependencies } from "./support.js";
 
 export interface ClientContext {
-  /** Adresse complète, en mémoire seulement : limitation de débit (R8). Jamais stockée ni journalisée. */
-  readonly ip: string;
+  /**
+   * Clé de limitation de l'adresse (IPv4 entière, préfixe /64 en IPv6), en mémoire seulement (R8,
+   * verdict L1 R-5). Jamais stockée ni journalisée.
+   */
+  readonly ipKey: string;
   /** Adresse tronquée (/24, /48) : seule forme stockée, avec la session. */
   readonly ipPrefix: string | null;
   readonly userAgent: string | null;
@@ -30,6 +33,12 @@ export interface ResolvedSession {
   readonly session: AuthSession;
 }
 
+/** Au 10e code TOTP faux cumulé sur un compte : alerte au titulaire, audit, sessions en attente révoquées (R-1). */
+export const MFA_ALERT_THRESHOLD = 10;
+
+/** Compteur d'échecs TOTP d'un compte : seul un bon code le remet à zéro, jamais le mot de passe (R-1). */
+const mfaAccountKey = (accountId: string): string => `mfa-account:${accountId}`;
+
 /** Une session n'est « touchée » en base qu'une fois par minute : moins d'écritures. */
 const TOUCH_INTERVAL_MS = 60 * 1000;
 
@@ -46,7 +55,7 @@ export class AuthService {
   constructor(private readonly deps: IdentityDependencies) {}
 
   async loginAdult(input: { email: string; password: string }, client: ClientContext): Promise<LoginResult> {
-    const keys = [`adult:${input.email.trim().toLowerCase()}`, `ip:${client.ip}`];
+    const keys = [`adult:${input.email.trim().toLowerCase()}`, `ip:${client.ipKey}`];
     this.#throttle(keys);
     // Une adresse mal formée est un échec ordinaire : même réponse, même coût.
     const email = parsedOrNull(() => EmailAddress(input.email));
@@ -64,7 +73,7 @@ export class AuthService {
   ): Promise<LoginResult> {
     const keys = [
       `learner:${input.spaceCode.trim().toLowerCase()}:${input.username.trim().toLowerCase()}`,
-      `ip:${client.ip}`,
+      `ip:${client.ipKey}`,
     ];
     this.#throttle(keys);
     const parsed = parsedOrNull(() => ({
@@ -85,25 +94,32 @@ export class AuthService {
     return this.#conclude(keys, outcome);
   }
 
-  /** Seconde étape de la connexion : code TOTP ou code de secours (R7). */
-  async verifyMfa(sessionToken: string, code: string): Promise<void> {
+  /**
+   * Seconde étape de la connexion : code TOTP ou code de secours (R7).
+   *
+   * Les échecs sont comptés PAR COMPTE (`mfa-account:…`) et par IP. Une connexion réussie par mot
+   * de passe ne remet pas ce compteur à zéro : seul un bon code le fait. Sans cela, qui connaît le
+   * mot de passe pourrait enchaîner « mot de passe → 5 codes » sans fin (verdict L1, R-1, M8).
+   * Au 10e échec : blocage de 15 min, sessions en attente révoquées, e-mail au titulaire, audit.
+   */
+  async verifyMfa(sessionToken: string, code: string, client: Pick<ClientContext, "ipKey">): Promise<void> {
     const now = this.deps.clock.now();
     const resolved = await this.#load(sessionToken, now);
     if (resolved === null || !resolved.session.mfaPending) throw new InvalidCredentialsError();
     const { session } = resolved;
-    const keys = [`mfa:${session.id}`];
+    const accountKey = mfaAccountKey(session.accountId);
+    const keys = [accountKey, `ip:${client.ipKey}`];
     this.#throttle(keys);
-    const result = await this.deps.gateway.inSpace(session.tutorSpaceId, async (store) => {
+
+    const outcome = await this.deps.gateway.inSpace(session.tutorSpaceId, async (store) => {
       const account = await store.accountById(session.accountId);
       if (account === null || account.role === "learner" || account.mfa.status !== "enabled") return null;
       const step = this.deps.totp.verify(account.mfa.secretCiphertext, code, now, account.mfa.lastUsedStep);
+      // Le pas est consommé atomiquement : deux requêtes simultanées avec le même code, une seule passe (R-4).
+      const viaTotp = step !== null && (await store.useTotpStep(account.id, step));
       const viaRecovery =
-        step === null &&
+        !viaTotp &&
         (await store.useRecoveryCode(account.id, this.deps.tokens.hash(normalizeRecovery(code)), now));
-      if (step === null && !viaRecovery) return null;
-      if (step !== null)
-        await store.updateAccount({ ...account, mfa: { ...account.mfa, lastUsedStep: step } });
-      await store.updateSession({ ...session, mfaPending: false, authenticatedAt: now, lastSeenAt: now });
       if (account.role === "tutor") {
         await store.audit(
           auditEntry(
@@ -111,29 +127,60 @@ export class AuthService {
             session.tutorSpaceId,
             { kind: "tutor", id: account.id },
             "identity.tutor-login",
-            "success",
+            viaTotp || viaRecovery ? "success" : "failed",
             {
-              reasonCode: viaRecovery ? "recovery-code" : "totp",
+              reasonCode: viaTotp ? "totp" : viaRecovery ? "recovery-code" : "invalid-totp",
             },
           ),
         );
       }
-      return account;
+      if (!viaTotp && !viaRecovery) return { ok: false as const, account };
+      await store.updateSession({ ...session, mfaPending: false, authenticatedAt: now, lastSeenAt: now });
+      return { ok: true as const, account };
     });
-    if (result === null) {
+
+    if (outcome === null || !outcome.ok) {
       this.deps.throttle.recordFailure(keys, now);
-      if (!this.deps.throttle.check(keys, now).allowed) await this.logout(sessionToken);
+      const failures = this.deps.throttle.failureCount(accountKey, now);
+      if (outcome !== null && failures > 0 && failures % MFA_ALERT_THRESHOLD === 0)
+        await this.#raiseMfaAlarm(outcome.account, now);
       throw new InvalidTotpError();
     }
-    this.deps.throttle.recordSuccess(keys);
-    if (result.role === "tutor") {
-      await this.deps.mailer.send({
-        template: "tutor-login-alert",
-        to: result.email,
-        at: now,
-        userAgent: session.userAgent,
-      });
+    this.deps.throttle.recordSuccess([accountKey]);
+    const { account } = outcome;
+    if (account.role === "tutor") {
+      // Contrôle de détection, envoyé au mieux après la connexion (verdict L1, R-2).
+      this.deps.background.run("identity.login-alert-failed", () =>
+        this.deps.mailer.send({
+          template: "tutor-login-alert",
+          to: account.email,
+          at: now,
+          userAgent: session.userAgent,
+        }),
+      );
     }
+  }
+
+  /** Trop de codes faux après le bon mot de passe : le mot de passe est sans doute connu d'un tiers (M8). */
+  async #raiseMfaAlarm(account: AdultAccount, now: Date): Promise<void> {
+    await this.deps.gateway.inSpace(account.tutorSpaceId, async (store) => {
+      await store.revokePendingSessionsOf(account.id, now);
+      await store.audit(
+        auditEntry(
+          this.deps,
+          account.tutorSpaceId,
+          { kind: account.role, id: account.id },
+          "identity.mfa-failed",
+          "denied",
+          {
+            reasonCode: "too-many-invalid-codes",
+          },
+        ),
+      );
+    });
+    this.deps.background.run("identity.mfa-alert-failed", () =>
+      this.deps.mailer.send({ template: "mfa-failures-alert", to: account.email, at: now }),
+    );
   }
 
   /**
@@ -194,7 +241,9 @@ export class AuthService {
   /** Réauthentification avant une action sensible (R7) : mot de passe, et TOTP s'il est activé. */
   async reauthenticate(actor: Actor, input: { password: string; totpCode?: string }): Promise<void> {
     const now = this.deps.clock.now();
-    const keys = [`reauth:${actor.id}`];
+    // Le compteur TOTP du compte s'applique aussi ici : la réauthentification ne doit pas devenir
+    // un second guichet pour essayer des codes (R7, R-1).
+    const keys = [`reauth:${actor.id}`, mfaAccountKey(actor.id)];
     this.#throttle(keys);
     const ok = await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
       const account = await store.accountById(actor.id);
@@ -211,8 +260,7 @@ export class AuthService {
                 now,
                 account.mfa.lastUsedStep,
               );
-        if (step === null) return false;
-        await store.updateAccount({ ...account, mfa: { ...account.mfa, lastUsedStep: step } });
+        if (step === null || !(await store.useTotpStep(account.id, step))) return false;
       }
       await store.updateSession({ ...session, authenticatedAt: now, lastSeenAt: now });
       return true;
@@ -221,7 +269,7 @@ export class AuthService {
       this.deps.throttle.recordFailure(keys, now);
       throw new InvalidCredentialsError();
     }
-    this.deps.throttle.recordSuccess(keys);
+    this.deps.throttle.recordSuccess([`reauth:${actor.id}`]);
   }
 
   #throttle(keys: readonly string[]): void {
@@ -235,19 +283,18 @@ export class AuthService {
     throw new InvalidCredentialsError();
   }
 
-  async #conclude(keys: readonly string[], outcome: Verified): Promise<LoginResult> {
+  #conclude(keys: readonly string[], outcome: Verified): LoginResult {
     if (!outcome.ok) {
       this.deps.throttle.recordFailure(keys, this.deps.clock.now());
       throw new InvalidCredentialsError();
     }
     this.deps.throttle.recordSuccess(keys.filter((key) => !key.startsWith("ip:")));
-    if (outcome.alert !== null && outcome.alert.role === "tutor") {
-      await this.deps.mailer.send({
-        template: "tutor-login-alert",
-        to: outcome.alert.email,
-        at: this.deps.clock.now(),
-        userAgent: null,
-      });
+    const alerted = outcome.alert;
+    if (alerted !== null && alerted.role === "tutor") {
+      const at = this.deps.clock.now();
+      this.deps.background.run("identity.login-alert-failed", () =>
+        this.deps.mailer.send({ template: "tutor-login-alert", to: alerted.email, at, userAgent: null }),
+      );
     }
     return outcome.result;
   }

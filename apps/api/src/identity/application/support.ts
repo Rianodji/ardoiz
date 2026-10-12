@@ -9,8 +9,10 @@ import type {
   IdentityGateway,
   LinkBuilder,
   LoginThrottle,
+  BackgroundTasks,
   Mailer,
   PasswordHasher,
+  RequestQuota,
   SecretTokens,
   TotpService,
 } from "./ports.js";
@@ -28,6 +30,8 @@ export interface IdentityDependencies {
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly commonPasswords: ReadonlySet<string>;
+  readonly background: BackgroundTasks;
+  readonly quota: RequestQuota;
 }
 
 export function auditActorOf(actor: Actor): AuditActor {

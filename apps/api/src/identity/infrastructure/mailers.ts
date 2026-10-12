@@ -75,14 +75,20 @@ export class MailpitMailer implements Mailer {
   }
 }
 
-/** Boîte d'envoi en mémoire, pour les tests : elle garde les e-mails rendus, comme un vrai serveur les recevrait. */
+/**
+ * Boîte d'envoi en mémoire, pour les tests : elle garde les e-mails rendus, comme un vrai serveur
+ * les recevrait. Elle peut simuler un fournisseur lent (`delayMs`) ou en panne (`failing`).
+ */
 export class InMemoryMailer implements Mailer {
   readonly sent: Array<
     RenderedMail & { readonly template: OutgoingMail["template"]; readonly mail: OutgoingMail }
   > = [];
+  delayMs = 0;
+  failing = false;
 
-  send(mail: OutgoingMail): Promise<void> {
+  async send(mail: OutgoingMail): Promise<void> {
+    if (this.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, this.delayMs));
+    if (this.failing) throw new Error("Fournisseur d'e-mail indisponible (simulé).");
     this.sent.push({ ...renderMail(mail), template: mail.template, mail });
-    return Promise.resolve();
   }
 }

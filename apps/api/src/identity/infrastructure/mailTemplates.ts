@@ -85,6 +85,15 @@ export function renderMail(mail: OutgoingMail): RenderedMail {
         html: layout(subject, lines, { label: "Choisir un nouveau mot de passe", href: mail.link }),
       };
     }
+    case "mfa-failures-alert": {
+      const subject = "Codes de double authentification refusés sur votre compte Ardoiz";
+      const lines = [
+        `Le ${paris.format(mail.at)}, plusieurs codes de double authentification faux ont été saisis sur votre compte, après le bon mot de passe.`,
+        "Votre mot de passe est probablement connu d'un tiers : changez-le dès maintenant (« Mot de passe oublié » sur la page de connexion), puis vérifiez vos sessions ouvertes.",
+        "Par sécurité, la saisie des codes est bloquée 15 minutes.",
+      ];
+      return { to: mail.to, subject, text: `${lines.join("\n\n")}\n`, html: layout(subject, lines) };
+    }
     case "tutor-login-alert": {
       const subject = "Nouvelle connexion à votre compte tuteur Ardoiz";
       const lines = [

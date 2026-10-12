@@ -18,6 +18,8 @@ import { HmacSecretTokens } from "./HmacSecretTokens.js";
 import { registerAuthentication } from "./http/authentication.js";
 import { IDENTITY_STATUSES, identityRoutes } from "./http/identityRoutes.js";
 import { InMemoryLoginThrottle } from "./InMemoryLoginThrottle.js";
+import { InMemoryRequestQuota } from "./InMemoryRequestQuota.js";
+import { LoggedBackgroundTasks } from "./LoggedBackgroundTasks.js";
 import { LegalTexts } from "./LegalTexts.js";
 import { BrevoMailer, MailpitMailer } from "./mailers.js";
 import { PgIdentityGateway } from "./PgIdentityStore.js";
@@ -38,6 +40,8 @@ export interface IdentityModuleOptions {
 
 export interface IdentityModule {
   readonly statuses: Readonly<Record<string, number>>;
+  /** Tâches lancées après les réponses (alertes, e-mails) : `idle()` attend leur fin. */
+  readonly background: LoggedBackgroundTasks;
   readonly deps: IdentityDependencies;
   register(app: FastifyInstance): Promise<void>;
   initSpace(input: InitSpaceInput): ReturnType<typeof initSpace>;
@@ -70,6 +74,7 @@ export function createIdentityModule(options: IdentityModuleOptions): IdentityMo
     (config.mail.transport === "brevo"
       ? new BrevoMailer(config.mail.apiKey, sender, options.log)
       : new MailpitMailer(config.mail.url, sender, options.log));
+  const background = new LoggedBackgroundTasks(options.log);
   const deps: IdentityDependencies = {
     gateway: new PgIdentityGateway(options.pool),
     hasher: new Argon2PasswordHasher(),
@@ -82,10 +87,13 @@ export function createIdentityModule(options: IdentityModuleOptions): IdentityMo
     clock: options.clock,
     ids: options.ids,
     commonPasswords: loadCommonPasswords(options.commonPasswordsFile),
+    background,
+    quota: new InMemoryRequestQuota(),
   };
   const auth = new AuthService(deps);
   return {
     statuses: IDENTITY_STATUSES,
+    background,
     deps,
     register: async (app) => {
       await registerAuthentication(app, auth);

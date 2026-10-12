@@ -271,6 +271,7 @@ describe("Identité : connexion, sessions, consentement, jetons", () => {
         cookie: pending,
         payload: { code: nextTotp(world, family.tutor.totpSecret) },
       });
+      await world.identity.background.idle();
       expect(world.mailer.sent.slice(before).map((mail) => mail.template)).toEqual(["tutor-login-alert"]);
       const audit = await world.adminQuery<{ outcome: string }>(
         "SELECT outcome FROM audit.audit_log WHERE action = 'identity.tutor-login' ORDER BY occurred_at",
@@ -439,6 +440,7 @@ describe("Identité : connexion, sessions, consentement, jetons", () => {
       expect(known.status).toBe(202);
       expect(unknown.status).toBe(202);
       expect(known.body).toEqual(unknown.body);
+      await world.identity.background.idle();
       expect(world.mailer.sent.slice(before).map((mail) => mail.to)).toEqual(["awa@example.org"]);
     });
 
@@ -448,6 +450,7 @@ describe("Identité : connexion, sessions, consentement, jetons", () => {
         url: "/api/auth/password-reset/request",
         payload: { email: "awa@example.org" },
       });
+      await world.identity.background.idle();
       const token = lastTokenSentTo(world, "awa@example.org");
       const complete = (password: string) =>
         world.http({
@@ -466,6 +469,7 @@ describe("Identité : connexion, sessions, consentement, jetons", () => {
         url: "/api/auth/password-reset/request",
         payload: { email: "bintou@example.org" },
       });
+      await world.identity.background.idle();
       const late = lastTokenSentTo(world, "bintou@example.org");
       world.clock.advanceBy(minutes(30));
       const expired = await world.http({

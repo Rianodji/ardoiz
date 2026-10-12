@@ -309,7 +309,10 @@ export class PgIdentityStore implements IdentityStore {
     await this.client.query(
       `UPDATE identity.accounts
           SET status = $2, password_hash = $3, display_name = $4, mfa_status = $5, mfa_secret_ciphertext = $6,
-              mfa_last_used_step = $7, scheduled_deletion_at = $8
+              -- Le dernier pas TOTP n'avance que par useTotpStep : une copie périmée du compte ne
+              -- doit jamais le faire reculer (rejeu, R7). Il est effacé si le TOTP n'est plus actif.
+              mfa_last_used_step = CASE WHEN $5 = 'enabled' THEN mfa_last_used_step ELSE NULL END,
+              scheduled_deletion_at = $7
         WHERE id = $1`,
       [
         toUuid(account.id),
@@ -318,7 +321,6 @@ export class PgIdentityStore implements IdentityStore {
         adult?.displayName ?? null,
         mfa?.status ?? null,
         mfa === undefined || mfa.status === "none" ? null : mfa.secretCiphertext,
-        mfa?.status === "enabled" ? mfa.lastUsedStep : null,
         account.role === "learner" ? account.scheduledDeletionAt : null,
       ],
     );
@@ -378,6 +380,24 @@ export class PgIdentityStore implements IdentityStore {
       "UPDATE identity.auth_sessions SET revoked_at = $2 WHERE account_id = $1 AND revoked_at IS NULL",
       [toUuid(accountId), now],
     );
+  }
+
+  async revokePendingSessionsOf(accountId: string, now: Date): Promise<void> {
+    await this.client.query(
+      "UPDATE identity.auth_sessions SET revoked_at = $2 WHERE account_id = $1 AND mfa_pending AND revoked_at IS NULL",
+      [toUuid(accountId), now],
+    );
+  }
+
+  async useTotpStep(accountId: string, step: number): Promise<boolean> {
+    // La condition rend l'usage atomique : la seconde requête attend le verrou de la ligne,
+    // puis ne trouve plus de pas antérieur à consommer (R7, réserve R-4).
+    const result = await this.client.query(
+      `UPDATE identity.accounts SET mfa_last_used_step = $2
+        WHERE id = $1 AND mfa_status = 'enabled' AND (mfa_last_used_step IS NULL OR mfa_last_used_step < $2)`,
+      [toUuid(accountId), step],
+    );
+    return result.rowCount === 1;
   }
 
   async replaceRecoveryCodes(
@@ -574,6 +594,13 @@ export class PgIdentityStore implements IdentityStore {
       expiresAt: row.expires_at,
       consumedAt: row.consumed_at,
     };
+  }
+
+  async invalidatePasswordResetsOf(accountId: string, now: Date): Promise<void> {
+    await this.client.query(
+      "UPDATE identity.password_resets SET consumed_at = $2 WHERE account_id = $1 AND consumed_at IS NULL",
+      [toUuid(accountId), now],
+    );
   }
 
   async consumePasswordReset(reset: PasswordReset, now: Date): Promise<void> {

@@ -27,7 +27,7 @@ import {
 } from "@ardoiz/contracts";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { Type, type Static } from "typebox";
-import { shortUserAgent, truncateIp } from "../../../platform/http/clientAddress.js";
+import { shortUserAgent, throttleKeyForIp, truncateIp } from "../../../platform/http/clientAddress.js";
 import { AuthSessionId, GuardianshipId, LearnerId } from "../../../shared-kernel/ids.js";
 import type { AuditQuery } from "../../application/AuditQuery.js";
 import type { AuthService, ClientContext, LoginResult } from "../../application/AuthService.js";
@@ -85,7 +85,7 @@ async function atLeast<T>(milliseconds: number, work: () => Promise<T>): Promise
 
 function clientOf(request: FastifyRequest): ClientContext {
   return {
-    ip: request.ip,
+    ipKey: throttleKeyForIp(request.ip),
     ipPrefix: truncateIp(request.ip),
     userAgent: shortUserAgent(request.headers["user-agent"]),
   };
@@ -164,7 +164,7 @@ export function identityRoutes(app: FastifyInstance, services: IdentityHttpServi
     async (request) => {
       const token = sessionTokenOf(request);
       if (token === undefined) throw new Error("Session absente après authentification.");
-      await auth.verifyMfa(token, request.body.code);
+      await auth.verifyMfa(token, request.body.code, clientOf(request));
       return { status: "authenticated" as const };
     },
   );
@@ -265,7 +265,9 @@ export function identityRoutes(app: FastifyInstance, services: IdentityHttpServi
       schema: { body: PasswordResetRequest, response: { 202: AcceptedResponse } },
     },
     async (request, reply) => {
-      await atLeast(MINIMUM_AUTH_RESPONSE_MS, () => passwordResets.request(request.body.email));
+      await atLeast(MINIMUM_AUTH_RESPONSE_MS, () =>
+        passwordResets.request(request.body.email, clientOf(request)),
+      );
       return reply.code(202).send({ status: "accepted" });
     },
   );
