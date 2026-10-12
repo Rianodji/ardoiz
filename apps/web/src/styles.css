@@ -363,3 +363,9 @@ th {
     gap: 0.5rem;
   }
 }
+.qr-code {
+  width: 14rem;
+  height: 14rem;
+  display: block;
+  margin: 0.5rem 0;
+}

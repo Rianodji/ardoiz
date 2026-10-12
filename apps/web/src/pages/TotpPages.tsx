@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { activateTotp, startTotpEnrollment, verifyTotp } from "../api/identity";
 import { ME_QUERY } from "../auth/session";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { QrCode } from "../components/QrCode";
 
 /** Seconde étape de la connexion : code à 6 chiffres, ou code de secours (R7). */
 export function TotpVerifyPage() {
@@ -119,8 +120,13 @@ export function TotpEnrollPage() {
             activate.mutate();
           }}
         >
+          <p>Avec l'application, scanne ce QR code :</p>
+          <QrCode
+            value={start.data.otpauthUri}
+            label="QR code à scanner avec l'application d'authentification"
+          />
           <p>
-            Dans l'application, ajoute un compte avec cette clé (ou touche le lien depuis ton téléphone) :
+            Sans appareil photo, ajoute un compte avec cette clé (ou touche le lien depuis ton téléphone) :
           </p>
           <p className="secret">
             <code>{start.data.secret.replace(/(.{4})/g, "$1 ").trim()}</code>
