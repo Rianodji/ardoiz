@@ -11,6 +11,7 @@ import { useMe } from "../auth/session";
 import { ConsentForm } from "../components/ConsentForm";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useReauth } from "../components/useReauth";
+import { LearnerProgrammeView } from "./LessonPages";
 
 const LEVELS = ["6e", "5e", "4e", "3e"] as const;
 const LEARNERS_QUERY = ["learners"] as const;
@@ -88,6 +89,13 @@ function LearnerCard({
         {learner.status === "disabled" && <strong> · compte désactivé</strong>}
       </p>
       <p>Parents liés : {learner.guardians.map((guardian) => guardian.displayName).join(", ")}</p>
+      <details>
+        <summary>Ses cours débloqués</summary>
+        <LearnerProgrammeView
+          learnerId={learner.id}
+          emptyText="Aucun cours n'est encore ouvert pour cet enfant."
+        />
+      </details>
       {learner.status === "active" && (
         <>
           <details>

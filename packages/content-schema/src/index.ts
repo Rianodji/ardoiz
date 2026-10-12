@@ -1,6 +1,16 @@
-/**
- * Schéma fermé du contenu des cours (ADR-0005, R4).
- * Le validateur `validateLessonContent` et la liste blanche des nœuds sont livrés au lot L2 ;
- * le package existe dès L0 pour fixer la frontière : le front et l'API valideront avec le même code.
- */
-export const LESSON_CONTENT_SCHEMA_VERSION = 0;
+export {
+  checkLatex,
+  KATEX_OPTIONS,
+  MAX_LATEX_LENGTH,
+  renderLatexToMathml,
+  type LatexProblem,
+} from "./math.js";
+export * from "./schema.js";
+export {
+  mediaIdsOf,
+  toSafeHttpsUrl,
+  validateLessonContent,
+  type ContentProblem,
+  type ContentValidation,
+} from "./validate.js";
+export { youtubeEmbedUrl, youtubeIdFrom } from "./youtube.js";

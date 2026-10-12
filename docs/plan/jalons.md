@@ -68,6 +68,7 @@ Critères d'acceptation :
 
 Livrables :
 - Matières et référentiel de compétences, avec un **seed** issu de `docs/domaine/referentiel-competences.md` (codes stables `NUM-`, `GEO-`, `MES-`, `INF-`).
+- Gestion du référentiel par le tuteur dans l'application : ajouter, renommer, réordonner, **archiver** une compétence. Le code ne change jamais. Une compétence déjà liée à une question ou à une preuve n'est **jamais supprimée**, seulement archivée : elle disparaît des choix, mais l'historique des élèves reste lisible. Chaque modification est auditée.
 - Modules, cours (brouillon / publié), ordre ; groupes ; déverrouillage et reverrouillage par élève ou groupe (R3).
 - `packages/content-schema` + éditeur TipTap restreint (ADR-0005) : titres, listes, tableaux, encadrés, formules KaTeX (inline et bloc), images importées, vidéos YouTube (R4, R13).
 - Ingestion d'images (R14) et route `/media/:id` autorisée.
@@ -76,6 +77,7 @@ Livrables :
 
 Critères d'acceptation :
 - [ ] Gherkin `features/deverrouillage.feature` vert.
+- [ ] Archiver une compétence liée à une question la retire des choix sans effacer l'historique ; la supprimer est impossible (test).
 - [ ] Un corpus d'au moins 30 charges XSS (balises, `javascript:`, `data:`, attributs `on*`, LaTeX `\href`/`\url`/`\htmlClass`, identifiants vidéo forgés) est refusé par le validateur ou rendu inoffensif (R4).
 - [ ] Une image avec données EXIF GPS ressort sans métadonnées ; un SVG et un polyglotte sont refusés ; une image de 50 mégapixels est refusée (R14).
 - [ ] Le média d'un cours non déverrouillé répond 404 à l'élève (R3).
@@ -152,6 +154,7 @@ Livrables :
 - `deploy/Dockerfile` multi-étapes (non root, `HEALTHCHECK`, image la plus légère possible) et `deploy/compose.prod.yml` d'après le **squelette de l'infra** (`HANDOFF_INFRA.md` : service `ardoiz`, `read_only`, `tmpfs`, volume nommé `ardoiz_files`, réseaux `web` + `infra`, labels Traefik, `mem_limit`) — ADR-0008 amendé.
 - Serveur de métriques Prometheus sur le **port 9464**, absent des labels Traefik ; un test vérifie que `/metrics` répond 404 sur le port 3000.
 - `release.yml` sur tag `v*` : vérifications, build, SBOM, push Docker Hub (`dididenoble/ardoiz`, tags version + SHA). Job `deploy` dans l'environnement `production` (approbation du porteur) : `.env` généré par SSH, `docker compose pull` avec reprise (5 × 10 s), migrations éphémères, `up -d`, test de fumée `/healthz` + `/readyz` sur `https://ardoiz.teamnoble.fr`. `workflow_dispatch` avec un champ `tag` pour le retour arrière.
+- `THIRD-PARTY-NOTICES` dans l'image : licences des dépendances livrées, dont le texte de la LGPL-3.0 et l'adresse des sources de libvips (Q14).
 - Discipline *expand / contract* : un test d'intégration applique les migrations puis lance la **suite d'intégration de la version précédente** (tag précédent) sur le nouveau schéma, dès qu'un tag précédent existe.
 - Coordination avec la **session infra** via `HANDOFF_INFRA.md` : lire ses réponses, s'aligner sur ses conventions (registre, déclencheur, secrets), poster la clé SSH publique de déploiement et le compte rendu dans la section « Session développement ». **Le développeur ne modifie ni le dépôt `teamnoble-infra` ni le VPS.**
 - Sauvegarde : vérifier que la base `ardoiz` est incluse dans `postgres-backup` ; sauvegarde du volume de fichiers ; **procédure de restauration testée** et documentée.

@@ -102,3 +102,19 @@ C'est le lot de **M3 / R4** (contenu stocké puis affiché à des enfants). Je r
 - KaTeX avec `trust: false` et la question de `style-src` (proposition d'ADR, jamais de `'unsafe-inline'` silencieux) ;
 - le déverrouillage refusé par défaut, avec la ligne « Lire un cours » de la matrice ajoutée au harnais ;
 - les fichiers importés : type vérifié par signature, taille bornée, nom jamais réutilisé, servis avec `Content-Disposition` et `nosniff` ; PDF en aperçu, sans téléchargement.
+
+## 7. Contrôle des réserves (2026-10-12)
+
+Relu sur `c619364`, fusionné dans `main` par la PR #4. J'ai relancé les vérifications : 163 tests unitaires et 122 tests d'intégration verts, lint vert, CI verte sur la PR puis sur `main`.
+
+| Réserve | État | Commentaire |
+|---|---|---|
+| R-1 | ✅ | Compteur par compte, partagé avec la réauthentification ; alarme, audit, sessions en attente révoquées. Le test enchaîne de vrais cycles « mot de passe + code faux ». Voir le reliquat ci-dessous |
+| R-2 | ✅ | `LoggedBackgroundTasks` : code stable, type d'erreur seulement, aucun destinataire |
+| R-3 | ✅ | Quotas par adresse et par IP, silencieux ; envoi détaché ; liens précédents invalidés ; test avec un fournisseur de 2 s |
+| R-4 | ✅ | `useTotpStep` conditionnel ; `updateAccount` ne peut plus faire reculer le pas. Bonne prise en compte d'un effet de bord que je n'avais pas signalé |
+| R-5 | ✅ | Clé /64 en IPv6 |
+| R-6 | ✅ | QR code SVG calculé dans le navigateur |
+
+**Reliquat de R-1, à traiter en tête du L2 (petit)** : les compteurs sont oubliés après 1 h sans échec. Un attaquant patient peut donc faire 9 essais, attendre une heure, puis recommencer : il ne déclenche **jamais** l'alarme du 10e échec (environ 170 essais par jour, sans e-mail). Le risque par jour est faible, mais le but de R-1 était aussi de **prévenir** le titulaire.
+**À faire** : garder les compteurs `mfa-account:` pendant **24 h** (l'alarme part au 10e échec sur 24 h glissantes). Test : 9 échecs, 2 h d'attente, 1 échec → l'alarme part. Le redémarrage du serveur remet les compteurs à zéro : c'est accepté au J1, et l'audit `identity.tutor-login failed` reste la trace durable.

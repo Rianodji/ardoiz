@@ -1,7 +1,7 @@
 # Référentiel de compétences (seed du J1)
 
 > Liste initiale chargée au lot L2. Rédigée d'après les programmes du collège (cycles 3 et 4), pour des élèves de 12 ans (6e/5e).
-> **À relire par le tuteur** : retirer, renommer ou ajouter des compétences avant le lot L2. Le tuteur pourra aussi les modifier dans l'application.
+> ✅ **Validé par le tuteur le 2026-10-12** (Q4). Il le fera évoluer dans l'application : ajouter, renommer, archiver une compétence.
 > Chaque question d'épreuve est liée à une ou plusieurs de ces compétences ; c'est ce qui alimente le suivi « par compétence » des parents.
 
 ## Mathématiques

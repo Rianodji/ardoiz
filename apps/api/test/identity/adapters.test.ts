@@ -228,6 +228,32 @@ describe("Compteur d'échecs du limiteur (R7, R-1)", () => {
   });
 });
 
+describe("Compteur TOTP par compte sur 24 h glissantes (verdict L1, reliquat de R-1)", () => {
+  const t0 = new Date("2026-10-12T08:00:00Z");
+  const at = (minutes: number) => new Date(t0.getTime() + minutes * 60_000);
+
+  it("garde les échecs TOTP d'un compte 24 h : 9 échecs, 2 h d'attente, 1 échec → 10 (R7)", () => {
+    const throttle = new InMemoryLoginThrottle();
+    for (let i = 0; i < 9; i++) throttle.recordFailure(["mfa-account:tut_1"], at(i));
+    throttle.recordFailure(["mfa-account:tut_1"], at(9 + 120));
+    expect(throttle.failureCount("mfa-account:tut_1", at(9 + 120))).toBe(10);
+  });
+
+  it("oublie un échec TOTP de plus de 24 h, un par un", () => {
+    const throttle = new InMemoryLoginThrottle();
+    throttle.recordFailure(["mfa-account:tut_1"], at(0));
+    throttle.recordFailure(["mfa-account:tut_1"], at(60));
+    expect(throttle.failureCount("mfa-account:tut_1", at(24 * 60 + 30))).toBe(1);
+    expect(throttle.failureCount("mfa-account:tut_1", at(25 * 60 + 1))).toBe(0);
+  });
+
+  it("les autres compteurs restent oubliés 1 h après le dernier échec", () => {
+    const throttle = new InMemoryLoginThrottle();
+    throttle.recordFailure(["adult:awa@example.org"], at(0));
+    expect(throttle.failureCount("adult:awa@example.org", at(61))).toBe(0);
+  });
+});
+
 describe("Quota de demandes (R-3)", () => {
   it("accepte 3 demandes par heure, refuse la 4e, puis libère la fenêtre", () => {
     const quota = new InMemoryRequestQuota();

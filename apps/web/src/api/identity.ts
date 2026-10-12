@@ -17,10 +17,11 @@ import { Check } from "typebox/value";
 import { apiFetch, ApiError, type ResponseGuard } from "./client";
 
 /** Garde de type à partir d'un schéma du contrat : la réponse du serveur est vérifiée, pas supposée. */
-function guard<S extends TSchema>(schema: S): ResponseGuard<Static<S>> {
+export function guard<S extends TSchema>(schema: S): ResponseGuard<Static<S>> {
   return (value: unknown): value is Static<S> => Check(schema, value);
 }
-const empty: ResponseGuard<null> = (value: unknown): value is null => value === null || value === undefined;
+export const empty: ResponseGuard<null> = (value: unknown): value is null =>
+  value === null || value === undefined;
 
 export type LegalDocument = "mentions-legales" | "confidentialite" | "confidentialite-eleve" | "consentement";
 export type Consent = { accepted: true; version: string; sha256: string };

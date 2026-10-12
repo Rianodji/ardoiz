@@ -39,13 +39,15 @@ export async function setupTutor(
   options: { enrollTotp?: boolean; spaceName?: string; tutorName?: string } = {},
 ): Promise<Tutor> {
   const email = "tuteur@example.org";
-  await world.identity.initSpace({
+  const { tutorSpaceId } = await world.identity.initSpace({
     spaceName: options.spaceName ?? "Espace Dicard",
     spaceCode: SPACE_CODE,
     tutorEmail: email,
     tutorName: options.tutorName ?? "Dicard",
     tutorPassword: ADULT_PASSWORD,
   });
+  // Comme la CLI init-space : le référentiel validé est chargé avec l'espace.
+  await world.curriculum.seedReferential(tutorSpaceId);
   const login = await world.http({
     method: "POST",
     url: "/api/auth/login/adult",

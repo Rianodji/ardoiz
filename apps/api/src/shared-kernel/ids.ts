@@ -30,6 +30,8 @@ export const ID_PREFIXES = {
   AuthSessionId: "ses",
   RecoveryCodeId: "rcv",
   PasswordResetId: "pwr",
+  CompetencyDomainId: "dom",
+  MediaId: "med",
   AuditEntryId: "aud",
   EventId: "evt",
 } as const;
@@ -46,6 +48,13 @@ export type GuardianshipId = Id<"GuardianshipId">;
 export type ParentalConsentId = Id<"ParentalConsentId">;
 export type InvitationId = Id<"InvitationId">;
 export type AuthSessionId = Id<"AuthSessionId">;
+export type SubjectId = Id<"SubjectId">;
+export type CompetencyDomainId = Id<"CompetencyDomainId">;
+export type CompetencyId = Id<"CompetencyId">;
+export type ModuleId = Id<"ModuleId">;
+export type GroupId = Id<"GroupId">;
+export type UnlockId = Id<"UnlockId">;
+export type MediaId = Id<"MediaId">;
 export type AuditEntryId = Id<"AuditEntryId">;
 export type EventId = Id<"EventId">;
 
@@ -74,6 +83,13 @@ export const GuardianshipId = idParser("GuardianshipId");
 export const ParentalConsentId = idParser("ParentalConsentId");
 export const InvitationId = idParser("InvitationId");
 export const AuthSessionId = idParser("AuthSessionId");
+export const SubjectId = idParser("SubjectId");
+export const CompetencyDomainId = idParser("CompetencyDomainId");
+export const CompetencyId = idParser("CompetencyId");
+export const ModuleId = idParser("ModuleId");
+export const GroupId = idParser("GroupId");
+export const UnlockId = idParser("UnlockId");
+export const MediaId = idParser("MediaId");
 export const AuditEntryId = idParser("AuditEntryId");
 export const EventId = idParser("EventId");
 

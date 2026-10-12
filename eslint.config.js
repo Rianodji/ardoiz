@@ -88,4 +88,10 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // Exception unique et nommée (ADR-0005, règle 6 du prompt) : le composant de formule insère le
+    // MathML produit par KaTeX (trust: false) à partir d'une formule validée. Nulle part ailleurs.
+    files: ["apps/web/src/lesson/MathFormula.tsx"],
+    rules: { "no-restricted-syntax": "off" },
+  },
 );
