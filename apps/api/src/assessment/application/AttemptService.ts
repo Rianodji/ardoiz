@@ -1,17 +1,20 @@
 import type { Actor } from "../../identity/index.js";
 import { NotFoundError } from "../../shared-kernel/DomainError.js";
-import type { AssignmentId, AttemptId, LearnerId } from "../../shared-kernel/ids.js";
+import type { AssignmentId, AttemptId, LearnerId, NotebookMediaId } from "../../shared-kernel/ids.js";
 import { AttemptRefusedError, InvalidAssessmentInput } from "../domain/errors.js";
 import { autoGrade, gradeOutOf20, type Answer } from "../domain/grading.js";
 import type { Question } from "../domain/questions.js";
 import { answersRevealed, assertCanStart, assertCanWork, assertDraftSaveAllowed } from "../domain/window.js";
 import { canViewAttempt, canWorkOnAssignment } from "./policies.js";
+import { MAX_NOTEBOOK_IMAGES, storedScene } from "./notebook.js";
 import type {
   AssessmentRecord,
   AssessmentStore,
   AssignmentRecord,
   AttemptRecord,
+  ContentHasher,
   OptionAlias,
+  StoredScene,
 } from "./ports.js";
 import { attemptForLearner, type LearnerAnswerView, type LearnerAttemptView } from "./projections.js";
 import { publishAttempt } from "./publication.js";
@@ -103,12 +106,16 @@ export class AttemptService {
       const view = await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
         const attempts = await store.attemptsOf(assignmentId, learnerId);
         const draft = attempts.find((attempt) => attempt.status === "draft");
-        if (draft !== undefined) return attemptForLearner(assessment, assignment, draft, null, false);
+        if (draft !== undefined)
+          return attemptForLearner(assessment, assignment, draft, null, false, {
+            scenes: await store.notebookScenesOf(draft.id),
+            annotations: null,
+          });
         assertCanStart(assignment, this.deps.clock.now(), attempts.length);
         const attempt = this.#newAttempt(assessment, assignment, learnerId, attempts.length + 1);
         // Deux démarrages simultanés : le second se heurte au numéro unique et recommence (R5).
         if (!(await store.insertAttempt(attempt))) return null;
-        return attemptForLearner(assessment, assignment, attempt, null, false);
+        return attemptForLearner(assessment, assignment, attempt, null, false, NO_NOTEBOOK);
       });
       if (view !== null) return view;
     }
@@ -131,6 +138,9 @@ export class AttemptService {
         assignment,
         assessment,
         results: attempt.status === "published" ? await store.resultsOf(attemptId) : [],
+        scenes: await store.notebookScenesOf(attemptId),
+        // Le calque du tuteur n'est montré qu'avec la correction publiée (R5, R6).
+        annotations: attempt.status === "published" ? await store.annotationsOf(attemptId) : null,
       };
     });
     await authorize(
@@ -152,6 +162,7 @@ export class AttemptService {
       found.attempt,
       found.attempt.status === "published" ? { results: found.results } : null,
       answersRevealed(found.assignment, this.deps.clock.now()),
+      { scenes: found.scenes, annotations: found.annotations },
     );
   }
 
@@ -161,14 +172,23 @@ export class AttemptService {
     attemptId: AttemptId,
     raw: Readonly<Record<string, LearnerAnswerView>>,
   ): Promise<void> {
-    const { attempt, assignment, assessment } = await this.#ownDraft(actor, attemptId);
+    const { attempt, assignment, assessment, mediaIds } = await this.#ownDraft(actor, attemptId);
     const now = this.deps.clock.now();
     assertCanWork(assignment, now);
+    // Une seule cadence pour toute la copie, cahier compris : au plus une sauvegarde toutes les 5 s (R15).
     assertDraftSaveAllowed(attempt.lastSavedAt, now);
-    const answers = translateAnswers(assessment.questions, attempt.optionAliases, raw);
+    const { answers, scenes } = translateAnswers(
+      this.deps.hasher,
+      assessment.questions,
+      attempt,
+      mediaIds,
+      raw,
+    );
     await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
       const current = await store.attemptById(attemptId);
       if (current?.status !== "draft") throw new AttemptRefusedError("assessment.attempt-submitted");
+      // La scène est écrite AVANT l'empreinte qui la référence ; la base refuse toute scène d'une copie rendue (R6).
+      for (const scene of scenes) await store.upsertNotebookScene(attemptId, scene, now);
       await store.saveDraft(attemptId, answers, now);
     });
   }
@@ -182,14 +202,16 @@ export class AttemptService {
     attemptId: AttemptId,
     raw?: Readonly<Record<string, LearnerAnswerView>>,
   ): Promise<LearnerAttemptView> {
-    const { attempt, assignment, assessment } = await this.#ownDraft(actor, attemptId);
+    const { attempt, assignment, assessment, mediaIds } = await this.#ownDraft(actor, attemptId);
     const now = this.deps.clock.now();
     const { late } = assertCanWork(assignment, now);
-    const answers =
+    const { answers, scenes } =
       raw === undefined
-        ? attempt.answers
-        : translateAnswers(assessment.questions, attempt.optionAliases, raw);
+        ? { answers: attempt.answers, scenes: [] }
+        : translateAnswers(this.deps.hasher, assessment.questions, attempt, mediaIds, raw);
     return this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
+      // Dernière version des scènes écrite tant que la copie est encore un brouillon, puis figée avec elle.
+      for (const scene of scenes) await store.upsertNotebookScene(attemptId, scene, now);
       const frozen: AttemptRecord = {
         ...attempt,
         status: "submitted",
@@ -236,8 +258,63 @@ export class AttemptService {
         final,
         final.status === "published" ? { results } : null,
         answersRevealed(assignment, now),
+        { scenes: await store.notebookScenesOf(attemptId), annotations: null },
       );
     });
+  }
+
+  /**
+   * Import d'une image dans le cahier d'une copie en brouillon (R14) : même ingestion que les images de
+   * cours (octets magiques, taille, réencodage WebP sans métadonnées), au plus 20 images par copie.
+   */
+  async uploadImage(
+    actor: Actor,
+    attemptId: AttemptId,
+    bytes: Buffer,
+  ): Promise<{ mediaId: NotebookMediaId; width: number; height: number }> {
+    const { assignment, mediaIds } = await this.#ownDraft(actor, attemptId);
+    assertCanWork(assignment, this.deps.clock.now());
+    if (mediaIds.size >= MAX_NOTEBOOK_IMAGES)
+      throw new InvalidAssessmentInput("assessment.invalid-too-many-images");
+    const image = await this.deps.images.ingest(bytes);
+    const mediaId = this.deps.ids.next("NotebookMediaId");
+    // Le fichier est écrit avant la ligne : une ligne ne désigne jamais un fichier absent.
+    await this.deps.files.save(actor.tutorSpaceId, mediaId, image.webp);
+    await this.deps.gateway.inSpace(actor.tutorSpaceId, (store) =>
+      store.insertNotebookMedia({
+        id: mediaId,
+        attemptId,
+        width: image.width,
+        height: image.height,
+        byteSize: image.webp.length,
+        sha256: image.sha256,
+        createdAt: this.deps.clock.now(),
+      }),
+    );
+    return { mediaId, width: image.width, height: image.height };
+  }
+
+  /** Image d'un cahier : visible comme la copie qui la contient (R3, R14). */
+  async readImage(actor: Actor, mediaId: NotebookMediaId): Promise<{ bytes: Buffer; sha256: string }> {
+    const found = await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
+      const media = await store.notebookMediaById(mediaId);
+      const attempt = media === null ? null : await store.attemptById(media.attemptId);
+      return media === null || attempt === null ? null : { media, attempt };
+    });
+    await authorize(
+      this.deps,
+      actor,
+      canViewAttempt(
+        actor,
+        found === null
+          ? null
+          : { learnerId: found.attempt.learnerId, published: found.attempt.status === "published" },
+      ),
+      "assessment.read-notebook-image",
+      mediaId,
+    );
+    if (found === null) throw new NotFoundError();
+    return { bytes: await this.deps.files.read(actor.tutorSpaceId, mediaId), sha256: found.media.sha256 };
   }
 
   async #context(
@@ -254,10 +331,18 @@ export class AttemptService {
   async #ownDraft(
     actor: Actor,
     attemptId: AttemptId,
-  ): Promise<{ attempt: AttemptRecord; assignment: AssignmentRecord; assessment: AssessmentRecord }> {
-    const found = await this.deps.gateway.inSpace(actor.tutorSpaceId, (store) =>
-      loadAttempt(store, attemptId),
-    );
+  ): Promise<{
+    attempt: AttemptRecord;
+    assignment: AssignmentRecord;
+    assessment: AssessmentRecord;
+    mediaIds: ReadonlySet<string>;
+  }> {
+    const found = await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
+      const loaded = await loadAttempt(store, attemptId);
+      if (loaded === null) return null;
+      const media = await store.notebookMediaOf(attemptId);
+      return { ...loaded, mediaIds: new Set<string>(media.map((item) => item.id)) };
+    });
     await authorize(
       this.deps,
       actor,
@@ -317,23 +402,36 @@ export async function loadAttempt(
   return assignment === null || assessment === null ? null : { attempt, assignment, assessment };
 }
 
+const NO_NOTEBOOK = { scenes: new Map(), annotations: null } as const;
+
 /**
  * Réponses reçues de l'élève → réponses de la copie : seules les questions de l'épreuve, du bon type,
  * bornées ; les alias d'options sont traduits en vrais identifiants (un alias inconnu est ignoré).
+ * Une scène de cahier est validée par le schéma fermé ; la copie n'en garde que l'empreinte (R6). Une
+ * question de cahier absente de l'envoi garde sa scène déjà enregistrée.
  */
 function translateAnswers(
+  hasher: ContentHasher,
   questions: readonly Question[],
-  aliases: AttemptRecord["optionAliases"],
+  attempt: AttemptRecord,
+  mediaIds: ReadonlySet<string>,
   raw: Readonly<Record<string, LearnerAnswerView>>,
-): Record<string, Answer> {
+): { answers: Record<string, Answer>; scenes: StoredScene[] } {
   const answers: Record<string, Answer> = {};
+  const scenes: StoredScene[] = [];
   for (const question of questions) {
     const given = raw[question.id];
-    if (given === undefined) continue;
+    if (given === undefined) {
+      const previous = attempt.answers[question.id];
+      if (previous?.kind === "notebook") answers[question.id] = previous;
+      continue;
+    }
     if (given.kind !== question.spec.kind) throw new InvalidAssessmentInput("assessment.invalid-answer");
     switch (given.kind) {
       case "mcq": {
-        const byAlias = new Map((aliases[question.id] ?? []).map((entry) => [entry.alias, entry.optionId]));
+        const byAlias = new Map(
+          (attempt.optionAliases[question.id] ?? []).map((entry) => [entry.alias, entry.optionId]),
+        );
         const optionIds = [...new Set(given.optionIds)]
           .map((alias) => byAlias.get(alias))
           .filter((id): id is string => id !== undefined);
@@ -350,7 +448,13 @@ function translateAnswers(
           throw new InvalidAssessmentInput("assessment.invalid-answer");
         answers[question.id] = { kind: "short_text", text: given.text };
         break;
+      case "notebook": {
+        const scene = storedScene(hasher, question.id, given, { mediaIds });
+        scenes.push(scene);
+        answers[question.id] = { kind: "notebook", sceneSha256: scene.sha256 };
+        break;
+      }
     }
   }
-  return answers;
+  return { answers, scenes };
 }

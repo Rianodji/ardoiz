@@ -12,7 +12,19 @@ const DateTime = Type.String({ format: "date-time" });
 const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(schema: T) =>
   Type.Union([schema, Type.Null()]);
 const Points = Type.Number({ minimum: 0, maximum: 100, multipleOf: 0.5 });
-const Kind = Type.Union([Type.Literal("mcq"), Type.Literal("numeric"), Type.Literal("short_text")]);
+const Kind = Type.Union([
+  Type.Literal("mcq"),
+  Type.Literal("numeric"),
+  Type.Literal("short_text"),
+  Type.Literal("notebook"),
+]);
+/**
+ * Éléments d'une scène du cahier : leur contenu est validé par le schéma FERMÉ de
+ * `@ardoiz/content-schema` (ADR-0004) ; ici seul le nombre est borné, au-delà de la limite métier
+ * pour que le refus « cahier trop volumineux » vienne du validateur (R15).
+ */
+const SceneElements = Type.Array(Type.Unknown(), { maxItems: 10_000 });
+const SceneFormulas = Type.Array(Type.Unknown(), { maxItems: 100 });
 
 export const NewAssessmentRequest = Type.Object({ subjectId: Id, title: Text(120) }, closed);
 
@@ -46,6 +58,14 @@ export const QuestionRequest = Type.Union([
   Type.Object(
     {
       kind: Type.Literal("short_text"),
+      ...QuestionBase,
+      modelAnswer: Type.Optional(Type.String({ maxLength: 1000 })),
+    },
+    closed,
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal("notebook"),
       ...QuestionBase,
       modelAnswer: Type.Optional(Type.String({ maxLength: 1000 })),
     },
@@ -87,6 +107,10 @@ export const LearnerAnswer = Type.Union([
     closed,
   ),
   Type.Object({ kind: Type.Literal("short_text"), text: Type.String({ maxLength: 2000 }) }, closed),
+  Type.Object(
+    { kind: Type.Literal("notebook"), elements: SceneElements, formulas: Type.Optional(SceneFormulas) },
+    closed,
+  ),
 ]);
 export const AnswersRequest = Type.Object(
   { answers: Type.Record(Type.String({ maxLength: 60 }), LearnerAnswer, { maxProperties: 50 }) },
@@ -144,6 +168,10 @@ const LearnerQuestion = Type.Union([
     { id: Type.String(), kind: Type.Literal("short_text"), prompt: Type.String(), points: Type.Number() },
     closed,
   ),
+  Type.Object(
+    { id: Type.String(), kind: Type.Literal("notebook"), prompt: Type.String(), points: Type.Number() },
+    closed,
+  ),
 ]);
 /** Publication : la note et les points obtenus, sans aucune réponse attendue (R5). */
 const Correction = Type.Object(
@@ -151,7 +179,13 @@ const Correction = Type.Object(
     grade: Type.Number(),
     questions: Type.Array(
       Type.Object(
-        { questionId: Type.String(), earned: Type.Number(), comment: Nullable(Type.String()) },
+        {
+          questionId: Type.String(),
+          earned: Type.Number(),
+          comment: Nullable(Type.String()),
+          // Calque du tuteur (cahier), montré avec la correction publiée, à part de la scène de l'élève (R6).
+          annotation: Nullable(Type.Object({ elements: SceneElements }, closed)),
+        },
         closed,
       ),
     ),
@@ -177,7 +211,13 @@ const AnswerKey = Type.Object(
               },
               closed,
             ),
-            Type.Object({ kind: Type.Literal("short_text"), modelAnswer: Nullable(Type.String()) }, closed),
+            Type.Object(
+              {
+                kind: Type.Union([Type.Literal("short_text"), Type.Literal("notebook")]),
+                modelAnswer: Nullable(Type.String()),
+              },
+              closed,
+            ),
           ]),
         },
         closed,
@@ -271,7 +311,13 @@ const AuthorSpec = Type.Union([
     },
     closed,
   ),
-  Type.Object({ kind: Type.Literal("short_text"), modelAnswer: Nullable(Type.String()) }, closed),
+  Type.Object(
+    {
+      kind: Type.Union([Type.Literal("short_text"), Type.Literal("notebook")]),
+      modelAnswer: Nullable(Type.String()),
+    },
+    closed,
+  ),
 ]);
 const AuthorQuestion = Type.Object(
   {
@@ -344,6 +390,7 @@ const TutorAnswer = Type.Union([
   Type.Object({ kind: Type.Literal("mcq"), optionIds: Type.Array(Type.String()) }, closed),
   Type.Object({ kind: Type.Literal("numeric"), value: Type.String(), unit: Type.String() }, closed),
   Type.Object({ kind: Type.Literal("short_text"), text: Type.String() }, closed),
+  Type.Object({ kind: Type.Literal("notebook"), elements: SceneElements, formulas: SceneFormulas }, closed),
 ]);
 export const TutorAttemptResponse = Type.Object(
   {
@@ -359,6 +406,7 @@ export const TutorAttemptResponse = Type.Object(
     grade: Nullable(Type.Number()),
     questions: Type.Array(AuthorQuestion),
     answers: Type.Record(Type.String(), TutorAnswer),
+    annotations: Type.Record(Type.String(), Type.Object({ elements: SceneElements }, closed)),
     results: Type.Array(
       Type.Object(
         {
@@ -388,5 +436,12 @@ export const TutorAttemptResponse = Type.Object(
       ),
     ),
   },
+  closed,
+);
+
+/** Calque d'annotation du tuteur : une scène sans image ni formule (ADR-0004, R6). */
+export const AnnotationRequest = Type.Object({ elements: SceneElements }, closed);
+export const NotebookMediaResponse = Type.Object(
+  { mediaId: Type.String(), width: Type.Integer(), height: Type.Integer() },
   closed,
 );

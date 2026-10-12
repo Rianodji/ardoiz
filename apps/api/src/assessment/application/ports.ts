@@ -6,6 +6,7 @@ import type {
   CompetencyId,
   GroupId,
   LearnerId,
+  NotebookMediaId,
   QuestionId,
   SubjectId,
   TutorId,
@@ -14,6 +15,7 @@ import type {
 import type { IntegrationEvent } from "../../shared-kernel/IntegrationEvent.js";
 import type { Answer } from "../domain/grading.js";
 import type { Question } from "../domain/questions.js";
+import type { NotebookScene } from "@ardoiz/content-schema";
 
 export interface AssessmentRecord {
   readonly id: AssessmentId;
@@ -122,8 +124,48 @@ export interface AssessmentStore {
   insertRectification(rectification: RectificationRecord): Promise<void>;
   rectificationsOf(attemptId: AttemptId): Promise<RectificationRecord[]>;
 
+  /** Scènes de l'élève d'une copie, par question (cahier, ADR-0004). */
+  notebookScenesOf(attemptId: AttemptId): Promise<Map<string, NotebookScene>>;
+  /** Refusée par la base si la copie n'est plus un brouillon (R6). */
+  upsertNotebookScene(attemptId: AttemptId, scene: StoredScene, at: Date): Promise<void>;
+  /** Calques d'annotation du tuteur d'une copie, par question. */
+  annotationsOf(attemptId: AttemptId): Promise<Map<string, NotebookScene>>;
+  /** Refusée par la base hors de la correction (copie rendue et non publiée, R6). */
+  upsertAnnotation(attemptId: AttemptId, scene: StoredScene, at: Date, by: TutorId): Promise<void>;
+  notebookMediaOf(attemptId: AttemptId): Promise<NotebookMediaRecord[]>;
+  notebookMediaById(id: NotebookMediaId): Promise<NotebookMediaRecord | null>;
+  insertNotebookMedia(media: NotebookMediaRecord): Promise<void>;
+
   audit(entry: AuditEntry): Promise<void>;
   publish(event: IntegrationEvent): Promise<void>;
+}
+
+/** Scène validée prête à stocker : question, contenu normalisé, empreinte et taille du JSON canonique. */
+export interface StoredScene {
+  readonly questionId: QuestionId;
+  readonly scene: NotebookScene;
+  readonly sha256: string;
+  readonly byteSize: number;
+}
+
+export interface NotebookMediaRecord {
+  readonly id: NotebookMediaId;
+  readonly attemptId: AttemptId;
+  readonly width: number;
+  readonly height: number;
+  readonly byteSize: number;
+  readonly sha256: string;
+  readonly createdAt: Date;
+}
+
+/** Import d'une image (R14), partagé avec les cours : la même file d'attente bornée en mémoire. */
+export interface ImageIngestion {
+  ingest(bytes: Buffer): Promise<{ webp: Buffer; width: number; height: number; sha256: string }>;
+}
+
+export interface FileStorage {
+  save(tutorSpaceId: TutorSpaceId, fileId: string, bytes: Buffer): Promise<void>;
+  read(tutorSpaceId: TutorSpaceId, fileId: string): Promise<Buffer>;
 }
 
 export interface AssessmentGateway {

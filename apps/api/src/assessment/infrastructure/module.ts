@@ -5,7 +5,12 @@ import type { IdGenerator } from "../../shared-kernel/ids.js";
 import { AttemptService } from "../application/AttemptService.js";
 import { AuthoringService } from "../application/AuthoringService.js";
 import { GradingService } from "../application/GradingService.js";
-import type { CurriculumDirectory, LearnerDirectory } from "../application/ports.js";
+import type {
+  CurriculumDirectory,
+  FileStorage,
+  ImageIngestion,
+  LearnerDirectory,
+} from "../application/ports.js";
 import type { AssessmentDependencies } from "../application/support.js";
 import { CryptoContentHasher, CryptoRandomSource } from "./CryptoContentHasher.js";
 import { ASSESSMENT_STATUSES, assessmentRoutes } from "./http/assessmentRoutes.js";
@@ -17,6 +22,9 @@ export interface AssessmentModuleOptions {
   readonly learners: LearnerDirectory;
   readonly clock: Clock;
   readonly ids: IdGenerator;
+  /** Ingestion d'images PARTAGÉE avec les cours : une seule file d'attente bornée en mémoire (R14). */
+  readonly images: ImageIngestion;
+  readonly files: FileStorage;
   /** Remplaçable dans les tests ; aléa cryptographique par défaut. */
   readonly random?: RandomSource;
 }
@@ -32,6 +40,8 @@ export function createAssessmentModule(options: AssessmentModuleOptions): Assess
     gateway: new PgAssessmentGateway(options.pool),
     curriculum: options.curriculum,
     learners: options.learners,
+    images: options.images,
+    files: options.files,
     hasher: new CryptoContentHasher(),
     random: options.random ?? new CryptoRandomSource(),
     clock: options.clock,

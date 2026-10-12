@@ -6,7 +6,9 @@ import { convert } from "./units.js";
 export type Answer =
   | { readonly kind: "mcq"; readonly optionIds: readonly string[] }
   | { readonly kind: "numeric"; readonly value: string; readonly unit: string }
-  | { readonly kind: "short_text"; readonly text: string };
+  | { readonly kind: "short_text"; readonly text: string }
+  /** La copie ne garde que l'empreinte de la scène : la scène est stockée à part, figée avec la copie (R6). */
+  | { readonly kind: "notebook"; readonly sceneSha256: string };
 
 /**
  * QCM : toutes les bonnes options et elles seules. QUESTION Q15 : le barème partiel d'un QCM à
@@ -39,12 +41,13 @@ export function isNumericCorrect(
 
 /**
  * Correction automatique côté serveur (ADR-0007) : points obtenus, ou null quand la question attend
- * une correction manuelle (réponse courte). Une réponse absente ou d'un autre type vaut 0.
+ * une correction manuelle (réponse courte, cahier). Une réponse absente ou d'un autre type vaut 0.
  */
 export function autoGrade(question: Question, answer: Answer | undefined): number | null {
   const { spec } = question;
   switch (spec.kind) {
     case "short_text":
+    case "notebook":
       return null;
     case "mcq":
       return answer?.kind === "mcq" && isMcqCorrect(spec.correctOptionIds, answer.optionIds)

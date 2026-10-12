@@ -3,12 +3,21 @@ import type { AuditEntry } from "../../shared-kernel/AuditTrail.js";
 import type { Clock, RandomSource } from "../../shared-kernel/Clock.js";
 import { enforce, type Decision } from "../../shared-kernel/Decision.js";
 import type { IdGenerator } from "../../shared-kernel/ids.js";
-import type { AssessmentGateway, ContentHasher, CurriculumDirectory, LearnerDirectory } from "./ports.js";
+import type {
+  AssessmentGateway,
+  ContentHasher,
+  CurriculumDirectory,
+  FileStorage,
+  ImageIngestion,
+  LearnerDirectory,
+} from "./ports.js";
 
 export interface AssessmentDependencies {
   readonly gateway: AssessmentGateway;
   readonly curriculum: CurriculumDirectory;
   readonly learners: LearnerDirectory;
+  readonly images: ImageIngestion;
+  readonly files: FileStorage;
   readonly hasher: ContentHasher;
   readonly random: RandomSource;
   readonly clock: Clock;

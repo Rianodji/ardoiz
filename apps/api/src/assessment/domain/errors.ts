@@ -41,3 +41,10 @@ export class GradingError extends DomainError {
     super(`Correction impossible (${code}).`);
   }
 }
+
+/** Scène du cahier refusée par le schéma fermé (ADR-0004) ; « trop volumineuse » au-delà des limites de R15. */
+export class InvalidNotebookError extends DomainError {
+  constructor(readonly code: "assessment.notebook-too-large" | "assessment.invalid-notebook") {
+    super(`Cahier refusé (${code}).`);
+  }
+}

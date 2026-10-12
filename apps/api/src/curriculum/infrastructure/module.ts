@@ -25,6 +25,8 @@ import { SharpImageIngestion } from "../../platform/media/SharpImageIngestion.js
 export interface CurriculumModuleOptions {
   readonly pool: Pool;
   readonly mediaDir: string;
+  /** Ingestion d'images partagée avec le cahier (une seule file d'attente, verdict L2 S-3). */
+  readonly images?: SharpImageIngestion;
   readonly referentialFile: string;
   readonly clock: Clock;
   readonly ids: IdGenerator;
@@ -53,7 +55,7 @@ export function createCurriculumModule(options: CurriculumModuleOptions): Curric
   const deps: CurriculumDependencies = {
     gateway: new PgCurriculumGateway(options.pool),
     files: new LocalFileStorage(options.mediaDir),
-    images: new SharpImageIngestion(),
+    images: options.images ?? new SharpImageIngestion(),
     clock: options.clock,
     ids: options.ids,
   };
