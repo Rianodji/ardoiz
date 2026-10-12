@@ -8,6 +8,10 @@ updates:
     cooldown:
       default-days: 7
       semver-major-days: 14
+    ignore:
+      # Les types de Node suivent la version d'exécution (Node 24, .nvmrc) : pas de saut de version majeure.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       outils-de-test:
         patterns:
