@@ -12,6 +12,7 @@
     "cli": "tsx --conditions=@ardoiz/source --env-file-if-exists=../../.env src/app/cli.ts"
   },
   "dependencies": {
+    "@ardoiz/content-schema": "0.0.0",
     "@ardoiz/contracts": "0.0.0",
     "@fastify/cookie": "^11.1.3",
     "@fastify/helmet": "^13.1.2",

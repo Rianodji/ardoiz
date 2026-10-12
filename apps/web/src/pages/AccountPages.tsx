@@ -4,6 +4,7 @@ import { fetchLegal, fetchSessions, revokeSession, type LegalDocument } from "..
 import { homePathFor, useMe } from "../auth/session";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../markdown/Markdown";
+import { LearnerProgrammeView } from "./LessonPages";
 
 const dateTime = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "short",
@@ -101,7 +102,13 @@ export function LearnerHomePage() {
   return (
     <section className="card">
       <h1>Bonjour {me.data?.name ?? ""} !</h1>
-      <p>Tes cours, tes séances et tes devoirs apparaîtront ici dès que ton tuteur les aura préparés.</p>
+      <h2>Mes cours</h2>
+      {me.data !== null && me.data !== undefined && (
+        <LearnerProgrammeView
+          learnerId={me.data.id}
+          emptyText="Ton tuteur n'a pas encore ouvert de cours pour toi. Ils apparaîtront ici."
+        />
+      )}
       <p>
         <Link to="/mes-donnees">Ce qu'Ardoiz sait de toi</Link>
       </p>

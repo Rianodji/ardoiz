@@ -362,7 +362,7 @@ function marksOf(value: unknown, path: string): Mark[] {
         return { type };
       case "link": {
         expectKeys(item, ["type", "attrs"], markPath);
-        const attrs = attrsOf(item, ["href", "target", "rel", "class"], markPath);
+        const attrs = attrsOf(item, ["href", "target", "rel", "class", "title"], markPath);
         // Valeurs émises par l'extension Link de TipTap : acceptées, puis ignorées (le rendu fixe les siennes).
         if (attrs["target"] !== undefined && attrs["target"] !== null && attrs["target"] !== "_blank") {
           throw new Rejection(`${markPath}.attrs.target`, "invalid-attribute");
@@ -373,6 +373,9 @@ function marksOf(value: unknown, path: string): Mark[] {
           attrs["rel"] !== "noopener noreferrer nofollow"
         ) {
           throw new Rejection(`${markPath}.attrs.rel`, "invalid-attribute");
+        }
+        if (attrs["title"] !== undefined && attrs["title"] !== null) {
+          throw new Rejection(`${markPath}.attrs.title`, "invalid-attribute");
         }
         if (attrs["class"] !== undefined && attrs["class"] !== null)
           throw new Rejection(`${markPath}.attrs.class`, "invalid-attribute");

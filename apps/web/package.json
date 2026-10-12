@@ -9,8 +9,15 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@ardoiz/content-schema": "0.0.0",
     "@ardoiz/contracts": "0.0.0",
+    "@floating-ui/dom": "^1.8.0",
     "@tanstack/react-query": "^5.104.2",
+    "@tiptap/core": "^3.31.4",
+    "@tiptap/extension-table": "^3.31.4",
+    "@tiptap/pm": "^3.31.4",
+    "@tiptap/react": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
     "marked": "^18.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
