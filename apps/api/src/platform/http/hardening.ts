@@ -11,7 +11,9 @@ export const CONTENT_SECURITY_POLICY = {
   "default-src": ["'self'"],
   "script-src": ["'self'"],
   "style-src": ["'self'"],
-  "img-src": ["'self'"],
+  // `data:` pour les images seulement (ADR-0012 proposée) : icônes et curseurs SVG générés par Excalidraw.
+  // Une image ne peut exécuter aucun script ; scripts, styles et polices restent limités à notre origine.
+  "img-src": ["'self'", "data:"],
   "font-src": ["'self'"],
   "connect-src": ["'self'"],
   "media-src": ["'self'"],

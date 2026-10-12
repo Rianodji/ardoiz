@@ -3,6 +3,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router";
 import { ApiError } from "./api/client";
+// Avant tout chargement d'Excalidraw (chunk à la demande) : ses polices viennent de notre origine.
+import "./notebook/assetPath";
 import { router } from "./router";
 import "./styles.css";
 

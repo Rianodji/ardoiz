@@ -12,17 +12,6 @@ import { uploadNotebookImage } from "../api/assessment";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { fileIdsOf, idsOf, toStoredElements } from "./sceneElements";
 
-/**
- * Polices d'Excalidraw servies par NOTRE origine (CSP : font-src 'self') et non par un CDN tiers.
- * Lu par Excalidraw au premier dessin de texte, donc avant tout rendu.
- */
-declare global {
-  interface Window {
-    EXCALIDRAW_ASSET_PATH?: string;
-  }
-}
-window.EXCALIDRAW_ASSET_PATH = "/assets/excalidraw/";
-
 export type NotebookMode = "edit" | "annotate" | "view";
 
 export interface NotebookCanvasProps {
@@ -41,25 +30,11 @@ export interface NotebookCanvasProps {
 const RED = "#e03131";
 const GREEN = "#2f9e44";
 
-/** Image d'un cahier → URL de données pour Excalidraw, téléchargée par la route autorisée (R3). */
-async function dataUrlOf(fileId: string): Promise<string> {
-  const response = await fetch(`/api/notebook-media/${encodeURIComponent(fileId)}`, {
-    credentials: "same-origin",
-  });
-  if (!response.ok) throw new Error("Image indisponible.");
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-      else reject(new Error("Image illisible."));
-    };
-    reader.onerror = () => {
-      reject(new Error("Image illisible."));
-    };
-    reader.readAsDataURL(blob);
-  });
-}
+/**
+ * Adresse d'une image du cahier pour Excalidraw : la route autorisée de notre origine (R3), et non une
+ * URL `data:` que la CSP refuse (img-src 'self'). Excalidraw charge l'image par cette adresse.
+ */
+const imageUrlOf = (fileId: string) => `/api/notebook-media/${encodeURIComponent(fileId)}`;
 
 /**
  * Cahier virtuel (ADR-0004) : Excalidraw chargé à la demande. Aucune fonction qui contacte un tiers
@@ -75,6 +50,7 @@ export default function NotebookCanvas({
   label,
 }: NotebookCanvasProps) {
   const api = useRef<ExcalidrawImperativeAPI | null>(null);
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const studentIds = useRef(idsOf(elements));
   // Ce qui est déjà enregistré : le montage du canevas ne déclenche aucune sauvegarde.
@@ -95,25 +71,17 @@ export default function NotebookCanvas({
   // Les images ne sont téléchargées que lorsque la liste des médias change, pas à chaque trait.
   const mediaKey = [...new Set(fileIdsOf(elements))].sort().join(",");
   useEffect(() => {
-    let cancelled = false;
     const ids = mediaKey === "" ? [] : mediaKey.split(",");
-    void Promise.all(ids.map(async (id) => ({ id, dataURL: await dataUrlOf(id) })))
-      .then((files) => {
-        if (cancelled || files.length === 0) return;
-        api.current?.addFiles(
-          files.map(({ id, dataURL }) => ({
-            id,
-            dataURL,
-            mimeType: "image/webp",
-            created: Date.now(),
-          })) as never,
-        );
-      })
-      .catch(setError);
-    return () => {
-      cancelled = true;
-    };
-  }, [mediaKey]);
+    if (!ready || ids.length === 0) return;
+    api.current?.addFiles(
+      ids.map((id) => ({
+        id,
+        dataURL: imageUrlOf(id),
+        mimeType: "image/webp",
+        created: Date.now(),
+      })) as never,
+    );
+  }, [mediaKey, ready]);
 
   const emit = (all: readonly unknown[]) => {
     if (onChange === undefined) return;
@@ -153,8 +121,9 @@ export default function NotebookCanvas({
     const current = api.current;
     if (current === null || attemptId === undefined) return;
     const { mediaId, width, height } = await uploadNotebookImage(attemptId, file);
-    const dataURL = await dataUrlOf(mediaId);
-    current.addFiles([{ id: mediaId, dataURL, mimeType: "image/webp", created: Date.now() }] as never);
+    current.addFiles([
+      { id: mediaId, dataURL: imageUrlOf(mediaId), mimeType: "image/webp", created: Date.now() },
+    ] as never);
     const scale = Math.min(1, 400 / Math.max(width, height));
     const { scrollX, scrollY } = current.getAppState();
     const [element] = convertToExcalidrawElements([
@@ -249,6 +218,7 @@ export default function NotebookCanvas({
         <Excalidraw
           excalidrawAPI={(instance) => {
             api.current = instance;
+            setReady(true);
           }}
           initialData={{
             elements: initialElements,

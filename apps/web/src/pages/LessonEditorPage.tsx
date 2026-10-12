@@ -215,7 +215,12 @@ function LessonEditor({
   const [currentTitle, setCurrentTitle] = useState(title);
   const [formula, setFormula] = useState<boolean | null>(null);
   const titleId = useId();
-  const editor = useEditor({ extensions: EDITOR_EXTENSIONS, content: initial ?? EMPTY_DOC });
+  // injectCSS: false : pas de balise <style> injectée, refusée par la CSP ; les styles sont dans styles.css.
+  const editor = useEditor({
+    extensions: EDITOR_EXTENSIONS,
+    content: initial ?? EMPTY_DOC,
+    injectCSS: false,
+  });
 
   const validated = (): LessonContent | null => {
     const result = validateLessonContent(editor.getJSON());
