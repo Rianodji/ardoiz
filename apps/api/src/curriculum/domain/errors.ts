@@ -34,10 +34,3 @@ export class CurriculumConflictError extends DomainError {
     super(`Conflit (${code}).`);
   }
 }
-
-/** Image refusée à l'import (R14) : type, taille, dimensions ou décodage. */
-export class RejectedImageError extends DomainError {
-  constructor(readonly code: `curriculum.image-${string}`) {
-    super(`Image refusée (${code}).`);
-  }
-}

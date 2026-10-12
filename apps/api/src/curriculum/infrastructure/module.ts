@@ -18,9 +18,9 @@ import { ReferentialService } from "../application/ReferentialService.js";
 import type { CurriculumDependencies } from "../application/support.js";
 import { parseReferential } from "../domain/referential.js";
 import { CURRICULUM_STATUSES, curriculumRoutes } from "./http/curriculumRoutes.js";
-import { LocalFileStorage } from "./LocalFileStorage.js";
+import { LocalFileStorage } from "../../platform/media/LocalFileStorage.js";
 import { PgCurriculumGateway } from "./PgCurriculumStore.js";
-import { SharpImageIngestion } from "./SharpImageIngestion.js";
+import { SharpImageIngestion } from "../../platform/media/SharpImageIngestion.js";
 
 export interface CurriculumModuleOptions {
   readonly pool: Pool;

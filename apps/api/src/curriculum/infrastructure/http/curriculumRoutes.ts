@@ -39,7 +39,7 @@ import type { LearningService } from "../../application/LearningService.js";
 import type { MediaService } from "../../application/MediaService.js";
 import type { ProgrammeService } from "../../application/ProgrammeService.js";
 import type { ReferentialService } from "../../application/ReferentialService.js";
-import { MAX_IMAGE_BYTES } from "../SharpImageIngestion.js";
+import { MAX_IMAGE_BYTES } from "../../../platform/media/SharpImageIngestion.js";
 
 export interface CurriculumHttpServices {
   readonly referential: ReferentialService;
@@ -55,9 +55,6 @@ export const CURRICULUM_STATUSES: Readonly<Record<string, number>> = {
   "curriculum.name-taken": 409,
   "curriculum.already-unlocked": 409,
   "curriculum.competency-archived": 409,
-  "curriculum.image-too-large": 413,
-  "curriculum.image-unsupported-type": 415,
-  "curriculum.import-busy": 503,
 };
 
 const closed = { additionalProperties: false } as const;

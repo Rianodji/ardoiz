@@ -1,8 +1,22 @@
 import { createHash } from "node:crypto";
 import sharp, { type Metadata } from "sharp";
-import { RejectedImageError } from "../domain/errors.js";
 import { SerialQueue } from "./SerialQueue.js";
-import type { ImageIngestion, IngestedImage } from "../application/ports.js";
+import { DomainError } from "../../shared-kernel/DomainError.js";
+
+/** Image refusée à l'import (R14) : le code dit pourquoi, jamais le contenu reçu. */
+export class RejectedImageError extends DomainError {
+  constructor(readonly code: `media.image-${string}`) {
+    super(`Image refusée (${code}).`);
+  }
+}
+
+export interface IngestedImage {
+  readonly webp: Buffer;
+  readonly width: number;
+  readonly height: number;
+  /** Empreinte SHA-256 du fichier réencodé. */
+  readonly sha256: string;
+}
 
 /** Bornes de R14 : 10 Mo et 40 mégapixels à l'entrée ; côté le plus long ramené à 2 048 px à la sortie. */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -40,7 +54,7 @@ export function sniffImage(bytes: Buffer): Sniffed | null {
  * métadonnée (coordonnées GPS d'une photo prise chez l'enfant, appareil, date). Tout fichier que la
  * bibliothèque ne décode pas proprement — polyglotte image/HTML compris — est refusé.
  */
-export class SharpImageIngestion implements ImageIngestion {
+export class SharpImageIngestion {
   constructor(private readonly queue = new SerialQueue()) {
     // Mémoire bornée dans un conteneur de 512 Mo (verdict L2, S-3) : un seul fil de libvips, pas de cache.
     sharp.concurrency(1);
@@ -54,20 +68,20 @@ export class SharpImageIngestion implements ImageIngestion {
 
   async #ingest(bytes: Buffer): Promise<IngestedImage> {
     if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES)
-      throw new RejectedImageError("curriculum.image-too-large");
+      throw new RejectedImageError("media.image-too-large");
     const sniffed = sniffImage(bytes);
-    if (sniffed === null) throw new RejectedImageError("curriculum.image-unsupported-type");
+    if (sniffed === null) throw new RejectedImageError("media.image-unsupported-type");
 
     let metadata: Metadata;
     try {
       metadata = await sharp(bytes, { limitInputPixels: MAX_IMAGE_PIXELS, failOn: "error" }).metadata();
     } catch {
-      throw new RejectedImageError("curriculum.image-undecodable");
+      throw new RejectedImageError("media.image-undecodable");
     }
     const { width, height } = metadata;
-    if (width * height > MAX_IMAGE_PIXELS) throw new RejectedImageError("curriculum.image-too-many-pixels");
+    if (width * height > MAX_IMAGE_PIXELS) throw new RejectedImageError("media.image-too-many-pixels");
     // Le contenu doit être du type annoncé par sa signature : sinon c'est un fichier déguisé.
-    if (metadata.format !== sniffed) throw new RejectedImageError("curriculum.image-unsupported-type");
+    if (metadata.format !== sniffed) throw new RejectedImageError("media.image-unsupported-type");
 
     try {
       const { data, info } = await sharp(bytes, {
@@ -91,7 +105,7 @@ export class SharpImageIngestion implements ImageIngestion {
         sha256: createHash("sha256").update(data).digest("hex"),
       };
     } catch {
-      throw new RejectedImageError("curriculum.image-undecodable");
+      throw new RejectedImageError("media.image-undecodable");
     }
   }
 }
