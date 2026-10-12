@@ -551,3 +551,30 @@ form.inline label {
 .stack.wide {
   max-width: 64rem;
 }
+
+/* Épreuves : questions, choix de QCM, corrigé publié. */
+.questions {
+  display: grid;
+  gap: 1.25rem;
+  padding-left: 1.25rem;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+}
+
+.correction {
+  border-left: 4px solid var(--accent);
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+  background: var(--paper);
+}
+
+.grade {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+}
