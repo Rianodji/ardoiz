@@ -10,6 +10,7 @@ import {
   gradeAttempt,
   publishAttempt,
   rectifyGrade,
+  revealAnswers,
   saveQuestions,
   type AuthorAssessment,
   type QuestionInput,
@@ -649,6 +650,13 @@ export function GradingAttemptPage() {
     onSuccess: refresh,
   });
   const publish = useMutation({ mutationFn: () => publishAttempt(attemptId), onSuccess: refresh });
+  const [revealed, setRevealed] = useState(false);
+  const reveal = useMutation({
+    mutationFn: (assignmentId: string) => revealAnswers(assignmentId),
+    onSuccess: () => {
+      setRevealed(true);
+    },
+  });
   const rectify = useMutation({
     mutationFn: ([questionId, earned]: [string, string]) =>
       rectifyGrade(attemptId, { questionId, earned: Number(earned.replace(",", ".")), reason }),
@@ -779,7 +787,27 @@ export function GradingAttemptPage() {
           </button>
         </div>
       )}
-      <ErrorMessage error={grade.error ?? publish.error ?? rectify.error} />
+      <h2>Corrigé</h2>
+      <p className="hint">
+        Le corrigé (réponses attendues, explications) est montré à tous les élèves de l'attribution en même
+        temps : automatiquement à la date limite si le retard n'est pas autorisé, sinon quand vous le révélez.
+      </p>
+      <button
+        type="button"
+        className="button secondary"
+        disabled={revealed}
+        onClick={() => {
+          if (
+            window.confirm("Révéler le corrigé à tous les élèves de cette attribution ? C'est définitif.")
+          ) {
+            reveal.mutate(data.assignmentId);
+          }
+        }}
+      >
+        Révéler le corrigé
+      </button>
+      {revealed && <p role="status">Corrigé révélé.</p>}
+      <ErrorMessage error={grade.error ?? publish.error ?? rectify.error ?? reveal.error} />
     </section>
   );
 }

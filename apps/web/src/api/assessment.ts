@@ -72,3 +72,5 @@ export const rectifyGrade = (
   attemptId: string,
   body: { questionId: string; earned: number; reason: string },
 ) => apiFetch(path("/api/grading/attempts/:id/rectifications", attemptId), empty, { method: "POST", body });
+export const revealAnswers = (assignmentId: string) =>
+  apiFetch(path("/api/assignments/:id/reveal", assignmentId), empty, { method: "POST" });

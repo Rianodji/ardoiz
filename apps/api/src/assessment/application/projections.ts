@@ -13,9 +13,10 @@ import type {
 /**
  * Deux projections distinctes d'une épreuve (ADR-0007), construites par deux fonctions séparées :
  * - `assessmentForAuthor` : tout, pour le tuteur ;
- * - `attemptForLearner` : ce que l'élève peut voir. Avant la publication de la correction, elle ne
- *   contient AUCUNE réponse attendue, tolérance, unité attendue, corrigé ni point par option (R5, M6) :
- *   elle ne lit jamais `question.spec` au-delà des énoncés d'options, et seulement à travers les alias.
+ * - `attemptForLearner` : ce que l'élève peut voir. Avant la RÉVÉLATION du corrigé, elle ne contient
+ *   AUCUNE réponse attendue, tolérance, unité attendue, explication ni point par option (R5, M6) : elle
+ *   ne lit `question.spec` que pour les énoncés d'options, à travers les alias. La publication montre
+ *   seulement la note et les points obtenus (verdict L3, R-1).
  */
 
 export interface AuthorQuestionView {
@@ -70,15 +71,25 @@ export type LearnerAnswerView =
   | { readonly kind: "numeric"; readonly value: string; readonly unit: string }
   | { readonly kind: "short_text"; readonly text: string };
 
-/** Ce qui n'apparaît qu'APRÈS la publication : note, points obtenus, corrigé. */
+/** Ce qui apparaît à la PUBLICATION : la note et les points obtenus par question, sans réponse attendue. */
 export interface PublishedCorrection {
   readonly grade: number;
   readonly questions: ReadonlyArray<{
     readonly questionId: string;
     readonly earned: number;
     readonly comment: string | null;
+  }>;
+}
+
+/**
+ * Ce qui n'apparaît qu'à la RÉVÉLATION du corrigé (verdict L3, R-1) : réponses attendues et explications,
+ * pour tous les élèves de l'attribution à la fois.
+ */
+export interface AnswerKey {
+  readonly questions: ReadonlyArray<{
+    readonly questionId: string;
     readonly explanation: string | null;
-    readonly correction:
+    readonly expected:
       | { readonly kind: "mcq"; readonly correctOptionIds: readonly string[] }
       | {
           readonly kind: "numeric";
@@ -102,6 +113,7 @@ export interface LearnerAttemptView {
   readonly questions: readonly LearnerQuestionView[];
   readonly answers: Readonly<Record<string, LearnerAnswerView>>;
   readonly correction: PublishedCorrection | null;
+  readonly answerKey: AnswerKey | null;
 }
 
 function learnerQuestion(question: Question, attempt: AttemptRecord): LearnerQuestionView {
@@ -145,7 +157,10 @@ export function attemptForLearner(
   assignment: AssignmentRecord,
   attempt: AttemptRecord,
   published: { results: readonly QuestionResult[] } | null,
+  /** `answersRevealed(assignment, now)` : décidé par le domaine, jamais par l'appelant HTTP. */
+  revealed: boolean,
 ): LearnerAttemptView {
+  const isPublished = attempt.status === "published" && attempt.grade !== null && published !== null;
   const answers: Record<string, LearnerAnswerView> = {};
   for (const [questionId, answer] of Object.entries(attempt.answers)) {
     answers[questionId] = toLearnerAnswer(answer, attempt.optionAliases[questionId] ?? []);
@@ -161,11 +176,10 @@ export function attemptForLearner(
     submittedAt: attempt.submittedAt?.toISOString() ?? null,
     questions: assessment.questions.map((question) => learnerQuestion(question, attempt)),
     answers,
-    // Le corrigé n'est construit QUE pour une copie publiée (R5, ADR-0007).
-    correction:
-      attempt.status === "published" && attempt.grade !== null && published !== null
-        ? correctionFor(assessment, attempt, published.results)
-        : null,
+    // La note n'est construite QUE pour une copie publiée (R5, ADR-0007)…
+    correction: isPublished ? correctionFor(assessment, attempt, published.results) : null,
+    // …et le corrigé QUE pour une copie publiée dont l'attribution a révélé son corrigé (R5, R-1 du verdict L3).
+    answerKey: isPublished && revealed ? answerKeyFor(assessment, attempt) : null,
   };
 }
 
@@ -179,9 +193,17 @@ function correctionFor(
     grade: attempt.grade ?? 0,
     questions: assessment.questions.map((question) => {
       const result = earned.get(question.id);
+      return { questionId: question.id, earned: result?.earned ?? 0, comment: result?.comment ?? null };
+    }),
+  };
+}
+
+function answerKeyFor(assessment: AssessmentRecord, attempt: AttemptRecord): AnswerKey {
+  return {
+    questions: assessment.questions.map((question) => {
       const { spec } = question;
       const aliases = attempt.optionAliases[question.id] ?? [];
-      const correction: PublishedCorrection["questions"][number]["correction"] =
+      const expected: AnswerKey["questions"][number]["expected"] =
         spec.kind === "mcq"
           ? {
               kind: "mcq",
@@ -192,13 +214,7 @@ function correctionFor(
           : spec.kind === "numeric"
             ? { kind: "numeric", expected: spec.expected, unit: spec.unit, unitMode: spec.unitMode }
             : { kind: "short_text", modelAnswer: spec.modelAnswer };
-      return {
-        questionId: question.id,
-        earned: result?.earned ?? 0,
-        comment: result?.comment ?? null,
-        explanation: question.explanation,
-        correction,
-      };
+      return { questionId: question.id, explanation: question.explanation, expected };
     }),
   };
 }

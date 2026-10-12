@@ -4,7 +4,7 @@ import type { AssignmentId, AttemptId, LearnerId } from "../../shared-kernel/ids
 import { AttemptRefusedError, InvalidAssessmentInput } from "../domain/errors.js";
 import { autoGrade, gradeOutOf20, type Answer } from "../domain/grading.js";
 import type { Question } from "../domain/questions.js";
-import { assertCanStart, assertCanWork, assertDraftSaveAllowed } from "../domain/window.js";
+import { answersRevealed, assertCanStart, assertCanWork, assertDraftSaveAllowed } from "../domain/window.js";
 import { canViewAttempt, canWorkOnAssignment } from "./policies.js";
 import type {
   AssessmentRecord,
@@ -103,19 +103,22 @@ export class AttemptService {
       const view = await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
         const attempts = await store.attemptsOf(assignmentId, learnerId);
         const draft = attempts.find((attempt) => attempt.status === "draft");
-        if (draft !== undefined) return attemptForLearner(assessment, assignment, draft, null);
+        if (draft !== undefined) return attemptForLearner(assessment, assignment, draft, null, false);
         assertCanStart(assignment, this.deps.clock.now(), attempts.length);
         const attempt = this.#newAttempt(assessment, assignment, learnerId, attempts.length + 1);
         // Deux démarrages simultanés : le second se heurte au numéro unique et recommence (R5).
         if (!(await store.insertAttempt(attempt))) return null;
-        return attemptForLearner(assessment, assignment, attempt, null);
+        return attemptForLearner(assessment, assignment, attempt, null, false);
       });
       if (view !== null) return view;
     }
     throw new AttemptRefusedError("assessment.no-attempts-left");
   }
 
-  /** La copie de l'élève (ou, pour le parent lié, après publication) : jamais de corrigé avant la publication. */
+  /**
+   * La copie de l'élève (ou, pour le parent lié, après publication) : la note après la publication,
+   * le corrigé seulement après sa révélation (R5, verdict L3 R-1).
+   */
   async view(actor: Actor, attemptId: AttemptId): Promise<LearnerAttemptView> {
     const found = await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
       const attempt = await store.attemptById(attemptId);
@@ -148,6 +151,7 @@ export class AttemptService {
       found.assignment,
       found.attempt,
       found.attempt.status === "published" ? { results: found.results } : null,
+      answersRevealed(found.assignment, this.deps.clock.now()),
     );
   }
 
@@ -231,6 +235,7 @@ export class AttemptService {
         assignment,
         final,
         final.status === "published" ? { results } : null,
+        answersRevealed(assignment, now),
       );
     });
   }

@@ -39,3 +39,16 @@ export function assertDraftSaveAllowed(lastSavedAt: Date | null, now: Date): voi
   if (elapsed < DRAFT_SAVE_INTERVAL_MS)
     throw new DraftTooFrequentError(Math.ceil((DRAFT_SAVE_INTERVAL_MS - elapsed) / 1000));
 }
+
+/**
+ * Révélation du corrigé (big picture §8, verdict L3 R-1) : le corrigé d'une attribution est montré à
+ * tous ses élèves en même temps, à l'échéance passée si le retard n'est pas autorisé, ou quand le
+ * tuteur le révèle. Avant, ni une tentative suivante ni un autre élève ne voient de réponse attendue (R5).
+ */
+export function answersRevealed(
+  assignment: { readonly dueAt: Date; readonly lateAllowed: boolean; readonly revealedAt: Date | null },
+  now: Date,
+): boolean {
+  if (assignment.revealedAt !== null) return true;
+  return !assignment.lateAllowed && now.getTime() >= assignment.dueAt.getTime();
+}

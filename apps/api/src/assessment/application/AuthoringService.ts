@@ -157,6 +157,7 @@ export class AuthoringService {
         learnerIds,
         createdAt: this.deps.clock.now(),
         createdBy: tutorId,
+        revealedAt: null,
       };
       await store.insertAssignment(assignment);
       await store.audit(

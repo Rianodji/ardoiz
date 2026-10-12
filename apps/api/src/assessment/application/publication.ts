@@ -10,6 +10,8 @@ import { auditOf, type AssessmentDependencies } from "./support.js";
 
 /** Événement d'intégration : la correction d'une copie est publiée (glossaire : CorrectionPubliée). */
 export const CORRECTION_PUBLISHED = "assessment.correction-published";
+/** Événement d'intégration : le tuteur révèle le corrigé d'une attribution (glossaire : CorrigéRévélé). */
+export const ANSWERS_REVEALED = "assessment.answers-revealed";
 
 /**
  * Publie une copie corrigée : statut, date, audit et événement `CorrectionPubliée` écrits dans la

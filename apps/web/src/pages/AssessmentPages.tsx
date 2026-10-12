@@ -205,7 +205,10 @@ function AnswerField({
   }
 }
 
-/** Corrigé d'une question, affiché seulement quand la correction est publiée (R5). */
+/**
+ * Points d'une question dès la publication ; réponse attendue et explication seulement après la
+ * révélation du corrigé (R5, verdict L3 R-1).
+ */
 function CorrectionOf({
   attempt,
   questionId,
@@ -215,26 +218,28 @@ function CorrectionOf({
 }) {
   const entry = attempt.correction?.questions.find((candidate) => candidate.questionId === questionId);
   if (entry === undefined) return null;
+  const key = attempt.answerKey?.questions.find((candidate) => candidate.questionId === questionId);
   const question = attempt.questions.find((candidate) => candidate.id === questionId);
-  const expected =
-    entry.correction.kind === "mcq"
-      ? (question?.kind === "mcq" ? question.options : [])
-          .filter(
-            (option) =>
-              entry.correction.kind === "mcq" && entry.correction.correctOptionIds.includes(option.id),
-          )
-          .map((option) => option.text)
-          .join(", ")
-      : entry.correction.kind === "numeric"
-        ? `${entry.correction.expected.replace(".", ",")} ${entry.correction.unit}`
-        : entry.correction.modelAnswer;
+  let expected: string | null = null;
+  if (key !== undefined) {
+    const solution = key.expected;
+    expected =
+      solution.kind === "mcq"
+        ? (question?.kind === "mcq" ? question.options : [])
+            .filter((option) => solution.correctOptionIds.includes(option.id))
+            .map((option) => option.text)
+            .join(", ")
+        : solution.kind === "numeric"
+          ? `${solution.expected.replace(".", ",")} ${solution.unit}`
+          : solution.modelAnswer;
+  }
   return (
-    <div className="correction" aria-label="Corrigé">
+    <div className="correction" aria-label="Correction">
       <p>
         <strong>{points(entry.earned)}</strong>
         {expected !== null && expected !== "" && <> · Réponse attendue : {expected}</>}
       </p>
-      {entry.explanation !== null && <p>{entry.explanation}</p>}
+      {key?.explanation !== undefined && key.explanation !== null && <p>{key.explanation}</p>}
       {entry.comment !== null && <p>Commentaire du tuteur : {entry.comment}</p>}
     </div>
   );
@@ -295,6 +300,9 @@ export function AttemptPage() {
         {data.late && <span className="badge todo"> rendue en retard</span>}
       </p>
       {data.correction !== null && <p className="grade">Note : {grade(data.correction.grade)}</p>}
+      {data.correction !== null && data.answerKey === null && (
+        <p className="hint">Le corrigé sera disponible après la date limite.</p>
+      )}
       {!editable && data.correction === null && (
         <p className="hint">Copie rendue : ton tuteur la corrige. La note apparaîtra ici.</p>
       )}

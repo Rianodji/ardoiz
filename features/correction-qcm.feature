@@ -15,9 +15,15 @@ Fonctionnalité: Correction côté serveur et réponses protégées (R5, M6)
     Et la question est corrigée automatiquement avec la totalité des points
     Mais "Lina" ne voit pas encore sa note
 
-  Scénario: Le résultat devient visible après publication
+  Scénario: Le résultat devient visible après publication, sans le corrigé
     Étant donné que "Lina" a rendu sa copie
     Quand le tuteur publie la correction
+    Alors "Lina" et ses parents voient la note, sans le corrigé
+
+  Scénario: Le corrigé est révélé à l'échéance (verdict du lot 03, R-1)
+    Étant donné que "Lina" a rendu sa copie
+    Et que le tuteur a publié la correction
+    Quand l'échéance du vendredi 18 h est passée
     Alors "Lina" et ses parents voient la note et le corrigé
 
   Scénario: Pas de tentative après l'échéance

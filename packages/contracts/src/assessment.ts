@@ -145,17 +145,28 @@ const LearnerQuestion = Type.Union([
     closed,
   ),
 ]);
+/** Publication : la note et les points obtenus, sans aucune réponse attendue (R5). */
 const Correction = Type.Object(
   {
     grade: Type.Number(),
     questions: Type.Array(
       Type.Object(
+        { questionId: Type.String(), earned: Type.Number(), comment: Nullable(Type.String()) },
+        closed,
+      ),
+    ),
+  },
+  closed,
+);
+/** Révélation (verdict L3, R-1) : réponses attendues et explications, pour toute l'attribution à la fois. */
+const AnswerKey = Type.Object(
+  {
+    questions: Type.Array(
+      Type.Object(
         {
           questionId: Type.String(),
-          earned: Type.Number(),
-          comment: Nullable(Type.String()),
           explanation: Nullable(Type.String()),
-          correction: Type.Union([
+          expected: Type.Union([
             Type.Object({ kind: Type.Literal("mcq"), correctOptionIds: Type.Array(Type.String()) }, closed),
             Type.Object(
               {
@@ -194,6 +205,7 @@ export const LearnerAttemptResponse = Type.Object(
     questions: Type.Array(LearnerQuestion),
     answers: Type.Record(Type.String(), LearnerAnswer),
     correction: Nullable(Correction),
+    answerKey: Nullable(AnswerKey),
   },
   closed,
 );
@@ -300,6 +312,7 @@ export const AssignmentsResponse = Type.Object(
           lateAllowed: Type.Boolean(),
           publication: Type.Union([Type.Literal("auto"), Type.Literal("manual")]),
           learnerIds: Type.Array(Type.String()),
+          revealedAt: Nullable(DateTime),
         },
         closed,
       ),

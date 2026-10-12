@@ -1,6 +1,6 @@
 import type { Actor } from "../../identity/index.js";
 import { NotFoundError } from "../../shared-kernel/DomainError.js";
-import type { AttemptId, LearnerId, QuestionId } from "../../shared-kernel/ids.js";
+import type { AssignmentId, AttemptId, LearnerId, QuestionId } from "../../shared-kernel/ids.js";
 import { GradingError } from "../domain/errors.js";
 import { gradeOutOf20 } from "../domain/grading.js";
 import { halfPoints, plainText } from "../domain/questions.js";
@@ -8,7 +8,7 @@ import { loadAttempt } from "./AttemptService.js";
 import { canAuthorOrGrade, canViewResults } from "./policies.js";
 import { attemptForTutor } from "./projections.js";
 import type { AttemptRecord, QuestionResult } from "./ports.js";
-import { publishAttempt } from "./publication.js";
+import { ANSWERS_REVEALED, publishAttempt } from "./publication.js";
 import { auditOf, authorize, type AssessmentDependencies } from "./support.js";
 
 export interface GradeInput {
@@ -169,7 +169,8 @@ export class GradingService {
       );
       if (newGrade === null) throw new GradingError("assessment.grading-incomplete");
       const now = this.deps.clock.now();
-      await store.enableRectification();
+      // La ligne de rectification est la PREUVE exigée par la base au COMMIT pour changer une note
+      // publiée (trigger différé, verdict L3 R-3) : sans elle, la transaction est refusée.
       await store.insertRectification({
         id: this.deps.ids.next("RectificationId"),
         attemptId,
@@ -192,6 +193,33 @@ export class GradingService {
       await store.updateAttemptStatus(attemptId, "published", newGrade, attempt.publishedAt);
       await store.audit(
         auditOf(this.deps, actor, "assessment.rectified", "success", { targetId: attemptId }),
+      );
+    });
+  }
+
+  /**
+   * Révèle le corrigé d'une attribution à tous ses élèves en même temps (verdict L3, R-1) : seul moyen
+   * quand le retard est autorisé. Audité, événement `CorrigéRévélé` dans l'outbox, même transaction.
+   */
+  async reveal(actor: Actor, assignmentId: AssignmentId): Promise<void> {
+    await authorize(this.deps, actor, canAuthorOrGrade(actor), "assessment.reveal", assignmentId);
+    if (actor.kind !== "tutor") throw new NotFoundError();
+    const tutorId = actor.id;
+    await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
+      const assignment = await store.assignmentById(assignmentId);
+      if (assignment === null) throw new NotFoundError();
+      const now = this.deps.clock.now();
+      // Une seconde demande ne change rien : la date de la première révélation est conservée.
+      if (!(await store.revealAnswers(assignmentId, now, tutorId))) return;
+      await store.publish({
+        id: this.deps.ids.next("EventId"),
+        type: ANSWERS_REVEALED,
+        tutorSpaceId: actor.tutorSpaceId,
+        occurredAt: now,
+        payload: { assignmentId, assessmentId: assignment.assessmentId, revealedAt: now.toISOString() },
+      });
+      await store.audit(
+        auditOf(this.deps, actor, "assessment.answers-revealed", "success", { targetId: assignmentId }),
       );
     });
   }

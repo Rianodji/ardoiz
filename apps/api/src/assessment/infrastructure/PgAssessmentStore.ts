@@ -8,6 +8,7 @@ import type {
   AssignmentId,
   AttemptId,
   LearnerId,
+  TutorId,
   TutorSpaceId,
 } from "../../shared-kernel/ids.js";
 import type { IntegrationEvent } from "../../shared-kernel/IntegrationEvent.js";
@@ -232,9 +233,10 @@ export class PgAssessmentStore implements AssessmentStore {
       publication: "auto" | "manual";
       created_at: Date;
       created_by: string;
+      revealed_at: Date | null;
       learner_ids: string[];
     }>(
-      `SELECT a.id, a.assessment_id, a.opens_at, a.due_at, a.max_attempts, a.late_allowed, a.publication, a.created_at, a.created_by,
+      `SELECT a.id, a.assessment_id, a.opens_at, a.due_at, a.max_attempts, a.late_allowed, a.publication, a.created_at, a.created_by, a.revealed_at,
               COALESCE(array_agg(al.learner_id ORDER BY al.learner_id) FILTER (WHERE al.learner_id IS NOT NULL), '{}') AS learner_ids
          FROM assessment.assignments a
          LEFT JOIN assessment.assignment_learners al ON al.assignment_id = a.id
@@ -252,6 +254,7 @@ export class PgAssessmentStore implements AssessmentStore {
       learnerIds: row.learner_ids.map((id) => fromUuid("LearnerId", id)),
       createdAt: row.created_at,
       createdBy: fromUuid("TutorId", row.created_by),
+      revealedAt: row.revealed_at,
     }));
   }
 
@@ -282,6 +285,14 @@ export class PgAssessmentStore implements AssessmentStore {
         [this.#space, toUuid(assignment.id), toUuid(learnerId)],
       );
     }
+  }
+
+  async revealAnswers(id: AssignmentId, at: Date, by: TutorId): Promise<boolean> {
+    const result = await this.client.query(
+      `UPDATE assessment.assignments SET revealed_at = $2, revealed_by = $3 WHERE id = $1 AND revealed_at IS NULL`,
+      [toUuid(id), at, toUuid(by)],
+    );
+    return result.rowCount === 1;
   }
 
   async attemptsOf(assignmentId: AssignmentId, learnerId: LearnerId): Promise<AttemptRecord[]> {
@@ -408,11 +419,6 @@ export class PgAssessmentStore implements AssessmentStore {
         result.gradedAt,
       ],
     );
-  }
-
-  async enableRectification(): Promise<void> {
-    // Local à la transaction : la base n'accepte la modification d'une note publiée que dans celle-ci (R6).
-    await this.client.query(`SELECT set_config('app.rectification', 'on', true)`);
   }
 
   async insertRectification(entry: RectificationRecord): Promise<void> {

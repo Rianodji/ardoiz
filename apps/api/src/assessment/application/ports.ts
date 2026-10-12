@@ -35,6 +35,8 @@ export interface AssignmentRecord {
   readonly learnerIds: readonly LearnerId[];
   readonly createdAt: Date;
   readonly createdBy: TutorId;
+  /** Révélation explicite du corrigé par le tuteur (verdict L3, R-1) ; null tant qu'elle n'a pas eu lieu. */
+  readonly revealedAt: Date | null;
 }
 
 /** Option de QCM telle que montrée à l'élève pour CETTE tentative : identifiant opaque, ordre mélangé (ADR-0007). */
@@ -96,6 +98,8 @@ export interface AssessmentStore {
   assignments(): Promise<AssignmentRecord[]>;
   assignmentById(id: AssignmentId): Promise<AssignmentRecord | null>;
   insertAssignment(assignment: AssignmentRecord): Promise<void>;
+  /** Pose la date de révélation si elle n'existe pas encore ; faux si le corrigé était déjà révélé. */
+  revealAnswers(id: AssignmentId, at: Date, by: TutorId): Promise<boolean>;
 
   attemptsOf(assignmentId: AssignmentId, learnerId: LearnerId): Promise<AttemptRecord[]>;
   attemptsOfLearners(learnerIds: readonly LearnerId[]): Promise<AttemptRecord[]>;
@@ -115,8 +119,6 @@ export interface AssessmentStore {
 
   resultsOf(attemptId: AttemptId): Promise<QuestionResult[]>;
   upsertResult(attemptId: AttemptId, result: QuestionResult): Promise<void>;
-  /** Autorise, dans CETTE transaction seulement, la modification d'une note publiée (rectification tracée). */
-  enableRectification(): Promise<void>;
   insertRectification(rectification: RectificationRecord): Promise<void>;
   rectificationsOf(attemptId: AttemptId): Promise<RectificationRecord[]>;
 

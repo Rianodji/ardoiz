@@ -114,6 +114,7 @@ export function assessmentRoutes(app: FastifyInstance, services: AssessmentHttpS
       lateAllowed: assignment.lateAllowed,
       publication: assignment.publication,
       learnerIds: [...assignment.learnerIds],
+      revealedAt: assignment.revealedAt?.toISOString() ?? null,
     })),
   }));
 
@@ -135,6 +136,15 @@ export function assessmentRoutes(app: FastifyInstance, services: AssessmentHttpS
         publication: body.publication,
       });
       return reply.code(201).send({ id: assignment.id });
+    },
+  );
+
+  app.post<{ Params: Static<typeof AssignmentParams> }>(
+    "/api/assignments/:assignmentId/reveal",
+    { schema: { params: AssignmentParams } },
+    async (request, reply) => {
+      await grading.reveal(actorOf(request), AssignmentId(request.params.assignmentId));
+      return reply.code(204).send();
     },
   );
 
