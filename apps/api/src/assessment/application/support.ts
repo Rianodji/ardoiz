@@ -10,6 +10,7 @@ import type {
   FileStorage,
   ImageIngestion,
   LearnerDirectory,
+  UploadLimiter,
 } from "./ports.js";
 
 export interface AssessmentDependencies {
@@ -17,6 +18,7 @@ export interface AssessmentDependencies {
   readonly curriculum: CurriculumDirectory;
   readonly learners: LearnerDirectory;
   readonly images: ImageIngestion;
+  readonly uploads: UploadLimiter;
   readonly files: FileStorage;
   readonly hasher: ContentHasher;
   readonly random: RandomSource;

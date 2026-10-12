@@ -158,6 +158,11 @@ export interface NotebookMediaRecord {
   readonly createdAt: Date;
 }
 
+/** Débit des imports d'un acteur (verdict L4, S-1) : accepte et compte, ou dit combien attendre. */
+export interface UploadLimiter {
+  take(key: string, now: Date): { allowed: true } | { allowed: false; retryAfterSeconds: number };
+}
+
 /** Import d'une image (R14), partagé avec les cours : la même file d'attente bornée en mémoire. */
 export interface ImageIngestion {
   ingest(bytes: Buffer): Promise<{ webp: Buffer; width: number; height: number; sha256: string }>;

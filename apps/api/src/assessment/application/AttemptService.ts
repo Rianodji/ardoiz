@@ -1,7 +1,7 @@
 import type { Actor } from "../../identity/index.js";
 import { NotFoundError } from "../../shared-kernel/DomainError.js";
 import type { AssignmentId, AttemptId, LearnerId, NotebookMediaId } from "../../shared-kernel/ids.js";
-import { AttemptRefusedError, InvalidAssessmentInput } from "../domain/errors.js";
+import { AttemptRefusedError, InvalidAssessmentInput, TooManyUploadsError } from "../domain/errors.js";
 import { autoGrade, gradeOutOf20, type Answer } from "../domain/grading.js";
 import type { Question } from "../domain/questions.js";
 import { answersRevealed, assertCanStart, assertCanWork, assertDraftSaveAllowed } from "../domain/window.js";
@@ -276,6 +276,10 @@ export class AttemptService {
     assertCanWork(assignment, this.deps.clock.now());
     if (mediaIds.size >= MAX_NOTEBOOK_IMAGES)
       throw new InvalidAssessmentInput("assessment.invalid-too-many-images");
+    // Débit par élève AVANT l'ingestion (verdict L4, S-1) : un élève ne monopolise pas la file commune
+    // des imports, qui sert aussi le tuteur. Une tentative refusée ensuite (fichier invalide) compte quand même.
+    const quota = this.deps.uploads.take(`learner:${actor.id}`, this.deps.clock.now());
+    if (!quota.allowed) throw new TooManyUploadsError(quota.retryAfterSeconds);
     const image = await this.deps.images.ingest(bytes);
     const mediaId = this.deps.ids.next("NotebookMediaId");
     // Le fichier est écrit avant la ligne : une ligne ne désigne jamais un fichier absent.

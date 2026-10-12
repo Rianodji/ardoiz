@@ -20,6 +20,15 @@ export class AttemptRefusedError extends DomainError {
   }
 }
 
+/** Imports d'images trop nombreux pour un même élève (verdict L4, S-1) : 429 avec Retry-After. */
+export class TooManyUploadsError extends DomainError {
+  readonly code = "http.too-many-requests";
+
+  constructor(readonly retryAfterSeconds: number) {
+    super("Trop d'images importées d'un coup.");
+  }
+}
+
 /** Sauvegarde trop rapprochée de la précédente (R15). */
 export class DraftTooFrequentError extends DomainError {
   readonly code = "http.too-many-requests";
