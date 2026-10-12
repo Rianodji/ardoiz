@@ -1,7 +1,7 @@
 # ADR-0011 : Rendre les formules en MathML (KaTeX `output: "mathml"`), sans ouvrir `style-src`
 
 ## Statut
-Proposée · lot L2 (2026-10-12), par la session de développement ; en attente de la décision du lead
+Acceptée · proposée au lot L2 par la session de développement, acceptée par le lead le 2026-10-12 (verdict du lot 02), avec une condition : `\fcolorbox` est ajoutée aux commandes refusées, car elle produit un attribut `style`
 
 ## Contexte
 L'ADR-0005 impose KaTeX pour les formules (`trust: false`, bornes de taille et d'expansion) et un seul composant autorisé à insérer du balisage. Le rendu par défaut de KaTeX (`output: "htmlAndMathml"`) produit du HTML chargé d'attributs `style` en ligne et demande la feuille de style et les polices de KaTeX. Notre CSP (R11) n'autorise que `style-src 'self'` : les styles en ligne seraient bloqués et les formules mal affichées. Le verdict du lot 01 demande qu'une ouverture de `style-src` passe par un ADR, jamais par un `'unsafe-inline'` silencieux.
