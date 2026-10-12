@@ -239,6 +239,26 @@ const { id: assignmentId } = (await call("tutor", "POST", "/api/assignments", {
   publication: "manual",
 })) as { id: string };
 
+// Une seconde épreuve de cahier, pour l'essai en émulation tactile (tablette).
+const { id: sketchId } = (await call("tutor", "POST", "/api/assessments", {
+  subjectId,
+  title: "Croquis sur tablette",
+})) as { id: string };
+await call("tutor", "PUT", `/api/assessments/${sketchId}/questions`, {
+  questions: [
+    { kind: "notebook", prompt: "Trace une ligne au doigt.", points: 1, competencyIds: [competencyId] },
+  ],
+});
+await call("tutor", "POST", "/api/assignments", {
+  assessmentId: sketchId,
+  audience: { kind: "learner", id: learnerId },
+  opensAt: new Date(now - 3_600_000).toISOString(),
+  dueAt: new Date(now + 7 * 86_400_000).toISOString(),
+  maxAttempts: 1,
+  lateAllowed: false,
+  publication: "manual",
+});
+
 // Un cours publié avec une formule et un encadré, ouvert à Lina : pages de cours sous la CSP (dette L2).
 const { id: moduleId } = (await call("tutor", "POST", "/api/modules", {
   subjectId,

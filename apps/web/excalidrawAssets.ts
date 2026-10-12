@@ -5,9 +5,9 @@ import type { Plugin } from "vite";
 
 /**
  * Ressources d'Excalidraw servies par notre origine, pour respecter la CSP de production sans l'ouvrir :
- * - polices sous /assets/excalidraw/fonts/ (font-src 'self'), au lieu du CDN par défaut. Toutes sont
- *   embarquées : sans la police de repli (Xiaolai), Excalidraw retombe sur le CDN, refusé par la CSP.
- *   Le navigateur ne télécharge que les tranches de caractères réellement affichées ;
+ * - polices sous /assets/excalidraw/fonts/ (font-src 'self'), au lieu du CDN par défaut. La police de
+ *   repli CJK (Xiaolai, 13 Mo) n'est pas embarquée (verdict L4, S-2) : l'E2E vérifie qu'un texte français
+ *   (accents, ligatures, guillemets) s'affiche sans elle, sans police manquante ni violation de CSP ;
  * - adresse de repli des polices : Excalidraw ajoute TOUJOURS le CDN esm.sh après notre adresse, et le
  *   navigateur le signale comme une violation de la CSP. Ce repli est remplacé par notre origine. Si le
  *   motif change (mise à jour d'Excalidraw), la construction échoue au lieu de laisser passer le CDN.
@@ -28,7 +28,7 @@ function withoutCdnFallback(code: string, id: string): string | null {
 
 function fontFiles(): string[] {
   return readdirSync(SOURCE)
-    .filter((family) => statSync(join(SOURCE, family)).isDirectory())
+    .filter((family) => family !== "Xiaolai" && statSync(join(SOURCE, family)).isDirectory())
     .flatMap((family) =>
       readdirSync(join(SOURCE, family))
         .filter((file) => file.endsWith(".woff2"))
