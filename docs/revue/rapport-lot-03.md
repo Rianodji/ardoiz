@@ -145,3 +145,61 @@ Ces questions sont aussi reportées dans `docs/questions-ouvertes.md`, avec un m
 - **`/api/my/assignments`** renvoie une liste vide, et non un 403, à un adulte : c'est la liste des épreuves « de l'acteur ».
 - **Bundle web.** Le bundle principal dépasse 500 kB (KaTeX et typebox ; l'éditeur reste chargé à la demande). Il faudra découper la vue des épreuves si le chargement sur mobile en souffre (mesure prévue au L7).
 - **Contrôle « pas encore ouverte ».** Un élève qui ouvre la page avant l'ouverture voit l'état « bientôt » ; c'est le serveur qui refuse le démarrage. Il n'y a pas de compte à rebours côté client, volontairement : l'horloge du client ne fait pas foi.
+
+## 9. Traitement des réserves du verdict
+
+Commits `21751a8` (migration 005), `6587b8a` (code) et `5561f51` (tests), sur `lot/03-evaluation`.
+
+### R-1 · 🔴 Révélation du corrigé — ✅
+
+- **Règle de domaine pure.** `assessment/domain/window.ts › answersRevealed(assignment, now)` est vraie si le tuteur a révélé le corrigé, ou si l'échéance est passée **et** le retard n'est pas autorisé.
+- **Données.** La migration `005_revelation_et_preuves.sql` ajoute à `assignments` les colonnes nullables `revealed_at` et `revealed_by` (*expand*). Le trigger `assignments_reveal_once` rend la révélation **définitive** : un corrigé vu ne peut plus être caché, même en SQL.
+- **Commande tuteur.** `POST /api/assignments/:id/reveal` (`GradingService.reveal`) est auditée (`assessment.answers-revealed`) et écrit l'événement `assessment.answers-revealed` (CorrigéRévélé) dans l'outbox, dans la même transaction. Une seconde demande ne change rien.
+- **Projection.** La vue élève sépare désormais deux parties :
+  - `correction` : note, points et commentaire par question, présents **dès la publication** ;
+  - `answerKey` : réponses attendues et explications, construit **seulement** si la copie est publiée **et** que `answersRevealed` est vraie.
+
+  Les deux schémas de réponse sont fermés.
+- **Vue élève.** À la place du corrigé, elle affiche : « Le corrigé sera disponible après la date limite ».
+- **Vue tuteur.** Le détail d'une copie propose un bouton « Révéler le corrigé », avec une confirmation qui précise que c'est définitif.
+- **Tests** :
+  - le **test de contrat** est étendu : après la publication et **avant** la révélation, il relit toutes les routes GET de l'élève et du parent ; aucune valeur témoin n'y figure. Après la révélation, les témoins apparaissent (`assessment.int.test.ts` › `aucune réponse attendue dans AUCUN JSON…`) ;
+  - bornes : `échéance − 1 s : note publiée sans corrigé ; échéance + 0 s sans retard autorisé : corrigé révélé (R5)` ; `retard autorisé : aucun corrigé après l'échéance tant que le tuteur ne l'a pas révélé ; révélation auditée, définitive (R5, R12)` ;
+  - scénario du verdict : `2 tentatives, publication automatique : après une première copie vide, la seconde tentative ne voit aucune réponse attendue (R5)` ;
+  - domaine : `domain.test.ts` › `Révélation du corrigé (R5, verdict L3 R-1)` (3 tests) ;
+  - **matrice** : nouvelles lignes « Voir sa note et ses points par question » (avec la vérification `answerKey: null`), « Voir le corrigé (réponses attendues, explications) » (avec la vérification que le corrigé est présent) et « Révéler le corrigé d'une attribution ». Le harnais accepte maintenant une vérification facultative du corps d'une réponse autorisée (`MatrixRow.verify`). La matrice passe de 56 à 77 cellules ;
+  - web : `publiée, corrigé pas encore révélé : la note et les points, et l'annonce du corrigé après la date limite (R5, R-1)` et `affiche le corrigé une fois révélé`.
+- **Feature à valider par le lead.** Le scénario « Le résultat devient visible après publication » de `features/correction-qcm.feature` disait que Lina et ses parents « voient la note et le corrigé » dès la publication, ce que la nouvelle règle interdit. Je l'ai modifié au plus près du texte d'origine :
+  - « Le résultat devient visible après publication, sans le corrigé » ;
+  - un nouveau scénario : « Le corrigé est révélé à l'échéance (verdict du lot 03, R-1) ».
+
+  Les 6 scénarios passent. Merci de confirmer ce texte : c'est une spécification que tu as écrite.
+
+### R-2 · 🟡 Questions d'une épreuve attribuée — ✅
+
+- **Gardien.** Le trigger `assessment.freeze_assigned_questions` porte sur `questions` et `question_competencies` (`INSERT`, `UPDATE`, `DELETE`). Il refuse toute modification dès qu'une attribution existe pour l'épreuve, y compris le déplacement d'une question vers une autre épreuve.
+- **Test.** `les questions d'une épreuve attribuée sont figées par la base, même en SQL direct (R6, verdict L3 R-2)` couvre six requêtes refusées : énoncé, bonne réponse, compétence retirée, question supprimée, question ajoutée, compétence ajoutée. Une épreuve non attribuée reste modifiable.
+
+### R-3 · 🟡 Drapeau `app.rectification` — ✅
+
+- **Plus de drapeau.** Il n'est plus lu nulle part : les fonctions `freeze_submitted_attempt` et `guard_published_result` sont redéfinies sans lui, et `AssessmentStore.enableRectification` est supprimée.
+- **Preuve exigée au `COMMIT`.** Deux triggers de contrainte `DEFERRABLE INITIALLY DEFERRED` la vérifient :
+  - `attempts_grade_needs_rectification` : changer la note d'une copie publiée exige une ligne de `grade_rectifications` pour cette copie, avec `new_grade = NEW.grade`, insérée dans **la même transaction** (`xmin = pg_current_xact_id()::xid`) ;
+  - `question_results_need_rectification` : même exigence pour les points d'une question, avec `question_id` et `new_earned`.
+- **Ce qui reste figé sur une copie publiée.** Le commentaire du tuteur et la date de publication ne changent plus.
+- **Test.** `une note publiée modifiée avec le seul drapeau, sans ligne de rectification dans la transaction, est refusée au COMMIT (R6, verdict L3 R-3)` vérifie trois cas, tous refusés :
+  - la note modifiée avec le drapeau ;
+  - les points modifiés avec le drapeau ;
+  - une ligne de rectification insérée dans une **autre** transaction, qui ne sert pas de preuve.
+
+  Le test vérifie aussi que la note reste inchangée. Le test de rectification par l'application reste vert.
+
+### Vérifications après les réserves
+
+```
+npm run lint             → 0 erreur
+npm run typecheck        → 0 erreur
+npm test                 → 394 tests, 394 réussis
+npm run test:integration → 294 tests, 294 réussis
+npm run depcruise        → ✔ no dependency violations found (135 modules, 497 dependencies cruised)
+```
