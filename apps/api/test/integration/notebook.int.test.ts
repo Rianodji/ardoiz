@@ -3,6 +3,7 @@ import { loginGuardian, startAttempt, type LearnerAttempt } from "./support/asse
 import { setupFamily, type Family } from "./support/families.js";
 import {
   expectStatus,
+  freedraw,
   imageElement,
   notebookAnswer,
   notebookAssessment,
@@ -58,16 +59,7 @@ describe("Cahier virtuel (L4, ADR-0004)", () => {
     it("refuse une scène de plus de 5 Mo avec le motif « cahier trop volumineux » (R15)", async () => {
       const attempt = await start();
       // 1 600 traits de 230 points : un peu plus de 5 Mo de JSON, sous la limite du corps de la requête.
-      const { startBinding, endBinding, startArrowhead, endArrowhead, ...line } = triangle();
-      void [startBinding, endBinding, startArrowhead, endArrowhead];
-      const elements = Array.from({ length: 1_600 }, (_, i) => ({
-        ...line,
-        id: `s${String(i)}`,
-        type: "freedraw",
-        points: Array.from({ length: 230 }, (_, k) => [k * 1.25, k * 2.5]),
-        pressures: [],
-        simulatePressure: true,
-      }));
+      const elements = Array.from({ length: 1_600 }, (_, i) => freedraw(`s${String(i)}`, 230));
       const size = JSON.stringify(notebookAnswer(attempt, elements)).length;
       expect(size).toBeGreaterThan(5_000_000);
       expect(size).toBeLessThan(5 * 1024 * 1024 + 256 * 1024);

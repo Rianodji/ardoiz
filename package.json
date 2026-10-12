@@ -19,14 +19,15 @@
     "build": "npm run build --workspaces --if-present",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present && tsc -p e2e",
     "test": "vitest run --project api --project web --project contracts --project content-schema",
     "test:integration": "vitest run --project api-integration",
     "depcruise": "depcruise apps/api/src --config .dependency-cruiser.cjs",
     "licenses": "node tools/check-licenses.mjs",
     "db:migrate": "npm run db:migrate --workspace @ardoiz/api",
     "sbom": "npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json",
-    "ardoiz": "npm run cli --workspace @ardoiz/api --"
+    "ardoiz": "npm run cli --workspace @ardoiz/api --",
+    "test:e2e": "npm run build -w @ardoiz/web && playwright test -c e2e/playwright.config.ts"
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1"

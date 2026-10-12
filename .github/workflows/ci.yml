@@ -41,6 +41,30 @@ jobs:
       - run: npm run licenses
       - run: npm run build
 
+  e2e:
+    name: Bout en bout (Playwright, CSP de production)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      # Navigateur de la version de Playwright figée dans le lockfile.
+      - run: npx playwright install --with-deps chromium
+      # Vraie application, vraie CSP, PostgreSQL jetable : toute violation de CSP fait échouer (verdict L3, §6).
+      - run: npm run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: traces-e2e
+          path: test-results/
+          retention-days: 14
+
   dependencies:
     name: Vulnérabilités connues et inventaire logiciel
     runs-on: ubuntu-24.04

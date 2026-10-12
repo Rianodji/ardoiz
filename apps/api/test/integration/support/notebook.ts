@@ -51,6 +51,16 @@ export const triangle = () => ({
 
 export const rectangle = (id: string) => ({ type: "rectangle", ...common(id) });
 
+/** Un trait à main levée de `count` points. */
+export const freedraw = (id: string, count: number) => ({
+  type: "freedraw",
+  ...common(id),
+  points: Array.from({ length: count }, (_, k) => [k * 1.25, k * 2.5]),
+  pressures: [],
+  simulatePressure: true,
+  lastCommittedPoint: null,
+});
+
 export const textElement = (id: string, text: string, color = "#1e1e1e") => ({
   type: "text",
   ...common(id, 20, 120),
