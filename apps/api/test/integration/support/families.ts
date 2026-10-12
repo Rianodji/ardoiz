@@ -39,7 +39,7 @@ export async function setupTutor(
   options: { enrollTotp?: boolean; spaceName?: string; tutorName?: string } = {},
 ): Promise<Tutor> {
   const email = "tuteur@example.org";
-  await world.identity.initSpace({
+  const { tutorSpaceId } = await world.identity.initSpace({
     spaceName: options.spaceName ?? "Espace Dicard",
     spaceCode: SPACE_CODE,
     tutorEmail: email,

@@ -28,6 +28,8 @@ export interface AppConfig {
   readonly mail: MailConfig;
   /** Textes juridiques affichés sans modification (docs/juridique). */
   readonly legalDir?: string;
+  /** Volume des fichiers importés (images réencodées, R14) ; obligatoire en production (ADR-0008). */
+  readonly mediaDir?: string;
 }
 
 export type MailConfig =
@@ -178,6 +180,9 @@ export function loadConfig(env: Env): AppConfig {
   const environment = oneOf(env, "NODE_ENV", ENVIRONMENTS);
   const webDistDir = optional(env, "WEB_DIST_DIR");
   const legalDir = optional(env, "LEGAL_DIR");
+  const mediaDir = optional(env, "MEDIA_DIR");
+  if (environment === "production" && mediaDir === undefined)
+    throw new ConfigurationError("MEDIA_DIR", "absente");
   return {
     environment,
     publicOrigin: publicOrigin(env, environment),
@@ -196,6 +201,7 @@ export function loadConfig(env: Env): AppConfig {
     totpEncryptionKey: base64Key(env, "TOTP_ENCRYPTION_KEY", 32, true),
     mail: mailConfig(env, environment),
     ...(legalDir === undefined ? {} : { legalDir }),
+    ...(mediaDir === undefined ? {} : { mediaDir }),
   };
 }
 

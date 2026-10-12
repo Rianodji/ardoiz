@@ -3,7 +3,8 @@ import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import type { Pool } from "pg";
 import type { AppConfig } from "../../platform/config/loadConfig.js";
 import type { Clock } from "../../shared-kernel/Clock.js";
-import type { IdGenerator } from "../../shared-kernel/ids.js";
+import type { IdGenerator, TutorSpaceId } from "../../shared-kernel/ids.js";
+import { SpaceCode } from "../domain/values.js";
 import { AuditQuery } from "../application/AuditQuery.js";
 import { AuthService } from "../application/AuthService.js";
 import { FamilyService } from "../application/FamilyService.js";
@@ -45,6 +46,8 @@ export interface IdentityModule {
   readonly deps: IdentityDependencies;
   register(app: FastifyInstance): Promise<void>;
   initSpace(input: InitSpaceInput): ReturnType<typeof initSpace>;
+  /** Espace désigné par son code (CLI d'installation). */
+  spaceIdByCode(code: string): Promise<TutorSpaceId | null>;
 }
 
 /** Liste des mots de passe courants : une entrée par ligne, les lignes « # » sont des commentaires. */
@@ -108,5 +111,6 @@ export function createIdentityModule(options: IdentityModuleOptions): IdentityMo
       });
     },
     initSpace: (input) => initSpace(deps, input),
+    spaceIdByCode: (code) => deps.gateway.spaceByCode(SpaceCode(code)),
   };
 }

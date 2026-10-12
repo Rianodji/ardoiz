@@ -15,6 +15,18 @@ const ALLOWED = new Set([
   "BlueOak-1.0.0",
 ]);
 
+/**
+ * Exceptions nominatives, en attente de la décision du lead.
+ * QUESTION Q14 : sharp (Apache-2.0), imposé par la stack pour réencoder les images (R14), embarque
+ * libvips sous LGPL-3.0-or-later, liée dynamiquement et non modifiée. Exception limitée à ces paquets ;
+ * la licence LGPL reste refusée pour toute autre dépendance.
+ */
+const EXCEPTIONS = new Map([
+  ["@img/sharp-libvips-linux-x64", "LGPL-3.0-or-later"],
+  ["@img/sharp-libvips-linuxmusl-x64", "LGPL-3.0-or-later"],
+  ["@img/sharp-wasm32", "Apache-2.0 AND LGPL-3.0-or-later AND MIT"],
+]);
+
 /** Une expression SPDX « A OR B » est acceptée si l'une des branches l'est ; « A AND B » si toutes le sont. */
 function isAllowed(expression) {
   const clean = expression.replace(/[()]/g, "").trim();
@@ -40,6 +52,7 @@ for (const directory of directories) {
   if (pkg.name?.startsWith("@ardoiz/")) continue; // nos propres workspaces (privés)
   checked++;
   const license = typeof pkg.license === "string" ? pkg.license : (pkg.license?.type ?? "INCONNUE");
+  if (EXCEPTIONS.get(pkg.name) === license) continue;
   if (!isAllowed(license)) failures.push(`${pkg.name}@${pkg.version} : ${license}`);
 }
 

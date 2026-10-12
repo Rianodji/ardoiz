@@ -10,3 +10,5 @@ export const COMMON_PASSWORDS_FILE = fileURLToPath(
 export const REFERENTIAL_FILE = fileURLToPath(
   new URL("../../../../docs/domaine/referentiel-competences.md", import.meta.url),
 );
+/** Fichiers importés en développement (ignoré par Git) ; en production, le volume `ardoiz_files`. */
+export const DEFAULT_MEDIA_DIR = fileURLToPath(new URL("../../../../var/media", import.meta.url));

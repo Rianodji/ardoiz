@@ -1,10 +1,14 @@
 import { randomBytes } from "node:crypto";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
 import pino from "pino";
 import { inject } from "vitest";
 import { buildServer } from "../../../src/app/buildServer.js";
-import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR } from "../../../src/app/paths.js";
+import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, REFERENTIAL_FILE } from "../../../src/app/paths.js";
+import { createCurriculumModule, type CurriculumModule } from "../../../src/curriculum/index.js";
 import { createIdentityModule, type IdentityModule } from "../../../src/identity/index.js";
 import { InMemoryLoginThrottle } from "../../../src/identity/infrastructure/InMemoryLoginThrottle.js";
 import { InMemoryMailer } from "../../../src/identity/infrastructure/mailers.js";
@@ -46,6 +50,7 @@ export interface Snapshot {
   readonly sessionSecret: Secret;
   readonly totpKey: Secret;
   readonly now: Date;
+  readonly mediaDir: string;
   fork(): Promise<World>;
 }
 
@@ -55,6 +60,7 @@ export class World {
   readonly mailer = new InMemoryMailer();
   readonly logs = captureLogs();
   identity!: IdentityModule;
+  curriculum!: CurriculumModule;
   app!: FastifyInstance;
   /** Routes enregistrées par le serveur, avec leur niveau d'accès déclaré (pour les tests transverses). */
   readonly routes: Array<{ method: string; url: string; access: string }> = [];
@@ -65,13 +71,15 @@ export class World {
     readonly sessionSecret: Secret,
     readonly totpKey: Secret,
     now: Date,
+    /** Fichiers importés : partagés par les copies d'un même instantané (les noms sont générés, jamais réécrits). */
+    readonly mediaDir: string,
   ) {
     this.clock = new FixedClock(now);
     this.ids = new UuidV7IdGenerator(this.clock);
   }
 
   static async create(
-    from: { template?: string; sessionSecret?: Secret; totpKey?: Secret; now?: Date } = {},
+    from: { template?: string; sessionSecret?: Secret; totpKey?: Secret; now?: Date; mediaDir?: string } = {},
   ): Promise<World> {
     const database = `world_${randomBytes(6).toString("hex")}`;
     const admin = new pg.Client({ connectionString: inject("adminRootUrl") });
@@ -91,6 +99,7 @@ export class World {
       from.sessionSecret ?? new Secret(randomBytes(32).toString("base64")),
       from.totpKey ?? new Secret(randomBytes(32).toString("base64")),
       from.now ?? new Date("2026-10-12T08:00:00Z"),
+      from.mediaDir ?? mkdtempSync(join(tmpdir(), "ardoiz-media-")),
     );
 
     world.identity = createIdentityModule({
@@ -114,6 +123,13 @@ export class World {
       mailer: world.mailer,
       throttle: new InMemoryLoginThrottle(),
     });
+    world.curriculum = createCurriculumModule({
+      pool: world.pool,
+      mediaDir: world.mediaDir,
+      referentialFile: REFERENTIAL_FILE,
+      clock: world.clock,
+      ids: world.ids,
+    });
     world.app = await buildServer({
       config: { publicOrigin: ORIGIN, logLevel: "info", trustedProxies: [] },
       readiness: () => Promise.resolve(true),
@@ -131,6 +147,7 @@ export class World {
           },
         },
         world.identity,
+        world.curriculum,
       ],
     });
     await world.app.ready();
@@ -178,14 +195,15 @@ export class World {
   async freeze(): Promise<Snapshot> {
     await this.app.close();
     await this.pool.end();
-    const { database, sessionSecret, totpKey } = this;
+    const { database, sessionSecret, totpKey, mediaDir } = this;
     const now = this.clock.now();
     return {
       database,
       sessionSecret,
       totpKey,
       now,
-      fork: () => World.create({ template: database, sessionSecret, totpKey, now }),
+      mediaDir,
+      fork: () => World.create({ template: database, sessionSecret, totpKey, now, mediaDir }),
     };
   }
 
