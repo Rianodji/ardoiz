@@ -1,40 +1,74 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { createMemoryRouter, RouterProvider } from "react-router";
-import { afterEach, describe, expect, it } from "vitest";
-import { routes } from "../src/router";
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { json, problem, renderAt, stubServer } from "./support";
 
-const renderAt = (path: string) =>
-  render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: [path] })} />);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
-afterEach(cleanup);
+const anonymous = (url: string) => (url === "/api/me" ? problem(401, "http.unauthenticated") : undefined);
 
-describe("Page de connexion (factice, L0)", () => {
-  it("propose le mode élève par défaut, avec des champs étiquetés", () => {
+describe("Page de connexion", () => {
+  it("propose le mode élève par défaut, avec des champs étiquetés (ADR-0003)", async () => {
+    stubServer(anonymous);
     renderAt("/connexion");
-    expect(screen.getByRole("heading", { name: "Se connecter" })).toBeDefined();
-    expect(screen.getByLabelText("Code de ton espace")).toBeDefined();
+    expect(await screen.findByLabelText("Code de ton espace")).toBeDefined();
     expect(screen.getByLabelText("Ton pseudo")).toBeDefined();
     expect(screen.getByLabelText("Mot de passe")).toBeDefined();
     expect(screen.queryByLabelText("Adresse e-mail")).toBeNull();
   });
 
-  it("bascule vers le mode adulte avec l'adresse e-mail", () => {
+  it("bascule vers le mode adulte avec l'adresse e-mail", async () => {
+    stubServer(anonymous);
     renderAt("/connexion");
-    fireEvent.click(screen.getByRole("button", { name: "Je suis parent ou tuteur" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Je suis parent ou tuteur" }));
     expect(screen.getByLabelText("Adresse e-mail")).toBeDefined();
-    expect(
-      screen.getByRole("button", { name: "Je suis parent ou tuteur" }).getAttribute("aria-pressed"),
-    ).toBe("true");
   });
 
-  it("annonce que la connexion n'est pas encore ouverte, sans rien envoyer", () => {
+  it("affiche un message clair et unique en cas d'échec, sans détail (R8)", async () => {
+    stubServer(
+      (url) =>
+        anonymous(url) ??
+        (url === "/api/auth/login/learner" ? problem(401, "identity.invalid-credentials") : undefined),
+    );
     renderAt("/connexion");
+    fireEvent.change(await screen.findByLabelText("Code de ton espace"), { target: { value: "dicard" } });
+    fireEvent.change(screen.getByLabelText("Ton pseudo"), { target: { value: "lina" } });
+    fireEvent.change(screen.getByLabelText("Mot de passe"), { target: { value: "faux" } });
     fireEvent.click(screen.getByRole("button", { name: "Me connecter" }));
-    expect(screen.getByRole("status").textContent).toContain("pas encore ouverte");
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Identifiant ou mot de passe incorrect. Vérifie et réessaie.",
+    );
   });
 
-  it("affiche une page introuvable pour une adresse inconnue", () => {
+  it("envoie le tuteur sans TOTP vers l'activation de la double authentification (R7)", async () => {
+    let loggedIn = false;
+    stubServer((url) => {
+      if (url === "/api/me") {
+        return loggedIn
+          ? json(200, { kind: "tutor", id: "tut_1", name: "Dicard", mfaEnrolled: false })
+          : problem(401, "http.unauthenticated");
+      }
+      if (url === "/api/auth/login/adult") {
+        loggedIn = true;
+        return json(200, { status: "mfa-enrollment-required" });
+      }
+      return undefined;
+    });
+    const router = renderAt("/connexion");
+    fireEvent.click(await screen.findByRole("button", { name: "Je suis parent ou tuteur" }));
+    fireEvent.change(screen.getByLabelText("Adresse e-mail"), { target: { value: "tuteur@example.org" } });
+    fireEvent.change(screen.getByLabelText("Mot de passe"), { target: { value: "Tortue-bleue-du-lac-42" } });
+    fireEvent.click(screen.getByRole("button", { name: "Me connecter" }));
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/double-authentification/activer");
+    });
+  });
+
+  it("affiche une page introuvable pour une adresse inconnue", async () => {
+    stubServer(anonymous);
     renderAt("/nulle-part");
-    expect(screen.getByRole("heading", { name: "Page introuvable" })).toBeDefined();
+    expect(await screen.findByRole("heading", { name: "Page introuvable" })).toBeDefined();
   });
 });
