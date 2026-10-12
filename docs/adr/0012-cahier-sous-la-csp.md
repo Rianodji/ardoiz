@@ -1,7 +1,7 @@
 # ADR-0012 : Faire tenir le cahier virtuel dans la CSP de production — formules sans MathLive, ressources d'Excalidraw servies par notre origine, `img-src data:` pour les seules images
 
 ## Statut
-Proposée · lot L4, par la session de développement, 2026-10-12. Elle modifie l'ADR-0004 (MathLive) et la CSP de R11.
+Acceptée · proposée au lot L4 par la session de développement, acceptée par le lead le 2026-10-13 (verdict du lot 04). Elle modifie l'ADR-0004 (MathLive) et la CSP de R11. L'ouverture `img-src data:` est la **seule** exception à la CSP : toute autre ouverture demande un nouvel ADR.
 
 ## Contexte
 L'ADR-0004 choisit Excalidraw pour le cahier et MathLive pour les formules. Le verdict du lot 03 (§6) demande que MathLive suive la même règle que l'ADR-0011 : aucun style en ligne qui obligerait à ouvrir `style-src`. Il demande aussi un test E2E Playwright avec la CSP de production, qui échoue à toute violation (`securitypolicyviolation`). Ce test a été écrit en premier ; il a mesuré ce qui suit, sous la CSP actuelle (`default-src 'self'`, `style-src 'self'`, `img-src 'self'`, `font-src 'self'`) :
