@@ -21,20 +21,27 @@ export const MAX_LATEX_LENGTH = 1_000;
  * classes et styles HTML, images externes, définitions de macros (bombes d'expansion).
  */
 const FORBIDDEN_COMMANDS =
-  /\\(href|url|htmlClass|htmlId|htmlStyle|htmlData|includegraphics|class|cssId|style|def|gdef|edef|xdef|let|newcommand|renewcommand|providecommand|expandafter|csname|futurelet|global)(?![a-zA-Z])/;
+  /\\(href|url|htmlClass|htmlId|htmlStyle|htmlData|includegraphics|fcolorbox|class|cssId|style|def|gdef|edef|xdef|let|newcommand|renewcommand|providecommand|expandafter|csname|futurelet|global)(?![a-zA-Z])/;
 
-export type LatexProblem = "latex-too-long" | "latex-forbidden-command" | "latex-invalid";
+export type LatexProblem = "latex-too-long" | "latex-forbidden-command" | "latex-invalid" | "latex-styled";
+
+/** Un attribut `style` dans le MathML produit : bloqué par la CSP, et contraire à l'ADR-0011. */
+const STYLE_ATTRIBUTE = /\sstyle\s*=/i;
 
 /** Vérifie une formule : longueur, commandes interdites, puis analyse stricte par KaTeX. */
 export function checkLatex(latex: string, displayMode: boolean): LatexProblem | null {
   if (latex.length === 0 || latex.length > MAX_LATEX_LENGTH) return "latex-too-long";
   if (FORBIDDEN_COMMANDS.test(latex)) return "latex-forbidden-command";
+  let mathml: string;
   try {
-    katex.renderToString(latex, { ...KATEX_OPTIONS, displayMode });
-    return null;
+    mathml = katex.renderToString(latex, { ...KATEX_OPTIONS, displayMode });
   } catch {
     return "latex-invalid"; // la formule est refusée, l'erreur de KaTeX n'est pas propagée
   }
+  // Garantie de l'ADR-0011 tenue par construction (verdict L2, S-1) : en plus de \fcolorbox (refusée
+  // nommément), toute formule dont le rendu porterait un style en ligne — y compris par une commande qu'une
+  // future version de KaTeX rendrait autrement — est refusée.
+  return STYLE_ATTRIBUTE.test(mathml) ? "latex-styled" : null;
 }
 
 /** Rendu MathML d'une formule déjà validée ; une formule invalide est rendue comme son texte source. */

@@ -4,6 +4,7 @@ import { fetchLegal, fetchSessions, revokeSession, type LegalDocument } from "..
 import { homePathFor, useMe } from "../auth/session";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../markdown/Markdown";
+import { MyAssignments } from "./AssessmentPages";
 import { LearnerProgrammeView } from "./LessonPages";
 
 const dateTime = new Intl.DateTimeFormat("fr-FR", {
@@ -109,6 +110,8 @@ export function LearnerHomePage() {
           emptyText="Ton tuteur n'a pas encore ouvert de cours pour toi. Ils apparaîtront ici."
         />
       )}
+      <h2>Mes épreuves</h2>
+      <MyAssignments />
       <p>
         <Link to="/mes-donnees">Ce qu'Ardoiz sait de toi</Link>
       </p>

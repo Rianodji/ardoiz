@@ -9,3 +9,4 @@ export {
   type IdentityModule,
   type IdentityModuleOptions,
 } from "./infrastructure/module.js";
+export { PgLearnerDirectory } from "./infrastructure/PgLearnerDirectory.js";

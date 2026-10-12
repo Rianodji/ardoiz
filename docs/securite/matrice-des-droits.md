@@ -21,7 +21,8 @@
 | Obtenir le lien de visio | ✅ toujours | 🚫 | 👻 | ✅ de T-15 min à la fin | 👻 | 🚫 |
 | Commencer une tentative, enregistrer un brouillon, rendre | 🚫 | 🚫 | 👻 | ✅ dans la fenêtre | 👻 | 🚫 |
 | Voir une copie rendue | ✅ | ✅ après publication | 👻 | ✅ (la sienne) | 👻 | 🚫 |
-| Voir le corrigé d'une épreuve | ✅ | ✅ après publication | 👻 | ✅ après publication | 👻 | 🚫 |
+| Voir sa note et ses points par question | ✅ | ✅ après publication | 👻 | ✅ après publication | 👻 | 🚫 |
+| Voir le corrigé (réponses attendues, explications) | ✅ | ✅ après **révélation** | 👻 | ✅ après **révélation** | 👻 | 🚫 |
 | Corriger, annoter, publier, rectifier une note | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
 | Ajuster un niveau de compétence | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
 | Envoyer une suggestion | 🚫 | ✅ | — | 🚫 | 🚫 | 🚫 |
@@ -30,3 +31,5 @@
 | Retirer son consentement | 🚫 | ✅ | 👻 | 🚫 | 🚫 | 🚫 |
 
 Le tuteur d'un **autre** espace est traité comme 👻 partout (R10).
+
+**Révélation du corrigé** (verdict du lot 03, R-1) : le corrigé d'une attribution n'est montré qu'à l'échéance passée, si le retard n'est pas autorisé, ou quand le tuteur le révèle explicitement. Avant, l'élève et son parent voient la note et les points, jamais les réponses attendues : sinon, une première tentative ou un cousin qui a déjà rendu donnerait les réponses aux autres.

@@ -8,6 +8,10 @@ export class FixedClock implements Clock {
     return new Date(this.current.getTime());
   }
 
+  setTo(date: Date): void {
+    this.current = new Date(date.getTime());
+  }
+
   advanceBy(milliseconds: number): void {
     this.current = new Date(this.current.getTime() + milliseconds);
   }

@@ -2,7 +2,14 @@ import { readFileSync } from "node:fs";
 import type { FastifyInstance } from "fastify";
 import type { Pool } from "pg";
 import type { Clock } from "../../shared-kernel/Clock.js";
-import type { IdGenerator, TutorSpaceId } from "../../shared-kernel/ids.js";
+import type {
+  CompetencyId,
+  GroupId,
+  IdGenerator,
+  LearnerId,
+  SubjectId,
+  TutorSpaceId,
+} from "../../shared-kernel/ids.js";
 import { AudienceService } from "../application/AudienceService.js";
 import { LearningService } from "../application/LearningService.js";
 import { MediaService } from "../application/MediaService.js";
@@ -23,7 +30,18 @@ export interface CurriculumModuleOptions {
   readonly ids: IdGenerator;
 }
 
+/**
+ * Ce que le programme expose aux autres modules (évaluation) : matières, compétences proposées au
+ * choix (non archivées), élèves d'un groupe. Lecture seule, identifiants seulement.
+ */
+export interface CurriculumDirectory {
+  subjectExists(tutorSpaceId: TutorSpaceId, subjectId: SubjectId): Promise<boolean>;
+  activeCompetencyIds(tutorSpaceId: TutorSpaceId): Promise<ReadonlySet<CompetencyId>>;
+  learnersOfGroup(tutorSpaceId: TutorSpaceId, groupId: GroupId): Promise<LearnerId[] | null>;
+}
+
 export interface CurriculumModule {
+  readonly directory: CurriculumDirectory;
   readonly statuses: Readonly<Record<string, number>>;
   register(app: FastifyInstance): Promise<void>;
   /** Charge le référentiel validé dans un espace (idempotent) ; renvoie le nombre de compétences ajoutées. */
@@ -40,7 +58,29 @@ export function createCurriculumModule(options: CurriculumModuleOptions): Curric
     ids: options.ids,
   };
   const referential = new ReferentialService(deps);
+  const directory: CurriculumDirectory = {
+    subjectExists: (tutorSpaceId, subjectId) =>
+      deps.gateway.inSpace(tutorSpaceId, async (store) =>
+        (await store.subjects()).some((subject) => subject.id === subjectId),
+      ),
+    activeCompetencyIds: (tutorSpaceId) =>
+      deps.gateway.inSpace(
+        tutorSpaceId,
+        async (store) =>
+          new Set(
+            (await store.competencies())
+              .filter((competency) => competency.archivedAt === null)
+              .map((competency) => competency.id),
+          ),
+      ),
+    learnersOfGroup: (tutorSpaceId, groupId) =>
+      deps.gateway.inSpace(tutorSpaceId, async (store) => {
+        const group = (await store.groups()).find((candidate) => candidate.id === groupId);
+        return group === undefined ? null : [...group.learnerIds];
+      }),
+  };
   return {
+    directory,
     statuses: CURRICULUM_STATUSES,
     register: (app) =>
       curriculumRoutes(app, {

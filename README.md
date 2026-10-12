@@ -29,8 +29,8 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | Cadrage | Phases 0 à 4 de la routine : cadrage, domaine, menaces, règles, ADR, plan | ✅ 2026-10-11 |
 | L0 | Socle technique et CI | ✅ 2026-10-11 (réserves traitées, PR #1) |
 | L1 | Identité & Famille | ✅ 2026-10-12 (réserves traitées, PR #4) |
-| L2 | Programme et contenu de cours | 🔍 (PR #5) |
-| L3 | Évaluation (QCM, numérique, réponse courte) | ⏳ |
+| L2 | Programme et contenu de cours | ✅ (PR #5) |
+| L3 | Évaluation (QCM, numérique, réponse courte) | 🔍 (PR #6) |
 | L4 | Cahier virtuel | ⏳ |
 | L5 | Planification | ⏳ |
 | L6 | Progression, gamification, tableau de bord parent, suggestions | ⏳ |
@@ -84,6 +84,7 @@ apps/api/src/
                   messaging (outbox, relais, inbox)
   identity/       comptes, sessions serveur, TOTP, invitations, liens parentaux, consentement (L1)
   curriculum/     matières, référentiel de compétences, modules, cours, médias, groupes, déverrouillages (L2)
+  assessment/     épreuves, attributions, copies, correction automatique et manuelle, publication, rectification (L3)
   <module>/       scheduling, assessment, progress, feedback (lots suivants)
     domain/ application/ infrastructure/ index.ts
 apps/web/         SPA React (Vite, React Router, TanStack Query), servie par l'API sur la même origine

@@ -1,4 +1,4 @@
-import { checkLatex, validateLessonContent, youtubeIdFrom, type LessonContent } from "@ardoiz/content-schema";
+import { validateLessonContent, youtubeIdFrom, type LessonContent } from "@ardoiz/content-schema";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { useId, useState, type ReactNode } from "react";
@@ -13,6 +13,7 @@ import {
 } from "../api/curriculum";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { EDITOR_EXTENSIONS } from "../editor/extensions";
+import { describeLatexProblem, FormulaDialog } from "../editor/FormulaDialog";
 import { LessonContentView } from "../lesson/LessonContentView";
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
@@ -20,8 +21,9 @@ const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 /** Explications des refus du validateur, pour le tuteur. */
 const PROBLEM_LABELS: Readonly<Record<string, string>> = {
   "empty-content": "Le cours est vide.",
-  "latex-invalid": "Une formule n'est pas du LaTeX valide.",
-  "latex-forbidden-command": "Une formule utilise une commande interdite (lien, style, macro).",
+  "latex-invalid": describeLatexProblem("latex-invalid"),
+  "latex-forbidden-command": describeLatexProblem("latex-forbidden-command"),
+  "latex-styled": describeLatexProblem("latex-styled"),
   "invalid-link": "Un lien n'est pas une adresse https valide.",
   "invalid-video-id": "Une vidéo YouTube n'est pas valide.",
   "media-not-in-lesson": "Une image n'appartient pas à ce cours.",
@@ -56,10 +58,12 @@ function Toolbar({
   editor,
   lessonId,
   onError,
+  onFormula,
 }: {
   readonly editor: Editor;
   readonly lessonId: string;
   readonly onError: (error: unknown) => void;
+  readonly onFormula: (display: boolean) => void;
 }) {
   const fileId = useId();
   const chain = () => editor.chain().focus();
@@ -127,26 +131,14 @@ function Toolbar({
       key="math"
       label="Formule"
       onClick={() => {
-        const latex = prompt("Formule LaTeX (par exemple \\frac{1}{2})");
-        if (latex === null) return;
-        if (checkLatex(latex, false) !== null) {
-          window.alert("Cette formule n'est pas valide ou utilise une commande interdite.");
-          return;
-        }
-        chain().insertContent({ type: "math_inline", attrs: { latex } }).run();
+        onFormula(false);
       }}
     />,
     <ToolButton
       key="mathblock"
       label="Formule centrée"
       onClick={() => {
-        const latex = prompt("Formule LaTeX");
-        if (latex === null) return;
-        if (checkLatex(latex, true) !== null) {
-          window.alert("Cette formule n'est pas valide ou utilise une commande interdite.");
-          return;
-        }
-        chain().insertContent({ type: "math_block", attrs: { latex } }).run();
+        onFormula(true);
       }}
     />,
     <ToolButton
@@ -221,6 +213,7 @@ function LessonEditor({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [currentTitle, setCurrentTitle] = useState(title);
+  const [formula, setFormula] = useState<boolean | null>(null);
   const titleId = useId();
   const editor = useEditor({ extensions: EDITOR_EXTENSIONS, content: initial ?? EMPTY_DOC });
 
@@ -281,7 +274,23 @@ function LessonEditor({
             Renommer
           </button>
         </form>
-        <Toolbar editor={editor} lessonId={lessonId} onError={setError} />
+        <Toolbar editor={editor} lessonId={lessonId} onError={setError} onFormula={setFormula} />
+        {formula !== null && (
+          <FormulaDialog
+            display={formula}
+            onCancel={() => {
+              setFormula(null);
+            }}
+            onInsert={(latex) => {
+              editor
+                .chain()
+                .focus()
+                .insertContent({ type: formula ? "math_block" : "math_inline", attrs: { latex } })
+                .run();
+              setFormula(null);
+            }}
+          />
+        )}
         <EditorContent editor={editor} className="editor" />
         {problems.length > 0 && (
           <ul role="alert" className="error">

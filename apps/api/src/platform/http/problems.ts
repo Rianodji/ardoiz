@@ -84,7 +84,10 @@ export function registerProblemHandlers(
     if (error instanceof DomainError) {
       const status = statuses[error.code] ?? 422;
       request.log.info({ code: error.code, status }, "erreur métier");
-      if (status === 429) reply.header("retry-after", String(retryAfterSeconds(error)));
+      // Trop de requêtes, ou service occupé : le client sait quand réessayer.
+      if (status === 429 || (status === 503 && "retryAfterSeconds" in error)) {
+        reply.header("retry-after", String(retryAfterSeconds(error)));
+      }
       return sendProblem(request, reply, status, error.code);
     }
 

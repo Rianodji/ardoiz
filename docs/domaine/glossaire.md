@@ -27,6 +27,9 @@
 | Cahier virtuel | `Notebook` | Scène de dessin (Excalidraw) et formules d'une réponse `notebook` |
 | Calque d'annotation | `AnnotationLayer` | Annotations du tuteur, séparées de la scène de l'élève |
 | Barème | `Rubric` / `points` | Points par question |
+| Correction publiée | événement `assessment.correction-published` | La note et les points d'une copie deviennent visibles de l'élève et de ses parents |
+| Révélation du corrigé | `revealedAt` de l'attribution ; événement `assessment.answers-revealed` | Les réponses attendues et les explications deviennent visibles, pour tous les élèves de l'attribution |
+| Rectification | `GradeRectification` | Modification motivée d'une note publiée, historisée en ajout seul |
 | Preuve de compétence | `CompetencyEvidence` | Résultat d'une question corrigée pour une compétence |
 | Niveau de compétence | `MasteryLevel` (`not_assessed \| not_acquired \| in_progress \| acquired \| exceeded`) | Calculé (§8 du big picture) ou ajusté |
 | Points d'expérience | `Xp` | Récompense cumulée |

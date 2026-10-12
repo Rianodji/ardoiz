@@ -8,8 +8,13 @@ import pino from "pino";
 import { inject } from "vitest";
 import { buildServer } from "../../../src/app/buildServer.js";
 import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, REFERENTIAL_FILE } from "../../../src/app/paths.js";
+import { createAssessmentModule } from "../../../src/assessment/index.js";
 import { createCurriculumModule, type CurriculumModule } from "../../../src/curriculum/index.js";
-import { createIdentityModule, type IdentityModule } from "../../../src/identity/index.js";
+import {
+  createIdentityModule,
+  PgLearnerDirectory,
+  type IdentityModule,
+} from "../../../src/identity/index.js";
 import { InMemoryLoginThrottle } from "../../../src/identity/infrastructure/InMemoryLoginThrottle.js";
 import { InMemoryMailer } from "../../../src/identity/infrastructure/mailers.js";
 import { Secret } from "../../../src/platform/config/Secret.js";
@@ -148,6 +153,13 @@ export class World {
         },
         world.identity,
         world.curriculum,
+        createAssessmentModule({
+          pool: world.pool,
+          curriculum: world.curriculum.directory,
+          learners: new PgLearnerDirectory(world.pool),
+          clock: world.clock,
+          ids: world.ids,
+        }),
       ],
     });
     await world.app.ready();

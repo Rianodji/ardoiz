@@ -3,6 +3,7 @@ import { createBrowserRouter, type RouteObject } from "react-router";
 import { RequireRole } from "./auth/session";
 import { AppLayout } from "./layout/AppLayout";
 import { AccountPage, HomePage, LearnerHomePage, LegalPage } from "./pages/AccountPages";
+import { AttemptPage } from "./pages/AssessmentPages";
 import { FamilyPage } from "./pages/FamilyPage";
 import { InvitationPage } from "./pages/InvitationPage";
 import { LessonPage } from "./pages/LessonPages";
@@ -11,6 +12,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { ForgotPasswordPage, NewPasswordPage } from "./pages/PasswordPages";
 import { TotpEnrollPage, TotpVerifyPage } from "./pages/TotpPages";
 import { GroupsPage, ReferentialPage, TutorProgrammePage } from "./pages/TutorProgrammePages";
+import { GradingAttemptPage, GradingQueuePage, TutorAssessmentsPage } from "./pages/TutorAssessmentPages";
 import { AuditPage, TutorFamiliesPage } from "./pages/TutorPages";
 
 /** L'éditeur (TipTap) n'est chargé que par le tuteur, à la demande : la page des élèves reste légère. */
@@ -95,9 +97,20 @@ export const routes: RouteObject[] = [
           </RequireRole>
         ),
       },
+      {
+        path: "copie/:attemptId",
+        element: (
+          <RequireRole roles={["tutor", "guardian", "learner"]}>
+            <AttemptPage />
+          </RequireRole>
+        ),
+      },
       ...(
         [
           ["tuteur/programme", <TutorProgrammePage key="programme" />],
+          ["tuteur/epreuves", <TutorAssessmentsPage key="epreuves" />],
+          ["tuteur/corrections", <GradingQueuePage key="corrections" />],
+          ["tuteur/corrections/:attemptId", <GradingAttemptPage key="correction" />],
           ["tuteur/referentiel", <ReferentialPage key="referentiel" />],
           ["tuteur/groupes", <GroupsPage key="groupes" />],
           [

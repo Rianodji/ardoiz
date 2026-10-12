@@ -76,6 +76,8 @@ Le tuteur **invite** une famille → le parent **consent** et **crée le compte*
 
 **Note d'une copie** : somme des points obtenus / somme des points du barème, ramenée sur 20 et arrondie au demi-point. Une copie dont une question attend encore une correction manuelle n'a pas de note publiée.
 
+**Corrigé** : la note et les points par question sont visibles dès la publication de la correction. Le **corrigé** (réponses attendues, explications) n'est révélé, pour tous les élèves de l'attribution à la fois, qu'à l'échéance passée si le retard n'est pas autorisé, ou quand le tuteur le révèle explicitement (événement `CorrigéRévélé`). Ainsi, ni une tentative suivante ni un autre élève ne peuvent profiter d'un corrigé déjà publié.
+
 **Réponse numérique** : correcte si |réponse − attendue| ≤ tolérance, **dans l'unité attendue**. Le tuteur choisit pour chaque question :
 - *unité imposée* : une réponse dans une autre unité est fausse, même si elle est équivalente (exercice de conversion) ;
 - *unité libre* : une réponse dans une unité équivalente de la même grandeur est convertie (longueur, masse, capacité, aire, volume, durée).

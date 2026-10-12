@@ -57,6 +57,7 @@ export const CURRICULUM_STATUSES: Readonly<Record<string, number>> = {
   "curriculum.competency-archived": 409,
   "curriculum.image-too-large": 413,
   "curriculum.image-unsupported-type": 415,
+  "curriculum.import-busy": 503,
 };
 
 const closed = { additionalProperties: false } as const;

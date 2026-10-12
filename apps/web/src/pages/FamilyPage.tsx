@@ -11,6 +11,7 @@ import { useMe } from "../auth/session";
 import { ConsentForm } from "../components/ConsentForm";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useReauth } from "../components/useReauth";
+import { PublishedResults } from "./AssessmentPages";
 import { LearnerProgrammeView } from "./LessonPages";
 
 const LEVELS = ["6e", "5e", "4e", "3e"] as const;
@@ -95,6 +96,10 @@ function LearnerCard({
           learnerId={learner.id}
           emptyText="Aucun cours n'est encore ouvert pour cet enfant."
         />
+      </details>
+      <details>
+        <summary>Ses résultats publiés</summary>
+        <PublishedResults learnerId={learner.id} />
       </details>
       {learner.status === "active" && (
         <>
