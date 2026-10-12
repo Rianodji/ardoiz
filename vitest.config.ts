@@ -50,7 +50,6 @@ export default defineConfig({
           name: "content-schema",
           root: "packages/content-schema",
           include: ["test/**/*.test.ts"],
-          passWithNoTests: true, // le validateur et son corpus XSS arrivent au lot L2
         },
       },
     ],
