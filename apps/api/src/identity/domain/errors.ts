@@ -33,7 +33,9 @@ export class ConsentRequiredError extends DomainError {
 }
 
 export class AlreadyTakenError extends DomainError {
-  constructor(readonly code: "identity.email-taken" | "identity.username-taken") {
+  constructor(
+    readonly code: "identity.email-taken" | "identity.username-taken" | "identity.space-code-taken",
+  ) {
     super(`Valeur déjà utilisée (${code}).`);
   }
 }

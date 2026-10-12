@@ -23,7 +23,8 @@
     "depcruise": "depcruise apps/api/src --config .dependency-cruiser.cjs",
     "licenses": "node tools/check-licenses.mjs",
     "db:migrate": "npm run db:migrate --workspace @ardoiz/api",
-    "sbom": "npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json"
+    "sbom": "npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json",
+    "ardoiz": "npm run cli --workspace @ardoiz/api --"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

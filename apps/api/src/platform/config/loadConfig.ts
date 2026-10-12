@@ -21,7 +21,28 @@ export interface AppConfig {
   readonly trustedProxies: readonly string[];
   /** Répertoire de la SPA compilée, servie par l'API sur la même origine (ADR-0006). */
   readonly webDistDir?: string;
+  /** Poivre des empreintes de jetons (sessions, invitations, réinitialisations) : 32 octets au moins. */
+  readonly sessionSecret: Secret;
+  /** Clé AES-256-GCM des secrets TOTP : exactement 32 octets (ADR-0006). */
+  readonly totpEncryptionKey: Secret;
+  readonly mail: MailConfig;
+  /** Textes juridiques affichés sans modification (docs/juridique). */
+  readonly legalDir?: string;
 }
+
+export type MailConfig =
+  | {
+      readonly transport: "brevo";
+      readonly apiKey: Secret;
+      readonly senderEmail: string;
+      readonly senderName: string;
+    }
+  | {
+      readonly transport: "mailpit";
+      readonly url: string;
+      readonly senderEmail: string;
+      readonly senderName: string;
+    };
 
 export interface MigrationConfig {
   readonly migrationDatabaseUrl: Secret;
@@ -119,6 +140,35 @@ function trustedProxies(env: Env): string[] {
   });
 }
 
+/** Clé aléatoire encodée en base64, d'au moins (ou exactement) `bytes` octets. */
+function base64Key(env: Env, name: string, bytes: number, exact: boolean): Secret {
+  const raw = required(env, name);
+  const decoded = /^[A-Za-z0-9+/]+={0,2}$/.test(raw) ? Buffer.from(raw, "base64") : Buffer.alloc(0);
+  if (exact ? decoded.length !== bytes : decoded.length < bytes) {
+    throw new ConfigurationError(
+      name,
+      `${exact ? "exactement" : "au moins"} ${bytes} octets aléatoires encodés en base64`,
+    );
+  }
+  return new Secret(raw);
+}
+
+function mailConfig(env: Env, environment: Environment): MailConfig {
+  const transport = oneOf(env, "MAIL_TRANSPORT", ["brevo", "mailpit"] as const);
+  const senderEmail = optional(env, "BREVO_SENDER_EMAIL") ?? "no-reply@teamnoble.fr";
+  const senderName = optional(env, "BREVO_SENDER_NAME") ?? "Ardoiz";
+  if (transport === "brevo")
+    return { transport, apiKey: new Secret(required(env, "BREVO_API_KEY")), senderEmail, senderName };
+  // Mailpit capture les e-mails sans les envoyer : jamais en production, et seulement sur la machine locale.
+  if (environment === "production")
+    throw new ConfigurationError("MAIL_TRANSPORT", "Mailpit est interdit en production");
+  const url = required(env, "MAILPIT_URL");
+  const parsed = URL.canParse(url) ? new URL(url) : null;
+  if (parsed === null || !LOCAL_HOSTNAMES.has(parsed.hostname))
+    throw new ConfigurationError("MAILPIT_URL", "adresse locale attendue");
+  return { transport, url: parsed.origin, senderEmail, senderName };
+}
+
 /**
  * Lecture et validation de la configuration AU DÉMARRAGE (R20) : une application mal configurée
  * refuse de démarrer plutôt que de fonctionner en mode dégradé ou non sécurisé (A02, ADR-0010).
@@ -127,6 +177,7 @@ function trustedProxies(env: Env): string[] {
 export function loadConfig(env: Env): AppConfig {
   const environment = oneOf(env, "NODE_ENV", ENVIRONMENTS);
   const webDistDir = optional(env, "WEB_DIST_DIR");
+  const legalDir = optional(env, "LEGAL_DIR");
   return {
     environment,
     publicOrigin: publicOrigin(env, environment),
@@ -141,6 +192,10 @@ export function loadConfig(env: Env): AppConfig {
     databasePoolMax: integer(env, "DATABASE_POOL_MAX", 10, 1, 10),
     trustedProxies: trustedProxies(env),
     ...(webDistDir === undefined ? {} : { webDistDir }),
+    sessionSecret: base64Key(env, "SESSION_SECRET", 32, false),
+    totpEncryptionKey: base64Key(env, "TOTP_ENCRYPTION_KEY", 32, true),
+    mail: mailConfig(env, environment),
+    ...(legalDir === undefined ? {} : { legalDir }),
   };
 }
 

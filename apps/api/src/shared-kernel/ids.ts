@@ -28,6 +28,7 @@ export const ID_PREFIXES = {
   AttemptId: "att",
   SuggestionId: "sug",
   AuthSessionId: "ses",
+  RecoveryCodeId: "rcv",
   PasswordResetId: "pwr",
   AuditEntryId: "aud",
   EventId: "evt",

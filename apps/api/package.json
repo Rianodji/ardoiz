@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/app/main.js",
     "typecheck": "tsc -p tsconfig.json",
-    "db:migrate": "tsx --conditions=@ardoiz/source --env-file-if-exists=../../.env src/platform/postgres/migrate-cli.ts"
+    "db:migrate": "tsx --conditions=@ardoiz/source --env-file-if-exists=../../.env src/platform/postgres/migrate-cli.ts",
+    "cli": "tsx --conditions=@ardoiz/source --env-file-if-exists=../../.env src/app/cli.ts"
   },
   "dependencies": {
     "@ardoiz/contracts": "0.0.0",
