@@ -32,6 +32,7 @@ const attempt = (overrides: object = {}) => ({
   ],
   answers: {},
   correction: null,
+  answerKey: null,
   ...overrides,
 });
 
@@ -79,42 +80,61 @@ describe("Copie de l'élève (R5)", () => {
     expect(screen.queryByText("Combien font 3 × 4 ?")).toBeNull();
   });
 
-  it("affiche la note et le corrigé une fois la correction publiée", async () => {
+  const published = (answerKey: unknown) =>
+    attempt({
+      status: "published",
+      submittedAt: "2026-10-12T08:00:00.000Z",
+      answers: { qst_1: { kind: "mcq", optionIds: ["x9"] } },
+      correction: {
+        grade: 13.5,
+        questions: [
+          { questionId: "qst_1", earned: 2, comment: null },
+          { questionId: "qst_2", earned: 0, comment: "Revois les conversions." },
+        ],
+      },
+      answerKey,
+    });
+
+  it("publiée, corrigé pas encore révélé : la note et les points, et l'annonce du corrigé après la date limite (R5, R-1)", async () => {
+    stubServer((url) => {
+      if (url === "/api/me") return me();
+      if (url === "/api/attempts/att_1") return json(200, published(null));
+      return undefined;
+    });
+    renderAt("/copie/att_1");
+    expect((await screen.findByText(/Note :/)).textContent).toBe("Note : 13,5 / 20");
+    expect(screen.getByText("Le corrigé sera disponible après la date limite.")).toBeDefined();
+    expect(screen.queryByText(/Réponse attendue/)).toBeNull();
+    expect(screen.getByText("Commentaire du tuteur : Revois les conversions.")).toBeDefined();
+  });
+
+  it("affiche le corrigé une fois révélé", async () => {
     stubServer((url) => {
       if (url === "/api/me") return me();
       if (url === "/api/attempts/att_1")
         return json(
           200,
-          attempt({
-            status: "published",
-            submittedAt: "2026-10-12T08:00:00.000Z",
-            answers: { qst_1: { kind: "mcq", optionIds: ["x9"] } },
-            correction: {
-              grade: 13.5,
-              questions: [
-                {
-                  questionId: "qst_1",
-                  earned: 2,
-                  comment: null,
-                  explanation: "3 × 4 = 12.",
-                  correction: { kind: "mcq", correctOptionIds: ["x9"] },
-                },
-                {
-                  questionId: "qst_2",
-                  earned: 0,
-                  comment: "Revois les conversions.",
-                  explanation: null,
-                  correction: { kind: "numeric", expected: "12.5", unit: "cm", unitMode: "free" },
-                },
-              ],
-            },
+          published({
+            questions: [
+              {
+                questionId: "qst_1",
+                explanation: "3 × 4 = 12.",
+                expected: { kind: "mcq", correctOptionIds: ["x9"] },
+              },
+              {
+                questionId: "qst_2",
+                explanation: null,
+                expected: { kind: "numeric", expected: "12.5", unit: "cm", unitMode: "free" },
+              },
+            ],
           }),
         );
       return undefined;
     });
     renderAt("/copie/att_1");
-    expect((await screen.findByText(/Note :/)).textContent).toBe("Note : 13,5 / 20");
-    expect(screen.getByText(/Réponse attendue : 12,5 cm/)).toBeDefined();
-    expect(screen.getByText("Commentaire du tuteur : Revois les conversions.")).toBeDefined();
+    expect((await screen.findByText(/Réponse attendue : 12,5 cm/)).textContent).toContain("0 pt");
+    expect(screen.getByText(/Réponse attendue : 12$/)).toBeDefined();
+    expect(screen.getByText("3 × 4 = 12.")).toBeDefined();
+    expect(screen.queryByText("Le corrigé sera disponible après la date limite.")).toBeNull();
   });
 });

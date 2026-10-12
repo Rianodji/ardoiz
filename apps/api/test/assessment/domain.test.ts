@@ -9,7 +9,12 @@ import {
 import { parseSpec, type Question } from "../../src/assessment/domain/questions.js";
 import { Rational } from "../../src/assessment/domain/Rational.js";
 import { convert, unitsOf } from "../../src/assessment/domain/units.js";
-import { assertCanStart, assertCanWork, assertDraftSaveAllowed } from "../../src/assessment/domain/window.js";
+import {
+  answersRevealed,
+  assertCanStart,
+  assertCanWork,
+  assertDraftSaveAllowed,
+} from "../../src/assessment/domain/window.js";
 
 const dec = (raw: string): Rational => {
   const value = Rational.parseDecimal(raw);
@@ -169,5 +174,25 @@ describe("Fenêtre de passage, selon l'horloge du serveur (R5, M6)", () => {
     expect(() => {
       assertDraftSaveAllowed(at(opensAt, 0), at(opensAt, 5));
     }).not.toThrow();
+  });
+});
+
+describe("Révélation du corrigé (R5, verdict L3 R-1)", () => {
+  const dueAt = new Date("2026-10-16T16:00:00Z");
+  const at = (seconds: number) => new Date(dueAt.getTime() + seconds * 1000);
+
+  it("sans retard autorisé : pas de corrigé à l'échéance − 1 s, corrigé à l'échéance + 0 s (R5)", () => {
+    const assignment = { dueAt, lateAllowed: false, revealedAt: null };
+    expect(answersRevealed(assignment, at(-1))).toBe(false);
+    expect(answersRevealed(assignment, at(0))).toBe(true);
+  });
+
+  it("avec retard autorisé : jamais de corrigé sans révélation du tuteur, même longtemps après l'échéance (R5)", () => {
+    expect(answersRevealed({ dueAt, lateAllowed: true, revealedAt: null }, at(30 * 86_400))).toBe(false);
+    expect(answersRevealed({ dueAt, lateAllowed: true, revealedAt: at(-10) }, at(-5))).toBe(true);
+  });
+
+  it("une révélation explicite avant l'échéance vaut pour tous, tout de suite (R5)", () => {
+    expect(answersRevealed({ dueAt, lateAllowed: false, revealedAt: at(-3600) }, at(-3600))).toBe(true);
   });
 });

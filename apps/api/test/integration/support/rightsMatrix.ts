@@ -40,6 +40,8 @@ export interface MatrixRow<F> {
   readonly action: string;
   readonly expected: Readonly<Record<Profile, Expected>>;
   request(fixture: F): HttpCall;
+  /** Vérification facultative du contenu d'une réponse autorisée (par exemple : corrigé présent ou absent). */
+  verify?(result: HttpResult, fixture: F): void;
 }
 
 export interface MatrixOptions<F> {
@@ -112,6 +114,7 @@ export function runRightsMatrix<F>(
                 ...(cookie === undefined ? {} : { cookie }),
               });
               expectOutcome(result, expected, profile);
+              if (expected === "allow") row.verify?.(result, fixture);
               // Un refus d'un acteur de l'espace est journalisé (R12) ; l'anonyme et l'autre espace n'y ont pas accès.
               if (expected !== "allow" && profile !== "anonymous" && profile !== "otherSpaceTutor") {
                 expect(await deniedAuditCount(world)).toBeGreaterThan(before);

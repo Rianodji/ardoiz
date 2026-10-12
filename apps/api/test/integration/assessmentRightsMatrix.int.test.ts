@@ -1,3 +1,4 @@
+import { expect } from "vitest";
 import {
   assign,
   createAssessment,
@@ -15,8 +16,10 @@ interface Fixture extends Family {
   readonly assessmentId: string;
   /** Attribution ouverte à Lina, sans tentative. */
   readonly openAssignmentId: string;
-  /** Copie de Lina rendue et publiée. */
+  /** Copie de Lina rendue et publiée, corrigé non révélé. */
   readonly publishedAttemptId: string;
+  /** Copie de Lina rendue, publiée, corrigé révélé par le tuteur. */
+  readonly revealedAttemptId: string;
   /** Copie de Lina rendue, en attente de correction manuelle (réponse courte). */
   readonly pendingAttemptId: string;
   readonly pendingQuestionId: string;
@@ -93,9 +96,33 @@ const rows: ReadonlyArray<MatrixRow<Fixture>> = [
     request: (f) => ({ method: "GET", url: `/api/attempts/${f.pendingAttemptId}` }),
   },
   {
-    action: "Voir le corrigé d'une épreuve",
+    action: "Voir sa note et ses points par question",
+    expected: publishedCopy,
+    request: (f) => ({ method: "GET", url: `/api/attempts/${f.publishedAttemptId}` }),
+    // Publiée, corrigé NON révélé : la note et les points, aucune réponse attendue (verdict L3, R-1).
+    verify: (result) => {
+      expect(result.body).toMatchObject({ correction: { grade: 20 }, answerKey: null });
+    },
+  },
+  {
+    action: "Voir sa note et ses points par question (liste des résultats)",
     expected: publishedCopy,
     request: (f) => ({ method: "GET", url: `/api/learners/${f.learner.id}/results` }),
+  },
+  {
+    action: "Voir le corrigé (réponses attendues, explications)",
+    expected: publishedCopy,
+    request: (f) => ({ method: "GET", url: `/api/attempts/${f.revealedAttemptId}` }),
+    verify: (result) => {
+      expect(result.body).toMatchObject({
+        answerKey: { questions: [{ explanation: "3 × 4 = 4 + 4 + 4 = 12.", expected: { kind: "mcq" } }] },
+      });
+    },
+  },
+  {
+    action: "Révéler le corrigé d'une attribution",
+    expected: tutorOnly,
+    request: (f) => ({ method: "POST", url: `/api/assignments/${f.openAssignmentId}/reveal` }),
   },
   {
     action: "Corriger, annoter, publier, rectifier une note",
@@ -171,6 +198,16 @@ runRightsMatrix("Matrice des droits — évaluation (R2, R5)", rows, {
     const pendingAttempt = await submitted(world, family, pending, (attempt) => ({
       [attempt.questions[0]?.id ?? ""]: { kind: "short_text", text: "On multiplie." },
     }));
+    const revealed = await assign(world, tutor, assessmentId, { learnerId: lina, publication: "auto" });
+    const revealedAttempt = await submitted(world, family, revealed, (attempt) => ({
+      [attempt.questions[0]?.id ?? ""]: { kind: "mcq", optionIds: [optionWithText(attempt, 0, "12")] },
+    }));
+    const reveal = await world.http({
+      method: "POST",
+      url: `/api/assignments/${revealed}/reveal`,
+      cookie: tutor,
+    });
+    if (reveal.status !== 204) throw new Error(JSON.stringify(reveal.body));
     const openAssignmentId = await assign(world, tutor, assessmentId, { learnerId: lina });
     return {
       ...family,
@@ -178,6 +215,7 @@ runRightsMatrix("Matrice des droits — évaluation (R2, R5)", rows, {
       assessmentId,
       openAssignmentId,
       publishedAttemptId: publishedAttempt.attemptId,
+      revealedAttemptId: revealedAttempt.attemptId,
       pendingAttemptId: pendingAttempt.attemptId,
       pendingQuestionId: pendingAttempt.questions[0]?.id ?? "",
     };

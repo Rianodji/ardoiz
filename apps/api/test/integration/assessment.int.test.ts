@@ -5,6 +5,7 @@ import {
   FRIDAY_18H,
   loginGuardian,
   loginLearner,
+  loginTutor,
   mcqTwelve,
   optionWithText,
   startAttempt,
@@ -63,13 +64,17 @@ function keysOf(value: unknown, into: string[] = []): string[] {
 }
 
 /** Vérifie qu'aucune réponse attendue ne figure dans un corps JSON reçu par l'élève ou son parent (R5). */
-function expectNoExpectedAnswer(where: string, body: unknown): void {
+function expectNoExpectedAnswer(
+  where: string,
+  body: unknown,
+  forbiddenKeys: readonly string[] = FORBIDDEN_KEYS,
+): void {
   const text = JSON.stringify(body ?? null);
   for (const sentinel of SENTINELS) expect(text, `${where} contient ${sentinel}`).not.toContain(sentinel);
   // Les identifiants d'origine des options (o1, o2…) trahiraient leur position, donc la bonne réponse.
   expect(text, where).not.toMatch(/"o\d"/);
   const keys = keysOf(body);
-  for (const key of FORBIDDEN_KEYS) expect(keys, `${where} : clé ${key}`).not.toContain(key);
+  for (const key of forbiddenKeys) expect(keys, `${where} : clé ${key}`).not.toContain(key);
 }
 
 describe("Évaluation (L3)", () => {
@@ -156,26 +161,37 @@ describe("Évaluation (L3)", () => {
         (route) => route.method === "GET" && route.url.startsWith("/api/"),
       );
       expect(getRoutes.length).toBeGreaterThan(15);
-      for (const cookie of [lina(), family.linkedGuardian]) {
-        for (const route of getRoutes) {
-          const url = route.url.replace(/:(\w+)/g, (_, name: string) => ids[name] ?? "inconnu");
-          record(`GET ${url}`, await call("GET", url, cookie));
+      const readEverything = async (into: Array<[string, unknown]>) => {
+        for (const cookie of [lina(), family.linkedGuardian]) {
+          for (const route of getRoutes) {
+            const url = route.url.replace(/:(\w+)/g, (_, name: string) => ids[name] ?? "inconnu");
+            into.push([`GET ${url}`, (await call("GET", url, cookie)).body]);
+          }
         }
-      }
+      };
+      await readEverything(seen);
       for (const [where, body] of seen) expectNoExpectedAnswer(where, body);
 
-      // Témoin du test lui-même : après publication, le corrigé apparaît et le détecteur le voit.
+      // Après publication, AVANT révélation : la note et les points, toujours aucune réponse attendue (R-1).
       await call("POST", `/api/grading/attempts/${attempt.attemptId}/grades`, tutor(), {
         grades: [{ questionId: attempt.questions[2]?.id, earned: 5 }],
       });
       expect((await call("POST", `/api/grading/attempts/${attempt.attemptId}/publish`, tutor())).status).toBe(
         204,
       );
-      const published = JSON.stringify(
-        (await call("GET", `/api/attempts/${attempt.attemptId}`, lina())).body,
-      );
-      expect(published).toContain("4217.5");
-      expect(published).toContain("TEMOIN-MODELE");
+      const afterPublication: Array<[string, unknown]> = [];
+      await readEverything(afterPublication);
+      const whilePublished = FORBIDDEN_KEYS.filter((key) => key !== "earned");
+      for (const [where, body] of afterPublication)
+        expectNoExpectedAnswer(`publiée : ${where}`, body, whilePublished);
+      expect(JSON.stringify(afterPublication)).toContain('"grade":20');
+
+      // Témoin du test lui-même : après révélation, le corrigé apparaît et le détecteur le voit.
+      expect((await call("POST", `/api/assignments/${assignmentId}/reveal`, tutor())).status).toBe(204);
+      const revealed = JSON.stringify((await call("GET", `/api/attempts/${attempt.attemptId}`, lina())).body);
+      expect(revealed).toContain("4217.5");
+      expect(revealed).toContain("TEMOIN-MODELE");
+      expect(revealed).toContain("TEMOIN-EXPLICATION");
     });
 
     it("mélange les options du QCM par tentative, avec des identifiants opaques propres à chacune (ADR-0007)", async () => {
@@ -314,6 +330,109 @@ describe("Évaluation (L3)", () => {
     });
   });
 
+  describe("Révélation du corrigé (R5, verdict L3 R-1)", () => {
+    const at = (base: Date, seconds: number) => new Date(base.getTime() + seconds * 1000);
+    const answerKeyOf = async (cookie: string, attemptId: string) =>
+      ((await call("GET", `/api/attempts/${attemptId}`, cookie)).body as { answerKey: unknown }).answerKey;
+    const submitTwelve = async (cookie: string, assignmentId: string, text = "12") => {
+      const attempt = await start(cookie, assignmentId);
+      const res = await submit(cookie, attempt.attemptId, {
+        [attempt.questions[0]?.id ?? ""]: { kind: "mcq", optionIds: [optionWithText(attempt, 0, text)] },
+      });
+      expect(res.status, JSON.stringify(res.body)).toBe(200);
+      return {
+        attempt,
+        body: res.body as { status: string; correction: { grade: number } | null; answerKey: unknown },
+      };
+    };
+
+    it("échéance − 1 s : note publiée sans corrigé ; échéance + 0 s sans retard autorisé : corrigé révélé (R5)", async () => {
+      const assignmentId = await assign(world, tutor(), qcmId, {
+        learnerId: family.learner.id,
+        publication: "auto",
+      });
+      world.clock.setTo(at(FRIDAY_18H, -1));
+      const cookie = await loginLearner(world, "lina");
+      const { attempt, body } = await submitTwelve(cookie, assignmentId);
+      expect(body).toMatchObject({ status: "published", correction: { grade: 20 }, answerKey: null });
+      expect(await answerKeyOf(cookie, attempt.attemptId)).toBeNull();
+      world.clock.setTo(FRIDAY_18H);
+      expect(await answerKeyOf(cookie, attempt.attemptId)).toMatchObject({
+        questions: [{ expected: { kind: "mcq", correctOptionIds: [optionWithText(attempt, 0, "12")] } }],
+      });
+    });
+
+    it("retard autorisé : aucun corrigé après l'échéance tant que le tuteur ne l'a pas révélé ; révélation auditée, définitive (R5, R12)", async () => {
+      const assignmentId = await assign(world, tutor(), qcmId, {
+        learnerId: family.learner.id,
+        publication: "auto",
+        lateAllowed: true,
+      });
+      const { attempt } = await submitTwelve(lina(), assignmentId);
+      world.clock.setTo(at(FRIDAY_18H, 86_400));
+      const cookie = await loginLearner(world, "lina");
+      expect(await answerKeyOf(cookie, attempt.attemptId)).toBeNull();
+      const tutorCookie = await loginTutor(world, family);
+      expect((await call("POST", `/api/assignments/${assignmentId}/reveal`, cookie)).status).toBe(403);
+      expect((await call("POST", `/api/assignments/${assignmentId}/reveal`, tutorCookie)).status).toBe(204);
+      expect((await call("POST", `/api/assignments/${assignmentId}/reveal`, tutorCookie)).status).toBe(204);
+      expect(await answerKeyOf(cookie, attempt.attemptId)).not.toBeNull();
+      const events = await world.adminQuery<{ n: number }>(
+        "SELECT count(*)::int AS n FROM messaging.outbox WHERE type = 'assessment.answers-revealed'",
+      );
+      expect(events[0]?.n).toBe(1);
+      const audit = await world.adminQuery<{ n: number }>(
+        "SELECT count(*)::int AS n FROM audit.audit_log WHERE action = 'assessment.answers-revealed' AND outcome = 'success'",
+      );
+      expect(audit[0]?.n).toBe(1);
+      // Un corrigé vu ne se cache plus, même en SQL direct.
+      await expect(
+        world.adminQuery("UPDATE assessment.assignments SET revealed_at = NULL, revealed_by = NULL"),
+      ).rejects.toThrow(/définitive/);
+    });
+
+    it("2 tentatives, publication automatique : après une première copie vide, la seconde tentative ne voit aucune réponse attendue (R5)", async () => {
+      const assignmentId = await assign(world, tutor(), mixedId, {
+        learnerId: family.learner.id,
+        publication: "manual",
+        maxAttempts: 2,
+      });
+      const qcmTwice = await assign(world, tutor(), qcmId, {
+        learnerId: family.learner.id,
+        publication: "auto",
+        maxAttempts: 2,
+      });
+      expect(assignmentId).not.toBe(qcmTwice);
+      const first = await start(lina(), qcmTwice);
+      const blank = (await submit(lina(), first.attemptId, {})).body as {
+        status: string;
+        answerKey: unknown;
+      };
+      expect(blank).toMatchObject({ status: "published", answerKey: null });
+      const second = await start(lina(), qcmTwice);
+      const seen = JSON.stringify([
+        second,
+        (await call("GET", `/api/attempts/${first.attemptId}`, lina())).body,
+        (await call("GET", "/api/my/assignments", lina())).body,
+        (await call("GET", `/api/learners/${family.learner.id}/results`, lina())).body,
+        (await call("GET", `/api/attempts/${first.attemptId}`, family.linkedGuardian)).body,
+      ]);
+      expect(seen).not.toContain("correctOptionIds");
+      expect(seen).not.toContain("4 + 4 + 4");
+      expect(seen).not.toMatch(/"answerKey":\{/);
+    });
+
+    it("la vue élève annonce le corrigé après la date limite au lieu de le montrer (contrat)", async () => {
+      const assignmentId = await assign(world, tutor(), qcmId, {
+        learnerId: family.learner.id,
+        publication: "auto",
+      });
+      const { body } = await submitTwelve(lina(), assignmentId, "7");
+      expect(body.correction).toEqual({ grade: 0, questions: [expect.objectContaining({ earned: 0 })] });
+      expect(body.answerKey).toBeNull();
+    });
+  });
+
   describe("Copie figée et correction (R6, R12)", () => {
     async function publishedMixed(): Promise<{ attempt: LearnerAttempt; assignmentId: string }> {
       const assignmentId = await assign(world, tutor(), mixedId, { learnerId: family.learner.id });
@@ -343,6 +462,72 @@ describe("Évaluation (L3)", () => {
       ]) {
         await expect(world.adminQuery(sql, [id]), sql).rejects.toThrow(/R6/);
       }
+    });
+
+    it("les questions d'une épreuve attribuée sont figées par la base, même en SQL direct (R6, verdict L3 R-2)", async () => {
+      await assign(world, tutor(), qcmId, { learnerId: family.learner.id });
+      const assessment = qcmId.replace(/^asm_/, "");
+      const [question] = await world.adminQuery<{ id: string }>(
+        "SELECT id FROM assessment.questions WHERE assessment_id = $1",
+        [assessment],
+      );
+      const id = question?.id ?? "";
+      for (const sql of [
+        "UPDATE assessment.questions SET prompt = 'Combien font 3 × 5 ?' WHERE id = $1",
+        "UPDATE assessment.questions SET spec = jsonb_set(spec, '{correctOptionIds}', '[\"o1\"]') WHERE id = $1",
+        "DELETE FROM assessment.question_competencies WHERE question_id = $1",
+        "DELETE FROM assessment.questions WHERE id = $1",
+        `INSERT INTO assessment.questions (id, tutor_space_id, assessment_id, position, kind, prompt, points, spec)
+           SELECT gen_random_uuid(), tutor_space_id, assessment_id, 9, kind, prompt, points, spec FROM assessment.questions WHERE id = $1`,
+        `INSERT INTO assessment.question_competencies (tutor_space_id, question_id, competency_id)
+           SELECT tutor_space_id, question_id, (SELECT id FROM curriculum.competencies c WHERE c.id <> qc.competency_id LIMIT 1)
+             FROM assessment.question_competencies qc WHERE question_id = $1`,
+      ]) {
+        await expect(world.adminQuery(sql, [id]), sql).rejects.toThrow(/figées \(R6\)/);
+      }
+      // Une épreuve non attribuée reste modifiable.
+      const draft = mixedId.replace(/^asm_/, "");
+      await expect(
+        world.adminQuery("UPDATE assessment.questions SET prompt = prompt || ' ' WHERE assessment_id = $1", [
+          draft,
+        ]),
+      ).resolves.toEqual([]);
+    });
+
+    it("une note publiée modifiée avec le seul drapeau, sans ligne de rectification dans la transaction, est refusée au COMMIT (R6, verdict L3 R-3)", async () => {
+      const { attempt } = await publishedMixed();
+      const id = attempt.attemptId.replace(/^att_/, "");
+      const question = (attempt.questions[2]?.id ?? "").replace(/^qst_/, "");
+      await expect(
+        world.adminQuery(
+          `BEGIN; SELECT set_config('app.rectification', 'on', true);
+           UPDATE assessment.attempts SET grade = 20 WHERE id = '${id}'; COMMIT;`,
+        ),
+      ).rejects.toThrow(/sans rectification/);
+      await expect(
+        world.adminQuery(
+          `BEGIN; SELECT set_config('app.rectification', 'on', true);
+           UPDATE assessment.question_results SET earned = 5 WHERE attempt_id = '${id}' AND question_id = '${question}'; COMMIT;`,
+        ),
+      ).rejects.toThrow(/sans rectification/);
+      // Une ligne de rectification d'une AUTRE transaction ne sert pas de preuve.
+      const [tutorAccount] = await world.adminQuery<{ id: string; tutor_space_id: string }>(
+        "SELECT id, tutor_space_id FROM identity.accounts WHERE role = 'tutor' LIMIT 1",
+      );
+      await world.adminQuery(
+        `INSERT INTO assessment.grade_rectifications
+           (id, tutor_space_id, attempt_id, question_id, previous_earned, new_earned, previous_grade, new_grade, reason, rectified_at, rectified_by)
+         VALUES (gen_random_uuid(), $1, $2, $3, 2.5, 5, 15, 20, 'Préparée à l''avance', now(), $4)`,
+        [tutorAccount?.tutor_space_id, id, question, tutorAccount?.id],
+      );
+      await expect(
+        world.adminQuery(`UPDATE assessment.attempts SET grade = 20 WHERE id = $1`, [id]),
+      ).rejects.toThrow(/sans rectification/);
+      const [row] = await world.adminQuery<{ grade: string }>(
+        "SELECT grade FROM assessment.attempts WHERE id = $1",
+        [id],
+      );
+      expect(Number(row?.grade)).toBe(15);
     });
 
     it("une copie rendue ne repasse jamais en brouillon, même en SQL (R6)", async () => {

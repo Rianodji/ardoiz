@@ -4,6 +4,7 @@ import {
   assign,
   createAssessment,
   FRIDAY_18H,
+  loginGuardian,
   loginLearner,
   mcqTwelve,
   optionWithText,
@@ -19,6 +20,8 @@ interface Scenario {
   assignmentId?: string;
   attempt?: LearnerAttempt;
   lastResponse?: HttpResult;
+  /** Sessions de Lina et de ses deux parents, renouvelées après un saut d'horloge. */
+  viewers?: string[];
 }
 
 const family = (s: Scenario): Family => {
@@ -33,6 +36,20 @@ const attempt = (s: Scenario): LearnerAttempt => {
   if (s.attempt === undefined) throw new Error("Tentative absente.");
   return s.attempt;
 };
+
+const viewers = (s: Scenario): string[] =>
+  s.viewers ?? [family(s).learner.cookie, family(s).linkedGuardian, family(s).coGuardian];
+
+interface PublishedView {
+  correction: { grade: number } | null;
+  answerKey: { questions: Array<{ expected: unknown; explanation: string | null }> } | null;
+}
+
+async function viewAttempt(s: Scenario, cookie: string): Promise<PublishedView> {
+  const view = await s.world.http({ method: "GET", url: `/api/attempts/${attempt(s).attemptId}`, cookie });
+  expect(view.status, JSON.stringify(view.body)).toBe(200);
+  return view.body as PublishedView;
+}
 
 /** Motifs de refus tels que l'interface les affiche, reliés aux codes stables de l'API. */
 const REASONS: Readonly<Record<string, string>> = {
@@ -186,7 +203,7 @@ const steps: ReadonlyArray<StepDefinition<Scenario>> = [
     },
   },
   {
-    pattern: /^le tuteur publie la correction$/,
+    pattern: /^(?:que )?le tuteur (?:publie|a publié) la correction$/,
     run: async (s) => {
       const res = await s.world.http({
         method: "POST",
@@ -197,37 +214,50 @@ const steps: ReadonlyArray<StepDefinition<Scenario>> = [
     },
   },
   {
-    pattern: /^"Lina" et ses parents voient la note et le corrigé$/,
+    pattern: /^"Lina" et ses parents voient la note, sans le corrigé$/,
     run: async (s) => {
-      const f = family(s);
-      for (const cookie of [f.learner.cookie, f.linkedGuardian, f.coGuardian]) {
-        const view = await s.world.http({
-          method: "GET",
-          url: `/api/attempts/${attempt(s).attemptId}`,
-          cookie,
-        });
-        expect(view.status).toBe(200);
-        const body = view.body as LearnerAttempt & {
-          correction: {
-            grade: number;
-            questions: Array<{ correction: { correctOptionIds: string[] }; explanation: string }>;
-          };
-        };
-        expect(body.correction.grade).toBe(20);
-        expect(body.correction.questions[0]?.correction.correctOptionIds).toEqual([
-          optionWithText(attempt(s), 0, "12"),
-        ]);
-        expect(body.correction.questions[0]?.explanation).toBe("3 × 4 = 4 + 4 + 4 = 12.");
-        const results = await s.world.http({
-          method: "GET",
-          url: `/api/learners/${f.learner.id}/results`,
-          cookie,
-        });
-        expect(results.body).toMatchObject({ results: [{ title: "Arithmétique 1", grade: 20 }] });
+      for (const cookie of viewers(s)) {
+        const body = await viewAttempt(s, cookie);
+        expect(body.correction?.grade).toBe(20);
+        // Publiée mais pas révélée : ni bonne option, ni explication (R5, verdict L3 R-1).
+        expect(body.answerKey).toBeNull();
+        expect(JSON.stringify(body)).not.toContain("4 + 4 + 4");
       }
       // L'événement CorrectionPubliée est dans l'outbox, écrit avec la publication.
       const events = await s.world.adminQuery<{ type: string }>("SELECT type FROM messaging.outbox");
       expect(events.map((event) => event.type)).toContain("assessment.correction-published");
+    },
+  },
+  {
+    pattern: /^l'échéance du vendredi 18 h est passée$/,
+    run: async (s) => {
+      s.world.clock.setTo(FRIDAY_18H);
+      // Les sessions ont expiré pendant la semaine (R8) : chacun se reconnecte.
+      s.viewers = [
+        await loginLearner(s.world, "lina"),
+        await loginGuardian(s.world, "awa@example.org"),
+        await loginGuardian(s.world, "moussa@example.org"),
+      ];
+    },
+  },
+  {
+    pattern: /^"Lina" et ses parents voient la note et le corrigé$/,
+    run: async (s) => {
+      for (const cookie of viewers(s)) {
+        const body = await viewAttempt(s, cookie);
+        expect(body.correction?.grade).toBe(20);
+        expect(body.answerKey?.questions[0]?.expected).toEqual({
+          kind: "mcq",
+          correctOptionIds: [optionWithText(attempt(s), 0, "12")],
+        });
+        expect(body.answerKey?.questions[0]?.explanation).toBe("3 × 4 = 4 + 4 + 4 = 12.");
+        const results = await s.world.http({
+          method: "GET",
+          url: `/api/learners/${family(s).learner.id}/results`,
+          cookie,
+        });
+        expect(results.body).toMatchObject({ results: [{ title: "Arithmétique 1", grade: 20 }] });
+      }
     },
   },
   {
