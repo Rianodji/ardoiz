@@ -55,6 +55,7 @@ export function canViewAttempt(
     case "learner":
       return actor.id === attempt.learnerId ? allow() : hide();
     case "guardian":
+      // QUESTION Q17 : avant publication, la matrice ne dit rien pour le parent lié ; option restrictive : 👻.
       return actor.learnerIds.has(attempt.learnerId) && attempt.published ? allow() : hide();
     default:
       return assertNever(actor);
