@@ -170,7 +170,13 @@ export class World {
     return {
       status: response.statusCode,
       headers: response.headers,
-      body: response.body === "" ? null : (JSON.parse(response.body) as unknown),
+      // Corps JSON analysé ; tout autre corps (image servie par /api/media) reste en octets bruts.
+      body:
+        response.body === ""
+          ? null
+          : (response.headers["content-type"] ?? "").includes("json")
+            ? (JSON.parse(response.body) as unknown)
+            : response.rawPayload,
       setCookie: Array.isArray(setCookie) ? setCookie[0] : setCookie,
     };
   }

@@ -26,7 +26,16 @@ export class ProgrammeService {
     return this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => ({
       subjects: await store.subjects(),
       modules: await store.modules(),
-      lessons: (await store.lessons()).map(({ content: _content, ...summary }) => summary),
+      // Le contenu ne quitte pas le serveur dans la vue d'ensemble : il est lu cours par cours.
+      lessons: (await store.lessons()).map((lesson) => ({
+        id: lesson.id,
+        moduleId: lesson.moduleId,
+        title: lesson.title,
+        status: lesson.status,
+        position: lesson.position,
+        updatedAt: lesson.updatedAt,
+        publishedAt: lesson.publishedAt,
+      })),
     }));
   }
 

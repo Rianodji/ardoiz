@@ -245,13 +245,13 @@ export async function curriculumRoutes(
   );
 
   // --- Import d'image : seule route qui reçoit autre chose que du JSON (R14, R15) ----------
-  await app.register(async (scoped) => {
+  await app.register((scoped, _options, done) => {
     // Analyseur limité à cette route : des octets bruts, 10 Mo au plus ; le type est vérifié par signature.
     scoped.addContentTypeParser(
       "application/octet-stream",
       { parseAs: "buffer", bodyLimit: MAX_IMAGE_BYTES },
-      (_request, body, done) => {
-        done(null, body);
+      (_request, body, parsed) => {
+        parsed(null, body);
       },
     );
     scoped.post<{ Params: Static<typeof LessonParams>; Body: Buffer }>(
@@ -266,6 +266,7 @@ export async function curriculumRoutes(
         return reply.code(201).send(uploaded);
       },
     );
+    done();
   });
 
   /**

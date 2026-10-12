@@ -46,6 +46,8 @@ export async function setupTutor(
     tutorName: options.tutorName ?? "Dicard",
     tutorPassword: ADULT_PASSWORD,
   });
+  // Comme la CLI init-space : le référentiel validé est chargé avec l'espace.
+  await world.curriculum.seedReferential(tutorSpaceId);
   const login = await world.http({
     method: "POST",
     url: "/api/auth/login/adult",

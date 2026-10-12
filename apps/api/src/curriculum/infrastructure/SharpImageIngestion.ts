@@ -52,10 +52,7 @@ export class SharpImageIngestion implements ImageIngestion {
     } catch {
       throw new RejectedImageError("curriculum.image-undecodable");
     }
-    const width = metadata.width;
-    const height = metadata.height;
-    if (width === undefined || height === undefined)
-      throw new RejectedImageError("curriculum.image-undecodable");
+    const { width, height } = metadata;
     if (width * height > MAX_IMAGE_PIXELS) throw new RejectedImageError("curriculum.image-too-many-pixels");
     // Le contenu doit être du type annoncé par sa signature : sinon c'est un fichier déguisé.
     if (metadata.format !== sniffed) throw new RejectedImageError("curriculum.image-unsupported-type");
