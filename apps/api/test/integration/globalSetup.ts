@@ -44,9 +44,12 @@ export async function setup(project: TestProject): Promise<void> {
   await admin.connect();
   await admin.query(`CREATE ROLE ardoiz_owner LOGIN PASSWORD '${ownerPassword}'`);
   await admin.query(
-    `CREATE ROLE ardoiz_user LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '${appPassword}'`,
+    `CREATE ROLE ardoiz_user LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD '${appPassword}'`,
   );
   await admin.query("CREATE DATABASE ardoiz OWNER ardoiz_owner");
+  // Comme sur le serveur : les rôles des autres projets ne peuvent pas se connecter à la base.
+  await admin.query("REVOKE ALL ON DATABASE ardoiz FROM PUBLIC");
+  await admin.query("GRANT CONNECT ON DATABASE ardoiz TO ardoiz_user");
   await admin.end();
 
   const ownerUrl = withCredentials(adminUrl, "ardoiz_owner", ownerPassword, "ardoiz");
