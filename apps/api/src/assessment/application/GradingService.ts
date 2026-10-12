@@ -72,7 +72,8 @@ export class GradingService {
   /**
    * Calque d'annotation du tuteur sur le cahier d'une copie rendue et non publiée (ADR-0004, R6) :
    * une seconde scène, sans image ni formule, jamais fusionnée dans celle de l'élève. La copie et son
-   * empreinte restent inchangées ; la base refuse le calque après la publication.
+   * empreinte restent inchangées ; la base refuse le calque après la publication (QUESTION Q19 : pas de
+   * rectification du calque, option restrictive).
    */
   async annotate(
     actor: Actor,

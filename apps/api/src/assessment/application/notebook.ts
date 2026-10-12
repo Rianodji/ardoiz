@@ -10,7 +10,7 @@ export interface RawNotebook {
   readonly formulas?: readonly unknown[];
 }
 
-/** Au plus 20 images importées par copie (R15, M13). */
+/** Au plus 20 images importées par copie (R15, M13). QUESTION Q20 : borne non fixée par R15 ; option restrictive. */
 export const MAX_NOTEBOOK_IMAGES = 20;
 
 /**
