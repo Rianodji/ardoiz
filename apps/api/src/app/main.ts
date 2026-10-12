@@ -1,6 +1,7 @@
 import pino from "pino";
+import { createAssessmentModule } from "../assessment/index.js";
 import { createCurriculumModule } from "../curriculum/index.js";
-import { createIdentityModule } from "../identity/index.js";
+import { createIdentityModule, PgLearnerDirectory } from "../identity/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
@@ -31,10 +32,17 @@ async function main(): Promise<void> {
     clock,
     ids: new UuidV7IdGenerator(clock),
   });
+  const assessment = createAssessmentModule({
+    pool,
+    curriculum: curriculum.directory,
+    learners: new PgLearnerDirectory(pool),
+    clock,
+    ids: new UuidV7IdGenerator(clock),
+  });
   const app = await buildServer({
     config,
     readiness: databaseReadiness(pool),
-    modules: [identity, curriculum],
+    modules: [identity, curriculum, assessment],
   });
 
   const shutdown = async (): Promise<void> => {

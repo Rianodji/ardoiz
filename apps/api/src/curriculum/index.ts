@@ -5,6 +5,7 @@
 export { LESSON_COMPLETED } from "./application/LearningService.js";
 export {
   createCurriculumModule,
+  type CurriculumDirectory,
   type CurriculumModule,
   type CurriculumModuleOptions,
 } from "./infrastructure/module.js";
