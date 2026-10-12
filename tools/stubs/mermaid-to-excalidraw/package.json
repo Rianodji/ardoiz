@@ -1,0 +1,12 @@
+{
+  "name": "@excalidraw/mermaid-to-excalidraw",
+  "version": "2.2.2",
+  "description": "Remplaçant vide : la conversion Mermaid d'Excalidraw n'est pas proposée dans Ardoiz (arbre de dépendances vulnérable, fonction inutile au cahier).",
+  "license": "MIT",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "private": true
+}

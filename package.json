@@ -3,21 +3,23 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "license": "AGPL-3.0-only",
   "workspaces": [
     "packages/contracts",
     "packages/content-schema",
     "apps/api",
-    "apps/web"
+    "apps/web",
+    "tools/stubs/mermaid-to-excalidraw"
   ],
   "engines": {
     "node": ">=24 <25"
   },
   "scripts": {
     "dev": "npm run dev --workspace @ardoiz/api & npm run dev --workspace @ardoiz/web & wait",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspaces --if-present",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "typecheck": "npm run typecheck --workspaces",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run --project api --project web --project contracts --project content-schema",
     "test:integration": "vitest run --project api-integration",
     "depcruise": "depcruise apps/api/src --config .dependency-cruiser.cjs",
@@ -26,8 +28,12 @@
     "sbom": "npm sbom --sbom-format cyclonedx --omit dev > sbom.cdx.json",
     "ardoiz": "npm run cli --workspace @ardoiz/api --"
   },
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "1.63.0",
     "@types/node": "^24.19.2",
     "@vitest/coverage-v8": "^5.0.3",
     "dependency-cruiser": "^18.6.0",
@@ -39,5 +45,11 @@
     "typescript-eslint": "^8.71.1",
     "vitest": "^5.0.3"
   },
-  "license": "AGPL-3.0-only"
+  "overrides": {
+    "@excalidraw/excalidraw": {
+      "nanoid": "3.3.20",
+      "sass": "1.105.1",
+      "@radix-ui/react-tabs": "1.1.13"
+    }
+  }
 }

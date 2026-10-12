@@ -25,6 +25,12 @@ const EXCEPTIONS = new Map([
   ["@img/sharp-libvips-linux-x64", "LGPL-3.0-or-later"],
   ["@img/sharp-libvips-linuxmusl-x64", "LGPL-3.0-or-later"],
   ["@img/sharp-wasm32", "Apache-2.0 AND LGPL-3.0-or-later AND MIT"],
+  // QUESTION Q18 : trois dépendances d'Excalidraw (ADR-0004), sous des licences permissives absentes de
+  // la liste blanche. CC0-1.0 (domaine public), Zlib (approuvée par l'OSI), et fuzzy, dont le
+  // package.json n'a pas de champ « license » mais dont le dépôt contient LICENSE-MIT.
+  ["fractional-indexing", "CC0-1.0"],
+  ["pako", "(MIT AND Zlib)"],
+  ["fuzzy", "INCONNUE"],
 ]);
 
 /** Une expression SPDX « A OR B » est acceptée si l'une des branches l'est ; « A AND B » si toutes le sont. */
