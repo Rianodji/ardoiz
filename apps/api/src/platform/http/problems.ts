@@ -24,6 +24,7 @@ const STATUS_BY_DOMAIN_CODE: Readonly<Record<string, number>> = {
   // Un identifiant mal formé ne peut désigner aucune ressource : même réponse qu'une ressource absente (R2).
   "shared.invalid-identifier": 404,
   "application.forbidden": 403,
+  "http.too-many-requests": 429,
 };
 
 /** Erreurs techniques de Fastify qui décrivent une requête invalide, et leur code stable. */
@@ -38,8 +39,13 @@ const CLIENT_ERROR_CODES: Readonly<Record<number, string>> = {
 /** Délai par défaut annoncé au client limité, quand l'erreur ne précise pas le sien. */
 const DEFAULT_RETRY_AFTER_SECONDS = 60;
 
-function retryAfterSeconds(error: FastifyError): number {
-  const announced = "retryAfter" in error ? Number(error.retryAfter) : Number.NaN;
+function retryAfterSeconds(error: Error): number {
+  const announced =
+    "retryAfterSeconds" in error
+      ? Number(error.retryAfterSeconds)
+      : "retryAfter" in error
+        ? Number(error.retryAfter)
+        : Number.NaN;
   return Number.isInteger(announced) && announced > 0 ? announced : DEFAULT_RETRY_AFTER_SECONDS;
 }
 
@@ -68,11 +74,17 @@ function isFastifyError(error: unknown): error is FastifyError {
  * RFC 9457 avec un code stable et l'identifiant de la requête ; jamais de message technique,
  * de trace ni d'erreur SQL. Toute erreur non reconnue devient un 500 générique, journalisé en entier.
  */
-export function registerProblemHandlers(app: FastifyInstance): void {
+export function registerProblemHandlers(
+  app: FastifyInstance,
+  moduleStatuses: Readonly<Record<string, number>> = {},
+): void {
+  // Chaque module déclare le statut HTTP de ses codes d'erreur ; un code inconnu donne 422.
+  const statuses: Readonly<Record<string, number>> = { ...moduleStatuses, ...STATUS_BY_DOMAIN_CODE };
   app.setErrorHandler(async (error: unknown, request, reply) => {
     if (error instanceof DomainError) {
-      const status = STATUS_BY_DOMAIN_CODE[error.code] ?? 422;
+      const status = statuses[error.code] ?? 422;
       request.log.info({ code: error.code, status }, "erreur métier");
+      if (status === 429) reply.header("retry-after", String(retryAfterSeconds(error)));
       return sendProblem(request, reply, status, error.code);
     }
 

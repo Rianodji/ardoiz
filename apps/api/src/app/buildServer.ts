@@ -10,9 +10,16 @@ import { loggerOptions } from "../platform/logging/logger.js";
 
 export type ServerConfig = Pick<AppConfig, "publicOrigin" | "logLevel" | "webDistDir" | "trustedProxies">;
 
+/** Un module métier branché sur le serveur : ses statuts d'erreur et ses routes. */
+export interface HttpModule {
+  readonly statuses: Readonly<Record<string, number>>;
+  register(app: FastifyInstance): Promise<void>;
+}
+
 export interface ServerDependencies {
   readonly config: ServerConfig;
   readonly readiness: ReadinessProbe;
+  readonly modules?: readonly HttpModule[];
   /** Destination des journaux ; la sortie standard par défaut (collectée par Alloy). */
   readonly logStream?: DestinationStream;
 }
@@ -49,9 +56,15 @@ export async function buildServer(deps: ServerDependencies): Promise<FastifyInst
   // JSON uniquement (R11) : tout autre type de contenu est refusé (415).
   app.removeContentTypeParser(["text/plain"]);
 
-  registerProblemHandlers(app);
+  const modules = deps.modules ?? [];
+  registerProblemHandlers(
+    app,
+    Object.assign({}, ...modules.map((module) => module.statuses)) as Record<string, number>,
+  );
   await registerHardening(app, deps.config.publicOrigin);
   registerHealthRoutes(app, deps.readiness);
+  // Ordre important : l'origine est vérifiée (durcissement) avant l'authentification de chaque module.
+  for (const module of modules) await module.register(app);
 
   const webDistDir = deps.config.webDistDir;
   if (webDistDir !== undefined) {

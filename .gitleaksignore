@@ -1,0 +1,7 @@
+# Détections de gitleaks examinées et acquittées une à une (R20). Chaque ligne est l'empreinte
+# exacte d'UNE détection dans UN commit déjà publié : rien d'autre n'est ignoré.
+#
+# 2026-10-12 · faux positif : mot de passe factice des tests d'intégration (ADULT_PASSWORD), utilisé
+# seulement contre des bases Testcontainers jetables. Depuis, les mots de passe de test sont tirés
+# au hasard à l'exécution ; le commit est publié et l'historique n'est pas réécrit.
+82d84b6a0d1515d5c9e6ddc3bc0c0a17cb2c2b4d:apps/api/test/integration/support/world.ts:generic-api-key:19

@@ -149,18 +149,22 @@ Critères d'acceptation :
 ## L7 — Mise en production
 
 Livrables :
-- `deploy/Dockerfile` multi-étapes (non root, `HEALTHCHECK`), `deploy/compose.prod.yml` et `deploy/compose.staging.yml` (labels Traefik, réseaux `web` + `infra`, volume de fichiers, limites mémoire) — ADR-0008.
-- `release.yml` : build, SBOM, push GHCR, migrations, déploiement staging, test de fumée, prod sur approbation.
+- `deploy/Dockerfile` multi-étapes (non root, `HEALTHCHECK`, image la plus légère possible) et `deploy/compose.prod.yml` d'après le **squelette de l'infra** (`HANDOFF_INFRA.md` : service `ardoiz`, `read_only`, `tmpfs`, volume nommé `ardoiz_files`, réseaux `web` + `infra`, labels Traefik, `mem_limit`) — ADR-0008 amendé.
+- Serveur de métriques Prometheus sur le **port 9464**, absent des labels Traefik ; un test vérifie que `/metrics` répond 404 sur le port 3000.
+- `release.yml` sur tag `v*` : vérifications, build, SBOM, push Docker Hub (`dididenoble/ardoiz`, tags version + SHA). Job `deploy` dans l'environnement `production` (approbation du porteur) : `.env` généré par SSH, `docker compose pull` avec reprise (5 × 10 s), migrations éphémères, `up -d`, test de fumée `/healthz` + `/readyz` sur `https://ardoiz.teamnoble.fr`. `workflow_dispatch` avec un champ `tag` pour le retour arrière.
+- Discipline *expand / contract* : un test d'intégration applique les migrations puis lance la **suite d'intégration de la version précédente** (tag précédent) sur le nouveau schéma, dès qu'un tag précédent existe.
 - Coordination avec la **session infra** via `HANDOFF_INFRA.md` : lire ses réponses, s'aligner sur ses conventions (registre, déclencheur, secrets), poster la clé SSH publique de déploiement et le compte rendu dans la section « Session développement ». **Le développeur ne modifie ni le dépôt `teamnoble-infra` ni le VPS.**
 - Sauvegarde : vérifier que la base `ardoiz` est incluse dans `postgres-backup` ; sauvegarde du volume de fichiers ; **procédure de restauration testée** et documentée.
 - `docs/exploitation/runbook.md` : déployer, revenir en arrière (tag précédent), restaurer, faire tourner un secret, répondre à une demande RGPD (accès, suppression) à la main.
-- Tests E2E Playwright du parcours complet (invitation → consentement → élève → cours → devoir cahier → correction → tableau de bord parent) lancés contre le staging.
+- Tests E2E Playwright du parcours complet (invitation → consentement → élève → cours → devoir cahier → correction → tableau de bord parent) lancés **en CI contre l'image de production** démarrée localement (compose de test).
 - Tableau de bord Grafana minimal (requêtes, erreurs 5xx, latence, âge de l'outbox, échecs de connexion).
 
 Critères d'acceptation :
 - [ ] hadolint et actionlint passent ; l'image tourne avec uid ≠ 0 et un système de fichiers en lecture seule.
-- [ ] Un merge sur `main` déploie le staging sans intervention ; la prod attend l'approbation.
+- [ ] Un tag `v*` construit et pousse l'image ; le déploiement attend l'approbation, puis le test de fumée passe sur `https://ardoiz.teamnoble.fr`.
+- [ ] Le retour arrière vers le tag précédent a été exécuté une fois et documenté dans le runbook.
 - [ ] La restauration d'une sauvegarde sur une base vide a été exécutée et le compte rendu est dans le runbook.
 - [ ] Toutes les règles du catalogue planifiées dans L0–L7 sont ✅.
-- [ ] Les critères de succès du J1 (`cadrage.md` §6) sont démontrés sur le staging (ou sur la prod si la session infra a écarté le staging).
+- [ ] Les critères de succès du J1 (`cadrage.md` §6) sont démontrés en production.
+- [ ] La question Q8 (sauvegarde hors serveur) est tranchée par le porteur **avant** l'ouverture aux élèves.
 - [ ] Plus aucun `[[…]]` dans `docs/juridique/` (test bloquant avant le déploiement en prod).

@@ -27,6 +27,9 @@ export const ID_PREFIXES = {
   AssignmentId: "asg",
   AttemptId: "att",
   SuggestionId: "sug",
+  AuthSessionId: "ses",
+  RecoveryCodeId: "rcv",
+  PasswordResetId: "pwr",
   AuditEntryId: "aud",
   EventId: "evt",
 } as const;
@@ -39,6 +42,10 @@ export type TutorId = Id<"TutorId">;
 export type GuardianId = Id<"GuardianId">;
 export type LearnerId = Id<"LearnerId">;
 export type LessonId = Id<"LessonId">;
+export type GuardianshipId = Id<"GuardianshipId">;
+export type ParentalConsentId = Id<"ParentalConsentId">;
+export type InvitationId = Id<"InvitationId">;
+export type AuthSessionId = Id<"AuthSessionId">;
 export type AuditEntryId = Id<"AuditEntryId">;
 export type EventId = Id<"EventId">;
 
@@ -63,6 +70,10 @@ export const TutorId = idParser("TutorId");
 export const GuardianId = idParser("GuardianId");
 export const LearnerId = idParser("LearnerId");
 export const LessonId = idParser("LessonId");
+export const GuardianshipId = idParser("GuardianshipId");
+export const ParentalConsentId = idParser("ParentalConsentId");
+export const InvitationId = idParser("InvitationId");
+export const AuthSessionId = idParser("AuthSessionId");
 export const AuditEntryId = idParser("AuditEntryId");
 export const EventId = idParser("EventId");
 

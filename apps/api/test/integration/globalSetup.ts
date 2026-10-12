@@ -16,6 +16,10 @@ declare module "vitest" {
     adminUrl: string;
     ownerUrl: string;
     appUrl: string;
+    /** Connexion d'administration à la base « postgres », pour cloner le modèle (mondes de test isolés). */
+    adminRootUrl: string;
+    /** Mot de passe du rôle d'exécution, pour se connecter à une base clonée. */
+    appPassword: string;
   }
 }
 
@@ -44,22 +48,33 @@ export async function setup(project: TestProject): Promise<void> {
   await admin.connect();
   await admin.query(`CREATE ROLE ardoiz_owner LOGIN PASSWORD '${ownerPassword}'`);
   await admin.query(
-    `CREATE ROLE ardoiz_user LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD '${appPassword}'`,
+    `CREATE ROLE ardoiz_user LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD '${appPassword}'`,
   );
   await admin.query("CREATE DATABASE ardoiz OWNER ardoiz_owner");
+  // Comme sur le serveur : les rôles des autres projets ne peuvent pas se connecter à la base.
+  await admin.query("REVOKE ALL ON DATABASE ardoiz FROM PUBLIC");
+  await admin.query("GRANT CONNECT ON DATABASE ardoiz TO ardoiz_user");
+  // Modèle migré et vide : chaque « monde » de test en clone une base neuve, totalement isolée.
+  await admin.query("CREATE DATABASE ardoiz_template OWNER ardoiz_owner");
   await admin.end();
 
   const ownerUrl = withCredentials(adminUrl, "ardoiz_owner", ownerPassword, "ardoiz");
-  const owner = new pg.Client({ connectionString: ownerUrl });
-  await owner.connect();
-  await migrate(owner, MIGRATIONS_DIR);
-  await owner.end();
+  for (const database of ["ardoiz", "ardoiz_template"]) {
+    const owner = new pg.Client({
+      connectionString: withCredentials(adminUrl, "ardoiz_owner", ownerPassword, database),
+    });
+    await owner.connect();
+    await migrate(owner, MIGRATIONS_DIR);
+    await owner.end();
+  }
 
   const adminOnArdoiz = new URL(adminUrl);
   adminOnArdoiz.pathname = "/ardoiz";
   project.provide("adminUrl", adminOnArdoiz.toString());
   project.provide("ownerUrl", ownerUrl);
   project.provide("appUrl", withCredentials(adminUrl, "ardoiz_user", appPassword, "ardoiz"));
+  project.provide("adminRootUrl", adminUrl);
+  project.provide("appPassword", appPassword);
 }
 
 export async function teardown(): Promise<void> {

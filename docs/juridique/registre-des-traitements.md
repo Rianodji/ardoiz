@@ -10,5 +10,5 @@
 | Destinataires | Tuteur ; parents liés (pour leur enfant uniquement) ; sous-traitants : Hetzner Online GmbH (hébergement, DE), Brevo / Sendinblue SAS (e-mails, FR) |
 | Transferts hors UE | Aucun par Ardoiz. YouTube (Google) uniquement à l'initiative de l'élève (clic) |
 | Durées de conservation | Voir la politique de confidentialité §4 |
-| Mesures de sécurité | Voir `docs/securite/catalogue-des-regles.md` (R1–R21) : cloisonnement par espace et RLS, contrôle d'accès par politique, argon2id, TOTP pour le tuteur, HTTPS/HSTS, CSP, journal d'audit, sauvegardes chiffrées, minimisation |
+| Mesures de sécurité | Voir `docs/securite/catalogue-des-regles.md` (R1–R21) : cloisonnement par espace et RLS, contrôle d'accès par politique, argon2id, TOTP pour le tuteur, HTTPS/HSTS, CSP, journal d'audit, sauvegardes quotidiennes (sur le même serveur à ce jour, voir Q8), minimisation |
 | AIPD | Non réalisée pour l'usage familial du J1 ; **à réaliser avant l'ouverture** à d'autres familles |

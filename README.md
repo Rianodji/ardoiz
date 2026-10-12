@@ -27,8 +27,8 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | Lot | Contenu | État |
 |---|---|---|
 | Cadrage | Phases 0 à 4 de la routine : cadrage, domaine, menaces, règles, ADR, plan | ✅ 2026-10-11 |
-| L0 | Socle technique et CI | 🔍 |
-| L1 | Identité & Famille | ⏳ |
+| L0 | Socle technique et CI | ✅ 2026-10-11 (réserves traitées, PR #1) |
+| L1 | Identité & Famille | 🔍 (PR #4) |
 | L2 | Programme et contenu de cours | ⏳ |
 | L3 | Évaluation (QCM, numérique, réponse courte) | ⏳ |
 | L4 | Cahier virtuel | ⏳ |
@@ -52,6 +52,8 @@ npm ci --ignore-scripts                          # installation exacte du lockfi
 cp .env.example .env                             # puis remplacer chaque « changeme » par une valeur aléatoire
 docker compose -f docker-compose.dev.yml up -d   # Postgres 16.14 (127.0.0.1:5434) et Mailpit (http://127.0.0.1:8025)
 npm run db:migrate                               # migrations avec le rôle propriétaire ardoiz_owner
+npm run ardoiz -- init-space --space-name "Espace Dicard" --space-code dicard \
+  --tutor-email tuteur@example.org --tutor-name "Dicard"   # une fois ; mot de passe lu sur l'entrée standard
 npm run dev                                      # API sur :3000, SPA sur http://localhost:5173 (relaie /api)
 git config core.hooksPath .githooks              # gitleaks avant chaque commit (R20)
 ```
@@ -68,6 +70,7 @@ git config core.hooksPath .githooks              # gitleaks avant chaque commit 
 | `npm run licenses` | Licences des dépendances livrées (liste blanche) |
 | `npm run build` | Compilation des packages, de l'API et de la SPA |
 | `npm run sbom` | Inventaire logiciel CycloneDX |
+| `npm run ardoiz -- init-space …` | Crée l'espace tuteur et son tuteur (TOTP à activer à la première connexion) |
 
 ### Architecture en une page
 
@@ -78,7 +81,8 @@ apps/api/src/
   platform/       adaptateurs techniques : config (Secret, loadConfig), http (durcissement, RFC 9457, sondes),
                   logging (pino + redaction), postgres (pool, migrations, withTenantTransaction, audit),
                   messaging (outbox, relais, inbox)
-  <module>/       identity, curriculum, scheduling, assessment, progress, feedback (à partir du lot L1)
+  identity/       comptes, sessions serveur, TOTP, invitations, liens parentaux, consentement (L1)
+  <module>/       curriculum, scheduling, assessment, progress, feedback (lots suivants)
     domain/ application/ infrastructure/ index.ts
 apps/web/         SPA React (Vite, React Router, TanStack Query), servie par l'API sur la même origine
 packages/contracts/       schémas TypeBox partagés (ProblemDetails RFC 9457, santé)
@@ -88,6 +92,8 @@ db/migrations/    SQL versionné, immuable une fois livré
 
 - **Isolation** : toute donnée porte `tutor_space_id` ; chaque transaction passe par `withTenantTransaction`, qui déclare l'espace à la RLS **forcée**. Le rôle `ardoiz_user` n'est pas propriétaire ; les migrations tournent avec `ardoiz_owner` (ADR-0002).
 - **Erreurs** : documents RFC 9457 avec un code stable et l'identifiant de requête ; toute erreur inattendue devient un 500 générique (ADR-0010).
+- **Accès** : l'`Actor` vient de la session (cookie `__Host-ardoiz_session`, seule son empreinte est en base). Chaque route déclare son niveau d'accès (`public`, `mfa-pending`, `enrollment`, `business` par défaut) ; le tuteur sans TOTP n'atteint aucune route métier (R7). Les politiques `allow/deny/hide` d'`identity` sont vérifiées par le harnais de la matrice des droits (`apps/api/test/integration/support/rightsMatrix.ts`).
+- **E-mails** : Mailpit en développement (http://127.0.0.1:8025), Brevo en production ; les jetons des liens sont dans le fragment `#jeton=`.
 - **Événements** : outbox écrite dans la transaction métier, relais qui livre chaque événement dans une transaction de son espace, inbox idempotente.
 
 ## Licence

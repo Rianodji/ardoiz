@@ -8,6 +8,10 @@ const validEnv = {
   NODE_ENV: "production",
   PUBLIC_BASE_URL: "https://ardoiz.example.test",
   DATABASE_URL: "postgres://ardoiz_user:mot-de-passe-factice@db.internal:5432/ardoiz",
+  SESSION_SECRET: Buffer.alloc(32, 7).toString("base64"),
+  TOTP_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64"),
+  MAIL_TRANSPORT: "brevo",
+  BREVO_API_KEY: "cle-brevo-factice",
 };
 
 describe("Secret (R20)", () => {
@@ -49,6 +53,12 @@ describe("loadConfig (R20)", () => {
     ["port non numérique", { PORT: "trois-mille" }],
     ["niveau de journal inconnu", { LOG_LEVEL: "trace" }],
     ["mandataire de confiance qui n'est pas une adresse", { TRUSTED_PROXIES: "traefik" }],
+    ["SESSION_SECRET absent", { SESSION_SECRET: undefined }],
+    ["SESSION_SECRET trop court", { SESSION_SECRET: Buffer.alloc(16).toString("base64") }],
+    ["TOTP_ENCRYPTION_KEY de mauvaise taille", { TOTP_ENCRYPTION_KEY: Buffer.alloc(31).toString("base64") }],
+    ["clé Brevo absente", { BREVO_API_KEY: undefined }],
+    ["Mailpit en production", { MAIL_TRANSPORT: "mailpit", MAILPIT_URL: "http://127.0.0.1:8025" }],
+    ["transport d'e-mail inconnu", { MAIL_TRANSPORT: "sendmail" }],
     ["mandataire de confiance universel", { TRUSTED_PROXIES: "0.0.0.0/0" }],
     ["préfixe CIDR impossible", { TRUSTED_PROXIES: "172.18.0.0/40" }],
   ])("refuse de démarrer : %s (R20)", (_label, override) => {
@@ -61,6 +71,19 @@ describe("loadConfig (R20)", () => {
       "172.18.0.0/16",
       "10.0.0.2",
     ]);
+  });
+
+  it("ne révèle ni le poivre de session, ni la clé TOTP, ni la clé Brevo (R20)", () => {
+    const rendered = JSON.stringify(loadConfig(validEnv));
+    expect(rendered).not.toContain(validEnv.SESSION_SECRET);
+    expect(rendered).not.toContain(validEnv.TOTP_ENCRYPTION_KEY);
+    expect(rendered).not.toContain("cle-brevo-factice");
+  });
+
+  it("accepte Mailpit en développement, sur une adresse locale seulement", () => {
+    const dev = { ...validEnv, NODE_ENV: "development", MAIL_TRANSPORT: "mailpit" };
+    expect(loadConfig({ ...dev, MAILPIT_URL: "http://127.0.0.1:8025" }).mail.transport).toBe("mailpit");
+    expect(() => loadConfig({ ...dev, MAILPIT_URL: "http://mail.example.org" })).toThrow(ConfigurationError);
   });
 
   it("accepte HTTP sur localhost uniquement en développement", () => {

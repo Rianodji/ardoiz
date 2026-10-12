@@ -93,5 +93,5 @@ Relations : un parent ↔ plusieurs élèves, un élève ↔ plusieurs parents (
 1. Les neveux se connectent seuls, trouvent les cours déverrouillés, rejoignent la séance de la semaine depuis l'application et rendent un devoir sur le cahier virtuel.
 2. Le tuteur corrige ce devoir en annotant directement la copie.
 3. Un parent voit, depuis chez lui, la note, les annotations et l'évolution des compétences de son enfant, et rien sur un enfant qui n'est pas le sien.
-4. Chaque merge sur `main` est testé et déployé automatiquement en staging ; la production est déployée après validation manuelle.
+4. Chaque push est testé par la CI ; chaque version étiquetée est déployée en production après l'approbation du porteur, avec un test de fumée et un retour arrière possible.
 5. Toutes les règles du catalogue concernées par le J1 sont à l'état ✅.
