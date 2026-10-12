@@ -8,6 +8,14 @@ import {
   type LearnerAttempt,
 } from "./support/assessment.js";
 import { setupFamily, setupOtherSpaceTutor, type Family } from "./support/families.js";
+import {
+  imageElement,
+  notebookAssessment,
+  saveScene,
+  triangle,
+  uploadNotebookImage,
+} from "./support/notebook.js";
+import { pngImage } from "./support/programme.js";
 import { runRightsMatrix, type MatrixRow, type Profile } from "./support/rightsMatrix.js";
 import { World } from "./support/world.js";
 
@@ -23,6 +31,10 @@ interface Fixture extends Family {
   /** Copie de Lina rendue, en attente de correction manuelle (réponse courte). */
   readonly pendingAttemptId: string;
   readonly pendingQuestionId: string;
+  /** Cahier de Lina rendu, non publié, avec une image importée. */
+  readonly notebookAttemptId: string;
+  readonly notebookQuestionId: string;
+  readonly notebookMediaId: string;
 }
 
 /**
@@ -120,6 +132,21 @@ const rows: ReadonlyArray<MatrixRow<Fixture>> = [
     },
   },
   {
+    action: "Corriger, annoter, publier, rectifier une note (calque du cahier)",
+    expected: tutorOnly,
+    request: (f) => ({
+      method: "PUT",
+      url: `/api/grading/attempts/${f.notebookAttemptId}/annotations/${f.notebookQuestionId}`,
+      payload: { elements: [] },
+    }),
+  },
+  {
+    // Une image du cahier se voit comme la copie qui la contient : avant publication, ni parent ni autre élève.
+    action: "Voir une copie rendue (image du cahier, avant publication)",
+    expected: { ...publishedCopy, linkedGuardian: "hide" },
+    request: (f) => ({ method: "GET", url: `/api/notebook-media/${f.notebookMediaId}` }),
+  },
+  {
     action: "Révéler le corrigé d'une attribution",
     expected: tutorOnly,
     request: (f) => ({ method: "POST", url: `/api/assignments/${f.openAssignmentId}/reveal` }),
@@ -209,6 +236,23 @@ runRightsMatrix("Matrice des droits — évaluation (R2, R5)", rows, {
     });
     if (reveal.status !== 204) throw new Error(JSON.stringify(reveal.body));
     const openAssignmentId = await assign(world, tutor, assessmentId, { learnerId: lina });
+    const notebook = await notebookAssessment(world, family, "Géométrie");
+    const notebookAttempt = (await startAttempt(world, family.learner.cookie, notebook.assignmentId))
+      .body as LearnerAttempt;
+    const upload = await uploadNotebookImage(
+      world,
+      family.learner.cookie,
+      notebookAttempt.attemptId,
+      await pngImage(),
+    );
+    const { mediaId } = upload.body as { mediaId: string };
+    await saveScene(world, family.learner.cookie, notebookAttempt, [triangle(), imageElement(mediaId)]);
+    await world.http({
+      method: "POST",
+      url: `/api/attempts/${notebookAttempt.attemptId}/submit`,
+      cookie: family.learner.cookie,
+      payload: {},
+    });
     return {
       ...family,
       otherSpaceTutor: await setupOtherSpaceTutor(world),
@@ -218,6 +262,9 @@ runRightsMatrix("Matrice des droits — évaluation (R2, R5)", rows, {
       revealedAttemptId: revealedAttempt.attemptId,
       pendingAttemptId: pendingAttempt.attemptId,
       pendingQuestionId: pendingAttempt.questions[0]?.id ?? "",
+      notebookAttemptId: notebookAttempt.attemptId,
+      notebookQuestionId: notebookAttempt.questions[0]?.id ?? "",
+      notebookMediaId: mediaId,
     };
   },
 });
