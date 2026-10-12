@@ -68,6 +68,7 @@ Critères d'acceptation :
 
 Livrables :
 - Matières et référentiel de compétences, avec un **seed** issu de `docs/domaine/referentiel-competences.md` (codes stables `NUM-`, `GEO-`, `MES-`, `INF-`).
+- Gestion du référentiel par le tuteur dans l'application : ajouter, renommer, réordonner, **archiver** une compétence. Le code ne change jamais. Une compétence déjà liée à une question ou à une preuve n'est **jamais supprimée**, seulement archivée : elle disparaît des choix, mais l'historique des élèves reste lisible. Chaque modification est auditée.
 - Modules, cours (brouillon / publié), ordre ; groupes ; déverrouillage et reverrouillage par élève ou groupe (R3).
 - `packages/content-schema` + éditeur TipTap restreint (ADR-0005) : titres, listes, tableaux, encadrés, formules KaTeX (inline et bloc), images importées, vidéos YouTube (R4, R13).
 - Ingestion d'images (R14) et route `/media/:id` autorisée.
@@ -76,6 +77,7 @@ Livrables :
 
 Critères d'acceptation :
 - [ ] Gherkin `features/deverrouillage.feature` vert.
+- [ ] Archiver une compétence liée à une question la retire des choix sans effacer l'historique ; la supprimer est impossible (test).
 - [ ] Un corpus d'au moins 30 charges XSS (balises, `javascript:`, `data:`, attributs `on*`, LaTeX `\href`/`\url`/`\htmlClass`, identifiants vidéo forgés) est refusé par le validateur ou rendu inoffensif (R4).
 - [ ] Une image avec données EXIF GPS ressort sans métadonnées ; un SVG et un polyglotte sont refusés ; une image de 50 mégapixels est refusée (R14).
 - [ ] Le média d'un cours non déverrouillé répond 404 à l'élève (R3).
