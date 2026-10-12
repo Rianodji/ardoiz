@@ -51,7 +51,7 @@ Actifs critiques : **données scolaires des mineurs**, comptes (surtout le compt
 | M19 | Journaux insuffisants pour reconstituer un incident, ou au contraire journaux contenant copies, mots de passe ou jetons | Répudiation, Divulgation | A09 | Moyen | Moyenne | R12, R21 |
 | M20 | Mécaniques de jeu nuisibles pour des enfants : classement humiliant, pression des séries, notifications compulsives | (éthique, conception adaptée à l'âge) | A06 | Moyen | Élevée si non traité | R17 |
 | M21 | Session d'un enfant laissée ouverte sur un ordinateur partagé, ou session volée réutilisée longtemps | Usurpation | A07 | Moyen | Moyenne | R8 |
-| M22 | Altération inter-espaces via le relais de l'outbox : les fonctions `messaging.claim_pending_events` et `messaging.mark_events_published` (`SECURITY DEFINER`) sont appelables par le rôle applicatif depuis n'importe quel code ; un bug ou une injection SQL pourrait marquer « publié » un événement d'un autre espace (perte silencieuse de progression) ou lister les identifiants d'espaces | Altération, Divulgation | A01 | Moyen | Faible | R10 |
+| M22 | Altération ou divulgation inter-espaces par les fonctions `SECURITY DEFINER` appelables par le rôle applicatif : `messaging.claim_pending_events` et `messaging.mark_events_published` (relais de l'outbox : un bug ou une injection SQL pourrait marquer « publié » un événement d'un autre espace, d'où une perte silencieuse de progression) ; `identity.find_space_by_code`, `identity.find_adult_by_email`, `identity.find_session`, `identity.find_invitation` et `identity.find_password_reset` (recherches avant que l'espace soit connu : en cas d'injection, tester l'existence d'adresses e-mail ou de codes d'espace dans tous les espaces). Toutes ne renvoient que des identifiants | Altération, Divulgation | A01 | Moyen | Faible | R10 |
 
 ## 3. Fiches détaillées des menaces critiques
 
@@ -76,6 +76,12 @@ Actifs critiques : **données scolaires des mineurs**, comptes (surtout le compt
 ### M10 — Fuite du lien de visio
 - **Contre-mesures** : le lien n'est servi qu'aux participants authentifiés, de 15 minutes avant le début jusqu'à la fin ; il n'est jamais dans un e-mail ni dans une notification ; il est validé sur une liste d'hôtes (`meet.jit.si`, `meet.google.com`, `*.zoom.us`, plus un hôte Jitsi configurable) ; le tuteur est invité, dans l'interface, à activer la salle d'attente ou le mot de passe de salle ; le tuteur peut régénérer le lien d'une séance.
 
+### M22 — Fonctions transverses aux espaces
+- **Scénario** : une injection SQL, ou un bug dans le code applicatif, appelle une des fonctions `SECURITY DEFINER` qui traversent les espaces, et en détourne l'usage : marquer « publiés » les événements d'un autre espace (perte silencieuse de progression), ou tester si une adresse e-mail, un code d'espace, une empreinte de session ou de jeton existe ailleurs.
+- **Fonctions concernées** : `messaging.claim_pending_events`, `messaging.mark_events_published` (migration 001) ; `identity.find_space_by_code`, `identity.find_adult_by_email`, `identity.find_session`, `identity.find_invitation`, `identity.find_password_reset` (migration 002).
+- **Contre-mesures en place** : `search_path` figé ; aucune ne renvoie de contenu, seulement des identifiants (le contenu est relu sous RLS dans la transaction de l'espace) ; `EXECUTE` révoqué pour `PUBLIC` et accordé au seul rôle `ardoiz_user` ; SQL paramétré partout.
+- **Décision** : risque accepté au J1 (un seul espace). Avant le J3 : rôle dédié au relais, et rôle ou processus dédié aux recherches avant authentification.
+
 ## 4. Risques acceptés
 
 | Risque | Raison |
@@ -85,4 +91,4 @@ Actifs critiques : **données scolaires des mineurs**, comptes (surtout le compt
 | Un parent consulte le compte de son enfant avec le mot de passe de l'enfant | Légitime : le parent est responsable du compte |
 | Sauvegardes sur le même disque que les données (2026-10-12) | Accepté **provisoirement** par le porteur ; à trancher avant l'ouverture aux élèves (Q8) |
 | Un conteneur du réseau Docker `web` pourrait forger `X-Forwarded-For` (2026-10-12) | Le réseau ne contient que Traefik et les frontaux des projets du porteur ; impact limité à la limitation de débit par IP |
-| M22 — altération inter-espaces via le relais de l'outbox | Accepté au J1 (un seul espace), verdict du lot 00. À traiter avant l'ouverture multi-tuteurs (J3) : rôle dédié `ardoiz_relay` ou relais dans un processus séparé |
+| M22 — fonctions `SECURITY DEFINER` transverses (relais de l'outbox, recherches `identity.find_*`) | Accepté au J1 (un seul espace), verdicts des lots 00 et 01. À traiter avant l'ouverture multi-tuteurs (J3) : rôle dédié `ardoiz_relay` ou relais dans un processus séparé ; rôle de recherche dédié, ou recherches limitées à des empreintes |
