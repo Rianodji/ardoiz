@@ -85,8 +85,8 @@ Outils : **npm workspaces** (comme le code compagnon du livre).
 | Fichiers | Port `FileStorage` ; adaptateur volume local au J1 (S3 compatible plus tard) ; servis par une route autorisée, jamais en statique public | R3, R14 |
 | Tests | Vitest, Testcontainers (Postgres réel), `@cucumber/gherkin` pour les features, Playwright (E2E) | Pyramide du ch. 6 du livre |
 | Qualité | ESLint (typescript-eslint strict), Prettier, dependency-cruiser, `npm audit`, gitleaks, SBOM CycloneDX | |
-| CI/CD | GitHub Actions (actions épinglées par SHA), image sur GHCR, déploiement SSH sur Hetzner (staging automatique, prod avec approbation) | ADR-0008 |
-| Observabilité | Logs JSON (pino) collectés par Alloy → Loki ; métriques Prometheus `/metrics` (réseau interne uniquement) | Stack déjà en place |
+| CI/CD | GitHub Actions (actions épinglées par SHA), image publique sur Docker Hub, déploiement SSH sur Hetzner sur tag `v*` avec approbation, sans staging | ADR-0008 (amendé) |
+| Observabilité | Logs JSON (pino) collectés par Alloy → Loki ; métriques Prometheus `/metrics` sur le port **9464**, jamais routé par Traefik | Stack déjà en place |
 
 **Licences** : toute dépendance runtime doit être sous licence permissive (MIT, Apache-2.0, BSD, ISC, BlueOak-1.0.0, 0BSD). Vérification automatique en CI (`license-checker` avec liste blanche). Pas de tldraw (licence commerciale en production), pas de GeoGebra (usage non commercial uniquement), pas d'extensions TipTap « Pro ».
 

@@ -83,4 +83,6 @@ Actifs critiques : **données scolaires des mineurs**, comptes (surtout le compt
 | Un élève photographie l'écran pour partager une épreuve | Hors de portée technique ; enjeu faible en contexte familial |
 | La plateforme de visio elle-même | Hors périmètre ; le choix de Jitsi auto-hébergé reste possible plus tard |
 | Un parent consulte le compte de son enfant avec le mot de passe de l'enfant | Légitime : le parent est responsable du compte |
+| Sauvegardes sur le même disque que les données (2026-10-12) | Accepté **provisoirement** par le porteur ; à trancher avant l'ouverture aux élèves (Q8) |
+| Un conteneur du réseau Docker `web` pourrait forger `X-Forwarded-For` (2026-10-12) | Le réseau ne contient que Traefik et les frontaux des projets du porteur ; impact limité à la limitation de débit par IP |
 | M22 — altération inter-espaces via le relais de l'outbox | Accepté au J1 (un seul espace), verdict du lot 00. À traiter avant l'ouverture multi-tuteurs (J3) : rôle dédié `ardoiz_relay` ou relais dans un processus séparé |

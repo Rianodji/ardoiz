@@ -112,7 +112,7 @@ Utilise les **dernières versions stables** au moment de l'installation et véri
 | L4 | Validation serveur de la scène ; limites ; empreinte stable ; calque séparé ; ergonomie tablette |
 | L5 | Fenêtre du lien de visio ; liste blanche d'hôtes ; changement d'heure ; aucun lien dans les e-mails |
 | L6 | Idempotence des projections ; seuils de compétence aux bornes ; série avec pause ; aucune comparaison entre élèves |
-| L7 | Image non root en lecture seule ; staging automatique / prod sur approbation ; **restauration testée** ; parcours E2E complet |
+| L7 | Image non root en lecture seule ; déploiement sur tag avec approbation et test de fumée ; `/metrics` non public ; migrations *expand / contract* ; **restauration et retour arrière testés** ; parcours E2E complet |
 
 ## 8. Expérience utilisateur attendue
 

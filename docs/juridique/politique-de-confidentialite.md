@@ -62,7 +62,7 @@ Ardoiz n'utilise **qu'un seul cookie**, strictement nécessaire : le cookie de s
 
 ## 6. Sécurité
 
-Connexion chiffrée (HTTPS), mots de passe chiffrés de façon irréversible (argon2id), double authentification obligatoire pour le tuteur, cloisonnement strict des données entre familles, journalisation des actions sensibles, sauvegardes chiffrées, hébergement dans l'Union européenne. En cas de violation de données présentant un risque, la CNIL est notifiée sous 72 heures et les parents concernés sont informés.
+Connexion chiffrée (HTTPS), mots de passe chiffrés de façon irréversible (argon2id), double authentification obligatoire pour le tuteur, cloisonnement strict des données entre familles, journalisation des actions sensibles, sauvegardes quotidiennes, hébergement dans l'Union européenne. En cas de violation de données présentant un risque, la CNIL est notifiée sous 72 heures et les parents concernés sont informés.
 
 ## 7. Vos droits
 
