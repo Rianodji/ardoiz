@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import sharp, { type Metadata } from "sharp";
 import { RejectedImageError } from "../domain/errors.js";
+import { SerialQueue } from "./SerialQueue.js";
 import type { ImageIngestion, IngestedImage } from "../application/ports.js";
 
 /** Bornes de R14 : 10 Mo et 40 mégapixels à l'entrée ; côté le plus long ramené à 2 048 px à la sortie. */
@@ -40,7 +41,18 @@ export function sniffImage(bytes: Buffer): Sniffed | null {
  * bibliothèque ne décode pas proprement — polyglotte image/HTML compris — est refusé.
  */
 export class SharpImageIngestion implements ImageIngestion {
-  async ingest(bytes: Buffer): Promise<IngestedImage> {
+  constructor(private readonly queue = new SerialQueue()) {
+    // Mémoire bornée dans un conteneur de 512 Mo (verdict L2, S-3) : un seul fil de libvips, pas de cache.
+    sharp.concurrency(1);
+    sharp.cache(false);
+  }
+
+  /** Un seul import à la fois ; au-delà de 30 s d'attente : 503 avec Retry-After. */
+  ingest(bytes: Buffer): Promise<IngestedImage> {
+    return this.queue.run(() => this.#ingest(bytes));
+  }
+
+  async #ingest(bytes: Buffer): Promise<IngestedImage> {
     if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES)
       throw new RejectedImageError("curriculum.image-too-large");
     const sniffed = sniffImage(bytes);
