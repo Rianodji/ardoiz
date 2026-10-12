@@ -12,6 +12,7 @@ const validEnv = {
   TOTP_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString("base64"),
   MAIL_TRANSPORT: "brevo",
   BREVO_API_KEY: "cle-brevo-factice",
+  MEDIA_DIR: "/data/files",
 };
 
 describe("Secret (R20)", () => {
