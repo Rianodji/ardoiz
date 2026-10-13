@@ -6,7 +6,7 @@
 
 Ardoiz est un service édité à titre non professionnel par **Dicard Rianodji**, personne physique.
 
-Contact : **[[adresse e-mail de contact, par exemple contact@teamnoble.fr]]**
+Contact : **contact@teamnoble.fr**
 
 Conformément à l'article 6, III, 2° de la loi n° 2004-575 du 21 juin 2004 pour la confiance dans l'économie numérique, l'éditeur, agissant à titre non professionnel, a communiqué ses coordonnées personnelles à son hébergeur.
 

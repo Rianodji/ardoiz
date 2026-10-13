@@ -9,7 +9,7 @@ Une version simplifiée destinée aux élèves est disponible dans leur espace (
 ## 1. Qui est responsable de vos données ?
 
 Le responsable du traitement est **Dicard Rianodji**, tuteur et éditeur d'Ardoiz.
-Contact pour toute question ou demande : **[[adresse e-mail de contact]]**.
+Contact pour toute question ou demande : **contact@teamnoble.fr**.
 
 ## 2. Quelles données, pourquoi, sur quelle base ?
 
@@ -75,7 +75,7 @@ Vous pouvez, pour vous-même et, en tant que parent, pour votre enfant :
 - **retirer votre consentement** à tout moment, depuis votre espace parent ou par e-mail, sans que cela remette en cause ce qui a été fait avant ;
 - définir des directives sur le sort de vos données après votre décès.
 
-Pour exercer ces droits : **[[adresse e-mail de contact]]**. Nous répondons dans un délai d'un mois.
+Pour exercer ces droits : **contact@teamnoble.fr**. Nous répondons dans un délai d'un mois.
 
 Vous pouvez aussi introduire une réclamation auprès de la **CNIL** (www.cnil.fr — 3 place de Fontenoy, TSA 80715, 75334 Paris Cedex 07).
 
