@@ -147,3 +147,23 @@ Relu sur `lot/07-production` @ `3940221`, avec en plus mon commit `d8871fb` (adr
 - les alertes par e-mail en service (point F de l'infra) ;
 - l'essai sur la vraie tablette ;
 - la restauration d'une vraie sauvegarde du serveur.
+
+## 9. Incident du premier déploiement et correctif (PR #11)
+
+**Constat** : le déploiement de `v1.0.0` a appliqué les migrations 001 à 013 sur la base de production, mais n'a jamais démarré le conteneur. Le test de fumée a échoué (certificat par défaut de Traefik, 404), et c'est lui qui a arrêté le déploiement : le garde-fou a fonctionné. Aucune donnée n'était encore en base, et rien n'a été exposé.
+
+**Cause, reproduite par le lead** : le script de déploiement arrivait par l'entrée standard de SSH (`bash -s`), et la première commande `docker` qui lit l'entrée standard **avalait la suite du script**. bash finissait sans erreur, et l'étape restait verte. J'ai rejoué l'ancien script de `main` avec un faux `docker` qui lit son entrée : il s'arrête après le premier appel, sort avec le code 0 et n'écrit jamais `deployed-tag`.
+
+**Correctif relu : ✅.**
+- Le script est déposé, puis exécuté avec une entrée vide.
+- Chaque commande `docker` lit `/dev/null`, ce qui protège même si le script revient un jour par l'entrée standard.
+- La migration tourne avec `-T`, sans pseudo-terminal.
+- Le workflow exige la dernière ligne du script : un script qui s'arrête en route fait échouer l'étape. Cette vérification compense aussi l'absence de `pipefail` dans le shell par défaut des étapes, où le code de sortie de `ssh` est masqué par `tee`.
+- Le test reproduit l'appel exact du workflow ; il échouait avant le correctif.
+
+La CI de la PR #11 est verte. **La PR #11 peut être fusionnée, et je donne le feu vert pour `v1.0.1`.**
+
+**À noter** :
+- **`v1.0.0` n'est pas une cible de retour arrière** : son workflow et son script ont le défaut. Le runbook (§3) doit le dire. Le premier retour arrière possible vise `v1.0.1`, une fois qu'un `v1.0.2` existera.
+- **Pour la session infra** : vérifier que `~/ardoiz/.env.migrate` n'est pas resté sur le serveur après les deux tentatives. Le `trap` a dû l'effacer, puisque bash est allé jusqu'à la fin du script, mais l'URL du propriétaire mérite une vérification.
+- **Leçon pour le musée des pièges** : une étape verte ne prouve pas qu'un script est allé au bout. Il faut tester ce que le script devait produire, pas seulement son code de sortie. Ici, c'est le test de fumée qui a vu ce que le code de sortie cachait.
