@@ -31,8 +31,8 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | L1 | Identité & Famille | ✅ 2026-10-12 (réserves traitées, PR #4) |
 | L2 | Programme et contenu de cours | ✅ (PR #5) |
 | L3 | Évaluation (QCM, numérique, réponse courte) | ✅ (PR #6) |
-| L4 | Cahier virtuel | 🔍 (PR #7) |
-| L5 | Planification | ⏳ |
+| L4 | Cahier virtuel | ✅ (PR #7) |
+| L5 | Planification | 🔍 (PR #8) |
 | L6 | Progression, gamification, tableau de bord parent, suggestions | ⏳ |
 | L7 | Mise en production | ⏳ |
 
@@ -86,7 +86,8 @@ apps/api/src/
   identity/       comptes, sessions serveur, TOTP, invitations, liens parentaux, consentement (L1)
   curriculum/     matières, référentiel de compétences, modules, cours, médias, groupes, déverrouillages (L2)
   assessment/     épreuves, attributions, copies, correction automatique et manuelle, publication, rectification (L3), cahier virtuel (L4)
-  <module>/       scheduling, assessment, progress, feedback (lots suivants)
+  scheduling/     séances ponctuelles et hebdomadaires en heure de Paris, lien de visio, agenda, présence (L5)
+  <module>/       progress, feedback (lot suivant)
     domain/ application/ infrastructure/ index.ts
 apps/web/         SPA React (Vite, React Router, TanStack Query), servie par l'API sur la même origine
 packages/contracts/       schémas TypeBox partagés (ProblemDetails RFC 9457, santé)
