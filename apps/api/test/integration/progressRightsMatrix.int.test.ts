@@ -30,7 +30,7 @@ const rows: ReadonlyArray<MatrixRow<Fixture>> = [
     },
   },
   {
-    action: "Voir les épreuves à venir ou en retard d'un élève (tableau de bord du parent)",
+    action: "Voir les épreuves attribuées à un élève (état et note publiée, jamais de réponse)",
     expected: {
       tutor: "allow",
       linkedGuardian: "allow",
@@ -43,6 +43,25 @@ const rows: ReadonlyArray<MatrixRow<Fixture>> = [
     request: (f) => ({ method: "GET", url: `/api/learners/${f.learner.id}/assignments` }),
     verify: (result) => {
       expect(Array.isArray((result.body as { assignments: unknown }).assignments)).toBe(true);
+    },
+  },
+  {
+    action: "Voir la synthèse de tous les élèves (par élève et par groupe)",
+    expected: {
+      tutor: "allow",
+      linkedGuardian: "deny",
+      unlinkedGuardian: "deny",
+      learner: "deny",
+      otherLearner: "deny",
+      anonymous: "deny",
+      // Le tuteur d'un autre espace voit SA synthèse, sans aucun élève de cet espace (vérifié ci-dessous).
+      otherSpaceTutor: "allow",
+    },
+    request: () => ({ method: "GET", url: "/api/progress/overview" }),
+    verify: (result, f) => {
+      const { learners } = result.body as { learners: Array<{ learnerId: string }> };
+      const ours = new Set([f.learner.id, f.otherLearner.id]);
+      expect(learners.every((entry) => ours.has(entry.learnerId))).toBe(true);
     },
   },
   {
