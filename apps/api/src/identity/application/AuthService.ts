@@ -51,6 +51,9 @@ type Verified =
  * Toute cause d'échec produit la même erreur, avec le même coût de calcul (argon2 contre un hash
  * factice quand le compte n'existe pas) ; les essais sont comptés par identifiant et par IP.
  */
+/** Événement d'intégration : une alerte de sécurité doit être envoyée au titulaire d'un compte. */
+export const ALERT_REQUESTED = "identity.alert-requested";
+
 export class AuthService {
   constructor(private readonly deps: IdentityDependencies) {}
 
@@ -149,15 +152,8 @@ export class AuthService {
     this.deps.throttle.recordSuccess([accountKey]);
     const { account } = outcome;
     if (account.role === "tutor") {
-      // Contrôle de détection, envoyé au mieux après la connexion (verdict L1, R-2).
-      this.deps.background.run("identity.login-alert-failed", () =>
-        this.deps.mailer.send({
-          template: "tutor-login-alert",
-          to: account.email,
-          at: now,
-          userAgent: session.userAgent,
-        }),
-      );
+      // Contrôle de détection, envoyé de façon DURABLE par l'outbox (verdict L1 R-2, verdict L5 §6).
+      await this.#requestAlert(account, "tutor-login-alert", now, session.userAgent);
     }
   }
 
@@ -178,8 +174,28 @@ export class AuthService {
         ),
       );
     });
-    this.deps.background.run("identity.mfa-alert-failed", () =>
-      this.deps.mailer.send({ template: "mfa-failures-alert", to: account.email, at: now }),
+    await this.#requestAlert(account, "mfa-failures-alert", now, null);
+  }
+
+  /**
+   * Alerte au titulaire du compte, écrite dans l'outbox : le relais l'envoie, la réessaie en cas de
+   * panne du fournisseur, et l'abandonne (trace en file d'échec) au-delà du plafond. L'événement ne porte
+   * que l'identifiant du compte, jamais l'adresse e-mail (minimisation).
+   */
+  async #requestAlert(
+    account: { readonly id: string; readonly tutorSpaceId: TutorSpaceId },
+    template: "tutor-login-alert" | "mfa-failures-alert",
+    at: Date,
+    userAgent: string | null,
+  ): Promise<void> {
+    await this.deps.gateway.inSpace(account.tutorSpaceId, (store) =>
+      store.publish({
+        id: this.deps.ids.next("EventId"),
+        type: ALERT_REQUESTED,
+        tutorSpaceId: account.tutorSpaceId,
+        occurredAt: at,
+        payload: { template, accountId: account.id, at: at.toISOString(), userAgent },
+      }),
     );
   }
 
@@ -291,9 +307,9 @@ export class AuthService {
     this.deps.throttle.recordSuccess(keys.filter((key) => !key.startsWith("ip:")));
     const alerted = outcome.alert;
     if (alerted !== null && alerted.role === "tutor") {
-      const at = this.deps.clock.now();
+      // Écrite dans l'outbox après la réponse : la connexion n'attend pas l'alerte.
       this.deps.background.run("identity.login-alert-failed", () =>
-        this.deps.mailer.send({ template: "tutor-login-alert", to: alerted.email, at, userAgent: null }),
+        this.#requestAlert(alerted, "tutor-login-alert", this.deps.clock.now(), null),
       );
     }
     return outcome.result;

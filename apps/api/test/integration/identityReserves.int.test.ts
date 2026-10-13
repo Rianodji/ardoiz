@@ -72,6 +72,7 @@ describe("Réserves du verdict L1", () => {
       expect(Number(blocked.headers["retry-after"])).toBeGreaterThan(14 * 60);
 
       await world.identity.background.idle();
+      await world.deliverEvents();
       expect(
         world.mailer.sent.filter((mail) => mail.template === "mfa-failures-alert").map((mail) => mail.to),
       ).toEqual(["tuteur@example.org"]);
@@ -91,6 +92,7 @@ describe("Réserves du verdict L1", () => {
       world.clock.advanceBy(2 * 60 * 60_000);
       expect(await failTotpAfterFreshLogin()).toBe("evaluated");
       await world.identity.background.idle();
+      await world.deliverEvents();
       expect(world.mailer.sent.filter((mail) => mail.template === "mfa-failures-alert")).toHaveLength(1);
     });
 
@@ -113,16 +115,33 @@ describe("Réserves du verdict L1", () => {
     });
   });
 
-  describe("R-2 · l'alerte de connexion est envoyée au mieux", () => {
-    it("une panne du fournisseur d'e-mail n'empêche pas la connexion, et laisse une trace « identity.login-alert-failed »", async () => {
+  describe("R-2 · l'alerte de connexion est envoyée de façon durable (outbox, verdict L5 §6)", () => {
+    it("une panne du fournisseur d'e-mail n'empêche pas la connexion ; l'alerte est réessayée puis envoyée", async () => {
+      await world.deliverEvents(); // alertes de la préparation du monde
+      const sentBefore = world.mailer.sent.length;
       world.mailer.failing = true;
       const pending = cookieFrom((await tutorPassword()).setCookie);
       const res = await verify(pending, nextTotp(world, family.tutor.totpSecret));
       expect(res.status).toBe(200);
       expect((await world.http({ method: "GET", url: "/api/families", cookie: pending })).status).toBe(200);
-      await world.identity.background.idle();
-      const errors = world.logs.lines().filter((line) => (line as { level?: number }).level === 50);
-      expect(errors).toContainEqual(expect.objectContaining({ code: "identity.login-alert-failed" }));
+      await world.deliverEvents();
+      expect(world.mailer.sent.slice(sentBefore)).toHaveLength(0);
+      const failed = await world.adminQuery<{ attempts: number; dead: boolean; error_code: string }>(
+        "SELECT attempts, dead, error_code FROM messaging.failed_events WHERE consumer = 'identity.alert-mailer'",
+      );
+      expect(failed).toEqual([{ attempts: 1, dead: false, error_code: "Error" }]);
+      // Le fournisseur revient : au prochain essai, l'alerte part.
+      world.mailer.failing = false;
+      world.clock.advanceBy(30_000);
+      await world.deliverEvents();
+      expect(world.mailer.sent.slice(sentBefore).map((mail) => [mail.template, mail.to])).toEqual([
+        ["tutor-login-alert", "tuteur@example.org"],
+      ]);
+      // L'événement ne porte pas l'adresse ; les journaux non plus.
+      const events = await world.adminQuery<{ payload: unknown }>(
+        "SELECT payload FROM messaging.outbox WHERE type = 'identity.alert-requested'",
+      );
+      expect(JSON.stringify(events)).not.toContain("tuteur@example.org");
       expect(world.logs.text()).not.toContain("tuteur@example.org");
     });
   });

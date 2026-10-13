@@ -2,7 +2,12 @@ import type pg from "pg";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { toUuid } from "../../src/platform/ids/UuidV7IdGenerator.js";
 import { appendToOutbox } from "../../src/platform/messaging/PgOutbox.js";
-import { OutboxRelay, type EventSubscriber } from "../../src/platform/messaging/OutboxRelay.js";
+import {
+  MAX_ATTEMPTS,
+  OutboxRelay,
+  UnreadableEventError,
+  type EventSubscriber,
+} from "../../src/platform/messaging/OutboxRelay.js";
 import { PgInbox } from "../../src/platform/messaging/PgInbox.js";
 import { withTenantTransaction } from "../../src/platform/postgres/withTenantTransaction.js";
 import type { TutorSpaceId } from "../../src/shared-kernel/ids.js";
@@ -67,7 +72,7 @@ describe("Outbox transactionnelle, relais et inbox idempotente", () => {
   });
   beforeEach(async () => {
     subscriber = new AuditingSubscriber();
-    relay = new OutboxRelay(pool);
+    relay = new OutboxRelay(pool, clock);
     relay.subscribe(subscriber);
     while ((await relay.relayOnce()) > 0); // vide les événements des tests précédents
     subscriber.seen.length = 0;
@@ -108,32 +113,74 @@ describe("Outbox transactionnelle, relais et inbox idempotente", () => {
     ).rejects.toThrow(/row-level security/);
   });
 
-  it("reprend un lot après une panne du consommateur, sans doubler les effets déjà validés", async () => {
+  it("une panne d'un consommateur ne bloque pas le lot : l'événement est réessayé après un délai, sans doubler les effets", async () => {
     const [first, second] = [lessonCompleted(spaceA), lessonCompleted(spaceA)];
     await withTenantTransaction(pool, spaceA, async (client) => {
       await appendToOutbox(client, first);
       await appendToOutbox(client, second);
     });
     const before = await handledCount(pool, spaceA);
-
     subscriber.seen.length = 0;
-    const flaky = new AuditingSubscriber();
-    const failingRelay = new OutboxRelay(pool);
-    failingRelay.subscribe({
-      consumer: subscriber.consumer,
-      eventType: subscriber.eventType,
-      handle: async (event, client) => {
-        // Le premier événement est traité ; le second tombe en panne : tout le lot sera repris.
-        if (event.id === second.id) flaky.failNext = true;
-        await flaky.handle(event, client);
-      },
-    });
-    await expect(failingRelay.relayOnce()).rejects.toThrow("panne simulée");
+    // Le second événement tombe en panne une fois : le premier est publié, le second attend.
+    const original = subscriber.handle.bind(subscriber);
+    let failedOnce = false;
+    subscriber.handle = async (event, client) => {
+      if (event.id === second.id && !failedOnce) {
+        failedOnce = true;
+        throw new Error("panne simulée du consommateur");
+      }
+      await original(event, client);
+    };
+    expect(await relay.relayOnce()).toBe(1);
     expect(await handledCount(pool, spaceA)).toBe(before + 1);
-
-    expect(await relay.relayOnce()).toBe(2);
-    expect(subscriber.seen).toEqual([second.id]); // le premier était déjà dans l'inbox
+    expect(await relay.relayOnce()).toBe(0); // délai d'attente avant le deuxième essai
+    clock.advanceBy(30_000);
+    expect(await relay.relayOnce()).toBe(1);
+    expect(subscriber.seen).toEqual([first.id, second.id]);
     expect(await handledCount(pool, spaceA)).toBe(before + 2);
+    expect(await relay.relayOnce()).toBe(0);
+    expect(await handledCount(pool, spaceA)).toBe(before + 2);
+  });
+
+  it("un événement illisible part aussitôt dans la file des messages en échec, sans planter le relais", async () => {
+    const [bad, good] = [lessonCompleted(spaceA), lessonCompleted(spaceA)];
+    await withTenantTransaction(pool, spaceA, async (client) => {
+      await appendToOutbox(client, bad);
+      await appendToOutbox(client, good);
+    });
+    const original = subscriber.handle.bind(subscriber);
+    subscriber.handle = async (event, client) => {
+      if (event.id === bad.id) throw new UnreadableEventError("learnerId");
+      await original(event, client);
+    };
+    expect(await relay.relayOnce()).toBe(2);
+    const rows = await withTenantTransaction(pool, spaceA, (client) =>
+      client.query<{ dead: boolean; attempts: number; error_code: string }>(
+        "SELECT dead, attempts, error_code FROM messaging.failed_events WHERE event_id = $1",
+        [toUuid(bad.id)],
+      ),
+    );
+    expect(rows.rows).toEqual([{ dead: true, attempts: 1, error_code: "unreadable-event" }]);
+    expect(subscriber.seen).toEqual([good.id]);
+  });
+
+  it(`abandonne un événement au ${String(MAX_ATTEMPTS)}e échec, avec un code d'erreur et jamais le message`, async () => {
+    const event = lessonCompleted(spaceA);
+    await withTenantTransaction(pool, spaceA, (client) => appendToOutbox(client, event));
+    subscriber.handle = () => Promise.reject(new Error("donnée sensible : awa@example.org"));
+    for (let attempt = 1; attempt < MAX_ATTEMPTS; attempt++) {
+      expect(await relay.relayOnce()).toBe(0);
+      clock.advanceBy(30_000 * 2 ** (attempt - 1));
+    }
+    expect(await relay.relayOnce()).toBe(1);
+    const rows = await withTenantTransaction(pool, spaceA, (client) =>
+      client.query<{ dead: boolean; attempts: number; error_code: string }>(
+        "SELECT dead, attempts, error_code FROM messaging.failed_events WHERE event_id = $1",
+        [toUuid(event.id)],
+      ),
+    );
+    expect(rows.rows).toEqual([{ dead: true, attempts: MAX_ATTEMPTS, error_code: "Error" }]);
+    expect(JSON.stringify(rows.rows)).not.toContain("awa@example.org");
   });
 
   it("l'inbox ne réclame un même événement qu'une fois par consommateur", async () => {

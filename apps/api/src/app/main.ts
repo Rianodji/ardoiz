@@ -6,6 +6,7 @@ import { createSchedulingModule } from "../scheduling/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
+import { OutboxRelay, RelayLoop } from "../platform/messaging/OutboxRelay.js";
 import { LocalFileStorage } from "../platform/media/LocalFileStorage.js";
 import { SharpImageIngestion } from "../platform/media/SharpImageIngestion.js";
 import { createPool, databaseReadiness } from "../platform/postgres/pool.js";
@@ -62,7 +63,16 @@ async function main(): Promise<void> {
     modules: [identity, curriculum, assessment, scheduling],
   });
 
+  // Relais de l'outbox dans le processus (une seule instance) : livre les événements aux consommateurs.
+  const relay = new OutboxRelay(pool, clock);
+  for (const subscriber of identity.subscribers) relay.subscribe(subscriber);
+  const relayLoop = new RelayLoop(relay, (code) => {
+    log.error({ code }, "relais de l'outbox en échec");
+  });
+  relayLoop.start();
+
   const shutdown = async (): Promise<void> => {
+    await relayLoop.stop();
     await app.close();
     await pool.end();
   };

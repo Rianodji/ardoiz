@@ -4,8 +4,8 @@ import type { BackgroundTasks } from "../application/ports.js";
 /**
  * Tâches lancées après la réponse. Un échec est journalisé au niveau « error » avec son code
  * stable (repérable par une alerte Loki au L7) et le seul type d'erreur : ni destinataire, ni
- * message du fournisseur (R21). La décision du lead (verdict L1, R-2) fait de l'alerte de connexion
- * un contrôle de détection, envoyé au mieux ; l'envoi durable par l'outbox viendra au L3.
+ * message du fournisseur (R21). Les alertes de sécurité ne passent plus par ici : elles sont écrites
+ * dans l'outbox et envoyées de façon durable par le relais (verdict L1 R-2, lot L6).
  */
 export class LoggedBackgroundTasks implements BackgroundTasks {
   readonly #pending = new Set<Promise<void>>();
