@@ -42,9 +42,7 @@ const mfaAccountKey = (accountId: string): string => `mfa-account:${accountId}`;
 /** Une session n'est « touchée » en base qu'une fois par minute : moins d'écritures. */
 const TOUCH_INTERVAL_MS = 60 * 1000;
 
-type Verified =
-  | { readonly ok: true; readonly result: LoginResult; readonly alert: Account | null }
-  | { readonly ok: false };
+type Verified = { readonly ok: true; readonly result: LoginResult } | { readonly ok: false };
 
 /**
  * Connexion, sessions et double authentification (R7, R8, ADR-0006).
@@ -139,6 +137,10 @@ export class AuthService {
       }
       if (!viaTotp && !viaRecovery) return { ok: false as const, account };
       await store.updateSession({ ...session, mfaPending: false, authenticatedAt: now, lastSeenAt: now });
+      // Contrôle de détection, écrit dans la MÊME transaction que l'élévation de la session : pas
+      // d'alerte, pas de connexion (verdict L1 R-2, verdict L6 S-1, M8, R12).
+      if (account.role === "tutor")
+        await store.publish(this.#alertEvent(account, "tutor-login-alert", now, session.userAgent));
       return { ok: true as const, account };
     });
 
@@ -150,11 +152,6 @@ export class AuthService {
       throw new InvalidTotpError();
     }
     this.deps.throttle.recordSuccess([accountKey]);
-    const { account } = outcome;
-    if (account.role === "tutor") {
-      // Contrôle de détection, envoyé de façon DURABLE par l'outbox (verdict L1 R-2, verdict L5 §6).
-      await this.#requestAlert(account, "tutor-login-alert", now, session.userAgent);
-    }
   }
 
   /** Trop de codes faux après le bon mot de passe : le mot de passe est sans doute connu d'un tiers (M8). */
@@ -173,30 +170,30 @@ export class AuthService {
           },
         ),
       );
+      // Dans la transaction de la révocation (verdict L6, S-1).
+      await store.publish(this.#alertEvent(account, "mfa-failures-alert", now, null));
     });
-    await this.#requestAlert(account, "mfa-failures-alert", now, null);
   }
 
   /**
-   * Alerte au titulaire du compte, écrite dans l'outbox : le relais l'envoie, la réessaie en cas de
-   * panne du fournisseur, et l'abandonne (trace en file d'échec) au-delà du plafond. L'événement ne porte
-   * que l'identifiant du compte, jamais l'adresse e-mail (minimisation).
+   * Alerte au titulaire du compte, à écrire dans l'outbox DANS la transaction de l'acte qu'elle signale :
+   * le relais l'envoie, la réessaie en cas de panne du fournisseur, et l'abandonne (trace en file
+   * d'échec) au-delà du plafond. L'événement ne porte que l'identifiant du compte, jamais l'adresse
+   * e-mail (minimisation).
    */
-  async #requestAlert(
+  #alertEvent(
     account: { readonly id: string; readonly tutorSpaceId: TutorSpaceId },
     template: "tutor-login-alert" | "mfa-failures-alert",
     at: Date,
     userAgent: string | null,
-  ): Promise<void> {
-    await this.deps.gateway.inSpace(account.tutorSpaceId, (store) =>
-      store.publish({
-        id: this.deps.ids.next("EventId"),
-        type: ALERT_REQUESTED,
-        tutorSpaceId: account.tutorSpaceId,
-        occurredAt: at,
-        payload: { template, accountId: account.id, at: at.toISOString(), userAgent },
-      }),
-    );
+  ) {
+    return {
+      id: this.deps.ids.next("EventId"),
+      type: ALERT_REQUESTED,
+      tutorSpaceId: account.tutorSpaceId,
+      occurredAt: at,
+      payload: { template, accountId: account.id, at: at.toISOString(), userAgent },
+    };
   }
 
   /**
@@ -305,13 +302,6 @@ export class AuthService {
       throw new InvalidCredentialsError();
     }
     this.deps.throttle.recordSuccess(keys.filter((key) => !key.startsWith("ip:")));
-    const alerted = outcome.alert;
-    if (alerted !== null && alerted.role === "tutor") {
-      // Écrite dans l'outbox après la réponse : la connexion n'attend pas l'alerte.
-      this.deps.background.run("identity.login-alert-failed", () =>
-        this.#requestAlert(alerted, "tutor-login-alert", this.deps.clock.now(), null),
-      );
-    }
     return outcome.result;
   }
 
@@ -362,6 +352,10 @@ export class AuthService {
       userAgent: client.userAgent,
       revokedAt: null,
     });
+    // Le tuteur sans TOTP reçoit l'alerte dès le mot de passe ; avec TOTP, après le code (M8). Elle est
+    // écrite dans la transaction qui ouvre la session (verdict L6, S-1).
+    if (account.role === "tutor" && !mfaPending)
+      await store.publish(this.#alertEvent(account, "tutor-login-alert", now, client.userAgent));
     return {
       ok: true,
       result: {
@@ -369,8 +363,6 @@ export class AuthService {
         mfaPending,
         mfaEnrollmentRequired: account.role === "tutor" && !mfaEnrolled(account),
       },
-      // Le tuteur sans TOTP reçoit l'alerte dès le mot de passe ; avec TOTP, après le code (M8).
-      alert: account.role === "tutor" && !mfaPending ? account : null,
     };
   }
 
