@@ -298,6 +298,11 @@ export function TutorSessionsPage() {
           </p>
           <p>
             Lien : <code>{session.meetingLink}</code>{" "}
+            {session.linkToReplace && (
+              <span className="badge todo" role="status">
+                lien à remplacer : il n'est plus donné aux élèves
+              </span>
+            )}{" "}
             <button
               type="button"
               className="button secondary"

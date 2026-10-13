@@ -38,6 +38,7 @@ const MESSAGES: Readonly<Record<string, string>> = {
   "scheduling.link-not-available":
     "Le lien de la séance s'ouvre 15 minutes avant le début. Reviens un peu plus tard.",
   "scheduling.cancelled": "Cette séance a été annulée.",
+  "scheduling.link-to-replace": "Le lien de cette séance n'est plus valable. Préviens ton tuteur.",
   "scheduling.in-the-past": "Cette date est déjà passée : choisis une date à venir.",
   "scheduling.already-ended": "Cette séance est déjà terminée.",
   "scheduling.invalid-link":

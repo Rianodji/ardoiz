@@ -73,6 +73,7 @@ export const TutorSessionsResponse = Type.Object(
           id: Type.String(),
           title: Type.String(),
           meetingLink: Type.String(),
+          linkToReplace: Type.Boolean(),
           kind: Type.Union([Type.Literal("once"), Type.Literal("weekly")]),
           learnerIds: Type.Array(Type.String()),
           occurrences: Type.Array(OccurrenceView),

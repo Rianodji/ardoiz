@@ -22,6 +22,8 @@ export const SCHEDULING_STATUSES: Readonly<Record<string, number>> = {
   "scheduling.already-ended": 409,
   "scheduling.cancelled": 409,
   "scheduling.link-not-available": 409,
+  // Lien relu en base devenu invalide (verdict L5, S-1) : non servi, le tuteur doit le remplacer.
+  "scheduling.link-to-replace": 409,
 };
 
 const closed = { additionalProperties: false } as const;
@@ -35,7 +37,9 @@ export function schedulingRoutes(app: FastifyInstance, scheduling: SchedulingSer
     sessions: (await scheduling.sessions(actorOf(request))).map(({ session, occurrences }) => ({
       id: session.id,
       title: session.title,
+      // Le tuteur voit la valeur stockée comme du texte ; `linkToReplace` dit si elle est encore servie.
       meetingLink: session.meetingLink,
+      linkToReplace: scheduling.servedLink(session) === null,
       kind: session.recurrence.kind,
       learnerIds: [...session.learnerIds],
       occurrences,
