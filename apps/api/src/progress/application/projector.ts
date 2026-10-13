@@ -104,7 +104,10 @@ export class ProgressProjector {
     await this.refresh(store, learnerId, publishedAt);
   }
 
-  /** Une rectification met à jour la preuve et la note ; elle peut rapporter des points, jamais en retirer (R17). */
+  /**
+   * Une rectification met à jour la preuve et la note ; elle peut rapporter des points, jamais en retirer (R17).
+   * QUESTION Q22 : une note rectifiée à la baisse laisse les points déjà gagnés (et un badge obtenu).
+   */
   async gradeRectified(store: ProgressStore, event: GradeRectified): Promise<void> {
     await store.updateEvidenceEarned(event.attemptId, event.questionId, event.earned, event.points);
     await store.updateGrade(event.attemptId, event.grade);

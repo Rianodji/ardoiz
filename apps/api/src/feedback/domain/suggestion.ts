@@ -20,7 +20,10 @@ export type Category = (typeof CATEGORIES)[number];
 export const STATUSES = ["new", "read", "done"] as const;
 export type SuggestionStatus = (typeof STATUSES)[number];
 
-/** Au plus 5 suggestions par parent sur 24 heures glissantes (R15). */
+/**
+ * Au plus 5 suggestions par parent sur 24 heures glissantes (R15). QUESTION Q21 : « par jour » est lu
+ * comme 24 h glissantes, plus restrictif qu'un jour calendaire (qui permettrait 10 envois autour de minuit).
+ */
 export const DAILY_LIMIT = 5;
 export const WINDOW_MS = 24 * 3_600_000;
 
