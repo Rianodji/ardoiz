@@ -19,6 +19,13 @@ describe("Workflow de déploiement (L7)", () => {
     expect(deployJob.indexOf("ref: ${{")).toBeLessThan(deployJob.indexOf("deploy/remote-deploy.sh"));
   });
 
+  it("le script de déploiement est déposé puis exécuté, jamais lu sur l'entrée standard, et sa fin est vérifiée (v1.0.0)", () => {
+    expect(deployJob).not.toMatch(/"bash -s/);
+    expect(deployJob).toContain("'umask 077 && cat > ~/ardoiz/remote-deploy.sh' < deploy/remote-deploy.sh");
+    expect(deployJob).toContain('"bash ~/ardoiz/remote-deploy.sh $TAG $MODE" < /dev/null');
+    expect(deployJob).toMatch(/grep -q "\^Ardoiz \$TAG déployée/);
+  });
+
   it("l'URL du propriétaire n'est déposée que pour migrer (verdict L7, S-2)", () => {
     const upload = deployJob.indexOf(".env.migrate");
     expect(deployJob.lastIndexOf('if [ "$MODE" = "migrate" ]', upload)).toBeGreaterThan(-1);

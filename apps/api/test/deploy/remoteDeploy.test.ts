@@ -7,8 +7,13 @@ import { describe, expect, it } from "vitest";
 
 const SCRIPT = fileURLToPath(new URL("../../../../deploy/remote-deploy.sh", import.meta.url));
 
-/** Exécute le script de déploiement avec un faux `docker` qui journalise ses appels (et peut échouer). */
-function deploy(args: string[], failOn?: string) {
+/**
+ * Exécute le script de déploiement avec un faux `docker` qui journalise ses appels (et peut échouer).
+ * Comme le vrai `docker compose run`, le faux `docker` LIT son entrée standard : c'est ce qui a coupé le
+ * premier déploiement de v1.0.0, quand le script arrivait par l'entrée standard de SSH (`bash -s`).
+ * `viaStdin` reproduit exactement l'appel du workflow.
+ */
+function deploy(args: string[], failOn?: string, viaStdin = false) {
   const home = mkdtempSync(join(tmpdir(), "ardoiz-deploy-"));
   const bin = join(home, "bin");
   mkdirSync(join(home, "ardoiz"));
@@ -19,13 +24,13 @@ function deploy(args: string[], failOn?: string) {
   );
   writeFileSync(
     join(bin, "docker"),
-    `#!/usr/bin/env bash\necho "$*" >> "${home}/docker.log"\n${failOn === undefined ? "" : `case "$*" in *${failOn}*) exit 1 ;; esac\n`}exit 0\n`,
+    `#!/usr/bin/env bash\necho "$*" >> "${home}/docker.log"\ncat > /dev/null\n${failOn === undefined ? "" : `case "$*" in *${failOn}*) exit 1 ;; esac\n`}exit 0\n`,
   );
   chmodSync(join(bin, "docker"), 0o755);
-  const result = spawnSync("bash", [SCRIPT, ...args], {
-    encoding: "utf8",
-    env: { PATH: `${bin}:${process.env["PATH"] ?? ""}`, HOME: home },
-  });
+  const env = { PATH: `${bin}:${process.env["PATH"] ?? ""}`, HOME: home };
+  const result = viaStdin
+    ? spawnSync("bash", ["-s", "--", ...args], { encoding: "utf8", env, input: readFileSync(SCRIPT, "utf8") })
+    : spawnSync("bash", [SCRIPT, ...args], { encoding: "utf8", env });
   const log = existsSync(join(home, "docker.log")) ? readFileSync(join(home, "docker.log"), "utf8") : "";
   return {
     status: result.status,
@@ -39,7 +44,7 @@ describe("Script de déploiement sur le serveur (L7)", () => {
   it("efface .env.migrate après la migration (verdict L7, S-2)", () => {
     const run = deploy(["v1.0.0", "migrate"]);
     expect(run.status).toBe(0);
-    expect(run.log).toContain("--profile migrate run --rm ardoiz-migrate");
+    expect(run.log).toContain("--profile migrate run --rm -T ardoiz-migrate");
     expect(run.envMigrateLeft).toBe(false);
     expect(readFileSync(join(run.home, "ardoiz", "deployed-tag"), "utf8").trim()).toBe("v1.0.0");
   });
@@ -49,6 +54,14 @@ describe("Script de déploiement sur le serveur (L7)", () => {
     expect(run.status).not.toBe(0);
     expect(run.envMigrateLeft).toBe(false);
     expect(run.log).not.toContain("up -d");
+  });
+
+  it("lu sur l'entrée standard comme par le workflow, le script va jusqu'au bout : migration PUIS redémarrage (v1.0.0)", () => {
+    const run = deploy(["v1.0.0", "migrate"], undefined, true);
+    expect(run.status).toBe(0);
+    expect(run.log).toContain("ardoiz-migrate");
+    expect(run.log).toContain("up -d --wait");
+    expect(readFileSync(join(run.home, "ardoiz", "deployed-tag"), "utf8").trim()).toBe("v1.0.0");
   });
 
   it("un retour arrière ne migre pas", () => {
