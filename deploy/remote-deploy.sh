@@ -4,6 +4,10 @@
 # Usage : remote-deploy.sh <tag vX.Y.Z> <migrate|no-migrate>
 set -euo pipefail
 
+# L'URL du rôle propriétaire ne reste jamais sur le disque : .env.migrate est effacé à la sortie du
+# script, qu'il réussisse ou non (verdict L7, S-2).
+trap 'rm -f "$HOME/ardoiz/.env.migrate"' EXIT
+
 tag="${1:-}"
 mode="${2:-}"
 if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
