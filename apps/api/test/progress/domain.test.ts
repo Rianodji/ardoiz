@@ -137,9 +137,9 @@ describe("Badges du J1 (big picture §8)", () => {
     expect(earnedBadges(facts({ conversions: [...Array<boolean>(9).fill(true), false, true] }))).toEqual([]);
     expect(earnedBadges(facts({ bestStreak: 4 }))).toEqual(["assiduous"]);
     expect(earnedBadges(facts({ bestStreak: 3 }))).toEqual([]);
-    expect(earnedBadges(facts({ evidencesByCompetency: new Map([["c", evidences(10, 90, 90, 90, 90)]]) }))).toEqual([
-      "persevering",
-    ]);
+    expect(
+      earnedBadges(facts({ evidencesByCompetency: new Map([["c", evidences(10, 90, 90, 90, 90)]]) })),
+    ).toEqual(["persevering"]);
     expect(earnedBadges(facts({ evidencesByCompetency: new Map([["c", evidences(50, 80)]]) }))).toEqual([]);
   });
 });

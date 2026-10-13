@@ -40,6 +40,13 @@ export class EventReader {
     return value;
   }
 
+  /** Points d'une question : multiple de 0,5, entre 0 et `max`. */
+  halfPoints(key: string, max: number): number {
+    const value = this.number(key, 0, max);
+    if (!Number.isInteger(value * 2)) this.#fail(key);
+    return value;
+  }
+
   boolean(key: string): boolean {
     const value = this.#take(key);
     if (typeof value !== "boolean") this.#fail(key);

@@ -40,6 +40,19 @@ export interface CurriculumDirectory {
   subjectExists(tutorSpaceId: TutorSpaceId, subjectId: SubjectId): Promise<boolean>;
   activeCompetencyIds(tutorSpaceId: TutorSpaceId): Promise<ReadonlySet<CompetencyId>>;
   learnersOfGroup(tutorSpaceId: TutorSpaceId, groupId: GroupId): Promise<LearnerId[] | null>;
+  /** Compétences du référentiel (archivées comprises : une preuve ancienne reste lisible), avec leur matière. */
+  competencyCatalog(tutorSpaceId: TutorSpaceId): Promise<CompetencyCatalogEntry[]>;
+  /** Groupes et leurs élèves (synthèse du tuteur). */
+  groups(tutorSpaceId: TutorSpaceId): Promise<Array<{ id: GroupId; name: string; learnerIds: LearnerId[] }>>;
+}
+
+export interface CompetencyCatalogEntry {
+  readonly id: CompetencyId;
+  readonly code: string;
+  readonly label: string;
+  readonly archived: boolean;
+  readonly subjectId: SubjectId;
+  readonly subjectName: string;
 }
 
 export interface CurriculumModule {
@@ -74,6 +87,35 @@ export function createCurriculumModule(options: CurriculumModuleOptions): Curric
               .filter((competency) => competency.archivedAt === null)
               .map((competency) => competency.id),
           ),
+      ),
+    competencyCatalog: (tutorSpaceId) =>
+      deps.gateway.inSpace(tutorSpaceId, async (store) => {
+        const subjects = new Map((await store.subjects()).map((subject) => [subject.id as string, subject]));
+        const domains = new Map((await store.domains()).map((domain) => [domain.id as string, domain]));
+        return (await store.competencies()).flatMap((competency) => {
+          const domain = domains.get(competency.domainId);
+          const subject = domain === undefined ? undefined : subjects.get(domain.subjectId);
+          return domain === undefined || subject === undefined
+            ? []
+            : [
+                {
+                  id: competency.id,
+                  code: competency.code,
+                  label: competency.label,
+                  archived: competency.archivedAt !== null,
+                  subjectId: subject.id,
+                  subjectName: subject.name,
+                },
+              ];
+        });
+      }),
+    groups: (tutorSpaceId) =>
+      deps.gateway.inSpace(tutorSpaceId, async (store) =>
+        (await store.groups()).map((group) => ({
+          id: group.id,
+          name: group.name,
+          learnerIds: [...group.learnerIds],
+        })),
       ),
     learnersOfGroup: (tutorSpaceId, groupId) =>
       deps.gateway.inSpace(tutorSpaceId, async (store) => {

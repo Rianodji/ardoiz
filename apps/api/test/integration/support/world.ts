@@ -9,6 +9,7 @@ import { inject } from "vitest";
 import { buildServer } from "../../../src/app/buildServer.js";
 import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, REFERENTIAL_FILE } from "../../../src/app/paths.js";
 import { createAssessmentModule } from "../../../src/assessment/index.js";
+import { createProgressModule, type ProgressModule } from "../../../src/progress/index.js";
 import { createSchedulingModule } from "../../../src/scheduling/index.js";
 import { createCurriculumModule, type CurriculumModule } from "../../../src/curriculum/index.js";
 import {
@@ -71,6 +72,7 @@ export class World {
   identity!: IdentityModule;
   curriculum!: CurriculumModule;
   relay!: OutboxRelay;
+  progress!: ProgressModule;
   app!: FastifyInstance;
   /** Routes enregistrées par le serveur, avec leur niveau d'accès déclaré (pour les tests transverses). */
   readonly routes: Array<{ method: string; url: string; access: string }> = [];
@@ -167,6 +169,13 @@ export class World {
           clock: world.clock,
           ids: world.ids,
         }),
+        (world.progress = createProgressModule({
+          pool: world.pool,
+          catalog: world.curriculum.directory,
+          learners: new PgLearnerDirectory(world.pool),
+          clock: world.clock,
+          ids: world.ids,
+        })),
         createSchedulingModule({
           pool: world.pool,
           learners: new PgLearnerDirectory(world.pool),
@@ -177,7 +186,8 @@ export class World {
       ],
     });
     world.relay = new OutboxRelay(world.pool, world.clock);
-    for (const subscriber of world.identity.subscribers) world.relay.subscribe(subscriber);
+    for (const subscriber of [...world.identity.subscribers, ...world.progress.subscribers])
+      world.relay.subscribe(subscriber);
     await world.app.ready();
     return world;
   }

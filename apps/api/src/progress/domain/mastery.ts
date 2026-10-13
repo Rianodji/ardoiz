@@ -3,7 +3,13 @@
  * question corrigée liée à la compétence, avec son taux de réussite (points obtenus / barème).
  * Calcul exact (fractions entières), sans arrondi binaire aux seuils.
  */
-export const MASTERY_LEVELS = ["not_assessed", "not_acquired", "in_progress", "acquired", "exceeded"] as const;
+export const MASTERY_LEVELS = [
+  "not_assessed",
+  "not_acquired",
+  "in_progress",
+  "acquired",
+  "exceeded",
+] as const;
 export type MasteryLevel = (typeof MASTERY_LEVELS)[number];
 
 export interface Evidence {
@@ -43,7 +49,9 @@ function atLeast(rate: { num: bigint; den: bigint }, percent: number): boolean {
  * 70 à 89 % → acquis ; ≥ 90 % ET au moins 3 preuves → dépassé (sinon acquis).
  */
 export function computedLevel(evidences: readonly Evidence[]): MasteryLevel {
-  const recent = [...evidences].sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()).slice(-LAST_EVIDENCES);
+  const recent = [...evidences]
+    .sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime())
+    .slice(-LAST_EVIDENCES);
   if (recent.length === 0) return "not_assessed";
   const rate = averageRate(recent);
   if (!atLeast(rate, 40)) return "not_acquired";
