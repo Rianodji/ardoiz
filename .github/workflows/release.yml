@@ -98,8 +98,11 @@ jobs:
       name: production
       url: https://ardoiz.teamnoble.fr
     steps:
+      # Script de déploiement et compose de la VERSION déployée : le tag poussé, ou le tag demandé pour
+      # un retour arrière, jamais la branche depuis laquelle le workflow est lancé (verdict L7, S-3).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
           persist-credentials: false
       - id: target
         name: Version à déployer
@@ -137,6 +140,7 @@ jobs:
           BREVO_SENDER_NAME: ${{ vars.BREVO_SENDER_NAME }}
           PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
           TRUSTED_PROXIES: ${{ vars.TRUSTED_PROXIES }}
+          MODE: ${{ steps.target.outputs.mode }}
         run: |
           ssh_cmd=(ssh -i ~/.ssh/ardoiz_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes "$SSH_TARGET")
           "${ssh_cmd[@]}" 'mkdir -p ~/ardoiz && chmod 700 ~/ardoiz'
@@ -156,9 +160,12 @@ jobs:
             printf 'BREVO_SENDER_EMAIL=%s\n' "$BREVO_SENDER_EMAIL"
             printf 'BREVO_SENDER_NAME=%s\n' "$BREVO_SENDER_NAME"
           } | "${ssh_cmd[@]}" 'umask 077 && cat > ~/ardoiz/.env'
-          # Configuration du migrateur seul.
-          printf 'MIGRATION_DATABASE_URL=%s\n' "$MIGRATION_DATABASE_URL" \
-            | "${ssh_cmd[@]}" 'umask 077 && cat > ~/ardoiz/.env.migrate'
+          # Configuration du migrateur seul, et seulement si l'on migre (jamais pour un retour arrière) ;
+          # remote-deploy.sh l'efface à sa sortie (verdict L7, S-2).
+          if [ "$MODE" = "migrate" ]; then
+            printf 'MIGRATION_DATABASE_URL=%s\n' "$MIGRATION_DATABASE_URL" \
+              | "${ssh_cmd[@]}" 'umask 077 && cat > ~/ardoiz/.env.migrate'
+          fi
       - name: Déploiement
         env:
           SSH_TARGET: ${{ vars.DEPLOY_SSH_USER }}@${{ vars.DEPLOY_SSH_HOST }}
