@@ -1,6 +1,6 @@
 # Mentions légales
 
-*Dernière mise à jour : [[date de mise en production]]*
+*Dernière mise à jour : 13 octobre 2026*
 
 ## Éditeur
 

@@ -5,7 +5,7 @@
 | **Relu par** | Lead (architecte, product owner, security engineer) |
 | **Date** | 2026-10-13 |
 | **Branche relue** | `lot/07-production` @ `e3e5900` (PR #10) |
-| **Verdict** | 🔁 **Accepté avec réserves** |
+| **Verdict** | 🔁 Accepté avec réserves, puis ✅ **Accepté** après contrôle des réserves (§8) |
 
 La PR #10 sera fusionnée **après la réserve R-1**, petite mais nécessaire avant le premier tag : dès le premier déploiement, la purge tourne toutes les heures sur de vraies données d'enfants. Les suites S-1 à S-5 se traitent dans la même PR si possible ; sinon, S-1 doit être faite **avant l'ouverture aux élèves**, et les autres avant `v1.0.1`.
 
@@ -124,3 +124,26 @@ Le J1 sera terminé quand les critères de succès de `cadrage.md` §6 seront d�
 | Port 9464 joignable par les conteneurs des réseaux `web` et `infra` | Accepté : nombres agrégés, sans donnée personnelle | — |
 | Expand / contract sans objet avant le premier tag | Accepté : prend effet à `v1.0.1` | v1.0.1 |
 | Pas d'effacement du compte parent ni de durée pour les copies du cahier | Accepté | J3 |
+
+## 8. Contrôle des réserves (2026-10-13)
+
+Relu sur `lot/07-production` @ `3940221`, avec en plus mon commit `d8871fb` (adresse de contact). Vérifications relancées : 501 tests unitaires et 449 tests d'intégration verts, 0 violation, 0 vulnérabilité ; CI de la PR #10 verte sur les 6 jobs.
+
+| Réserve ou suite | État | Commentaire |
+|---|---|---|
+| R-1 · Dates du retrait et de la suppression imposées par la base | ✅ | Migration 013 : pour `ardoiz_user`, `withdrawn_at` reçoit `now()` et ne change plus ; `scheduled_deletion_at` reçoit `now() + 30 jours` et ne se déplace plus (il peut seulement être levé, ce qui retarde). `due_learners` et `purge_learner` exigent un dernier retrait de plus de 30 jours ; s'il n'y a aucun retrait, rien n'est purgé. Le test rejoue exactement l'injection décrite (dates en 2020) |
+| S-1 · Annuler un retrait | ✅ | Commande `cancel-withdrawal` : parent lié exigé, nouveau consentement (le retrait reste dans l'historique), audit. Testé au jour 29, puis rien n'est purgé au jour 31. Le parent voit la date de suppression et comment l'annuler |
+| S-2 · `.env.migrate` | ✅ | Déposé seulement pour migrer, effacé par `trap` à la sortie. J'ai vérifié qu'un `compose` sans ce fichier reste valide pour un retour arrière |
+| S-3 · Script et compose du tag | ✅ | `checkout` sur `refs/tags/<tag>` en retour arrière ; l'environnement refuse toute autre référence |
+| S-4 · Audit de la purge | ✅ | Écrit par `purge_learner`, dans sa transaction ; la description du pseudo est corrigée |
+| S-5 · `learnerId` au premier niveau | ✅ | Règle dans l'ADR-0001 ; test sur `payload::text` après le parcours complet et la purge |
+
+**Textes juridiques** : l'adresse `contact@teamnoble.fr` (Q6) et la date de mise à jour (13 octobre 2026) sont posées par le lead. `tools/check-legal.mjs` passe.
+
+**Verdict final : ✅ Accepté.** La PR #10 peut être fusionnée. **Feu vert du lead pour le tag `v1.0.0`** depuis `main` après la fusion, une fois `DEPLOY_SSH_KEY` posée.
+
+**Restent avant l'ouverture aux élèves** :
+- Q8 (sauvegarde hors serveur), reportée par le porteur ;
+- les alertes par e-mail en service (point F de l'infra) ;
+- l'essai sur la vraie tablette ;
+- la restauration d'une vraie sauvegarde du serveur.

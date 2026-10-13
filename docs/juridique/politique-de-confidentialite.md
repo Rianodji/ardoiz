@@ -1,6 +1,6 @@
 # Politique de confidentialité
 
-*Version 1 — dernière mise à jour : [[date de mise en production]]*
+*Version 1 — dernière mise à jour : 13 octobre 2026*
 
 Ardoiz est utilisé par des **enfants**. Nous collectons le moins de données possible, nous ne les vendons pas, nous n'affichons aucune publicité et nous ne faisons aucun profilage commercial.
 
