@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import { ATTEMPT_SUBMITTED, CORRECTION_PUBLISHED, GRADE_RECTIFIED } from "../../assessment/index.js";
 import { LESSON_COMPLETED } from "../../curriculum/index.js";
-import type { EventSubscriber } from "../../platform/messaging/OutboxRelay.js";
+import { UnreadableEventError, type EventSubscriber } from "../../platform/messaging/OutboxRelay.js";
 import { prefixedId, readPayload, type EventReader } from "../../platform/messaging/readEvent.js";
 import { SESSION_JOINED } from "../../scheduling/index.js";
 import type { LearnerId, TutorSpaceId } from "../../shared-kernel/ids.js";
@@ -123,20 +123,33 @@ export function progressSubscribers(service: ProgressService): EventSubscriber[]
   }));
 }
 
+/** Reconstruction refusée : un événement de l'outbox est illisible (ADR-0001, amendement du 2026-10-13). */
+export class UnreadableHistoryError extends Error {
+  constructor(
+    readonly eventId: string,
+    readonly field: string,
+  ) {
+    super(`Événement ${eventId} illisible (${field}) : reconstruction annulée.`);
+  }
+}
+
 /**
  * Reconstruction des projections d'un espace depuis l'outbox (commande « rebuild-progress ») : tout est
  * vidé puis rejoué dans l'ordre, dans UNE transaction. Les ajustements du tuteur, données sources, restent.
- * Un événement illisible est compté et ignoré.
+ * Un événement illisible ANNULE la reconstruction (rien n'est validé) : on ne perd pas d'historique en
+ * silence. Avec `skipUnreadable` seulement, il est ignoré et compté (verdict L6, S-5). Toute autre erreur
+ * annule aussi la reconstruction.
  */
 export async function rebuildProgress(
   client: PoolClient,
   service: ProgressService,
   tutorSpaceId: TutorSpaceId,
+  options: { readonly skipUnreadable: boolean },
 ): Promise<{ applied: number; skipped: number }> {
   const store = new PgProgressStore(client, tutorSpaceId);
   await store.clearProjections();
-  const { rows } = await client.query<{ type: string; payload: Record<string, unknown> }>(
-    `SELECT type, payload FROM messaging.outbox WHERE type = ANY($1::text[]) ORDER BY id`,
+  const { rows } = await client.query<{ id: string; type: string; payload: Record<string, unknown> }>(
+    `SELECT id, type, payload FROM messaging.outbox WHERE type = ANY($1::text[]) ORDER BY id`,
     [Object.keys(PROGRESS_EVENTS)],
   );
   const projector = service.forSpace(tutorSpaceId);
@@ -150,7 +163,9 @@ export async function rebuildProgress(
       await apply(projector, store, row.payload);
       await client.query("RELEASE SAVEPOINT replay");
       applied++;
-    } catch {
+    } catch (error) {
+      if (!(error instanceof UnreadableEventError)) throw error;
+      if (!options.skipUnreadable) throw new UnreadableHistoryError(row.id, error.field);
       await client.query("ROLLBACK TO SAVEPOINT replay");
       skipped++;
     }
