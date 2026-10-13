@@ -32,6 +32,8 @@ actionlint, shellcheck    → aucune remarque
 
 Réponses du lead prises en compte : GPL-3.0 gardée avec la LGPL-3.0 ; purge, distroless, migrateur séparé, retour arrière sans migration et métriques validés.
 
+**Réponse de l'infra prise en compte** (`HANDOFF_INFRA.md`, 2026-10-13) : l'environnement `production` n'accepte que les tags `v*`. Le retour arrière se lance donc **sur un tag** (`gh workflow run release.yml --ref <tag> -f tag=<tag>`) ; le runbook §3 le dit. Les sauvegardes couvrent toute la base (§8). `DEPLOY_SSH_KEY` sera posée **après la fusion**, comme le prévoit l'ordre convenu.
+
 **Conséquence de R-1 sur l'exploitation.** Il n'y a plus d'effacement **anticipé** d'un enfant : avancer les dates à la main falsifierait la trace du consentement. Le runbook §6 le dit ; la politique de confidentialité promet une suppression « sous 30 jours », ce qui reste tenu.
 
 ## 1. Résumé
@@ -180,7 +182,7 @@ Pas de nouvelle question métier. Une question à l'**infra** est posée dans `H
 
 ## 8. Dette et risques connus
 
-- **Sauvegardes : vérification prioritaire, à demander à l'infra.** Si `postgres-backup` garde son option par défaut `--schema=public`, la base `ardoiz` serait « sauvegardée » sans aucune donnée. Le contre-essai l'a montré : 1 table sur 47. Je ne peux pas le vérifier moi-même (pas d'accès au serveur). Question posée dans `HANDOFF_INFRA.md`.
+- **Sauvegardes : vérifié par l'infra le 2026-10-13 (`HANDOFF_INFRA.md`).** `postgres-backup` tourne avec `POSTGRES_EXTRA_OPTS=-Z1`, **sans** `--schema=public` : le dump couvre toute la base, en `.sql.gz`, ce que lit `tools/restore-drill.sh`. `ardoiz` est ajoutée aux sauvegardes (première cette nuit). Le contre-essai local reste utile : il détecterait une régression de cette option. Sauvegarde hors serveur (Q8) : Rianodji reste sur le même disque pour le moment ; bloquant avant l'ouverture aux élèves.
 - **M22 élargi** : les migrations 011 et 012 ajoutent quatre fonctions `SECURITY DEFINER` appelables par le rôle d'exécution :
   - métriques et liste des échus : des nombres ou des identifiants, sans contenu ;
   - purges : seulement ce qui est échu, et l'audit récent reste protégé.
