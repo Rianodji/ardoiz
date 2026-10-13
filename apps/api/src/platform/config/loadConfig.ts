@@ -10,6 +10,8 @@ export interface AppConfig {
   readonly publicOrigin: string;
   readonly host: string;
   readonly port: number;
+  /** Port des métriques Prometheus, distinct du port public et jamais routé par Traefik (ADR-0008). */
+  readonly metricsPort: number;
   readonly logLevel: LogLevel;
   readonly databaseUrl: Secret;
   readonly databasePoolMax: number;
@@ -195,11 +197,16 @@ export function loadConfig(env: Env): AppConfig {
     );
   if (environment === "production" && mediaDir === undefined)
     throw new ConfigurationError("MEDIA_DIR", "absente");
+  const port = integer(env, "PORT", 3000, 1, 65535);
+  const metricsPort = integer(env, "METRICS_PORT", 9464, 1, 65535);
+  // Sur le même port, /metrics deviendrait public derrière Traefik.
+  if (metricsPort === port) throw new ConfigurationError("METRICS_PORT", "doit différer de PORT");
   return {
     environment,
     publicOrigin: publicOrigin(env, environment),
     host: optional(env, "HOST") ?? "127.0.0.1",
-    port: integer(env, "PORT", 3000, 1, 65535),
+    port,
+    metricsPort,
     logLevel: oneOf(env, "LOG_LEVEL", LOG_LEVELS, "info"),
     // Le rôle d'exécution est soumis à la RLS : ni propriétaire des tables, ni superutilisateur (R10).
     databaseUrl: databaseUrl(env, "DATABASE_URL", (user) =>

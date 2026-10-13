@@ -8,6 +8,8 @@ import { createSchedulingModule } from "../scheduling/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
+import { MetricsRegistry } from "../platform/metrics/Metrics.js";
+import { messagingGauges, startMetricsServer } from "../platform/metrics/metricsServer.js";
 import { OutboxRelay, RelayLoop } from "../platform/messaging/OutboxRelay.js";
 import { LocalFileStorage } from "../platform/media/LocalFileStorage.js";
 import { SharpImageIngestion } from "../platform/media/SharpImageIngestion.js";
@@ -66,8 +68,11 @@ async function main(): Promise<void> {
     clock,
     ids: new UuidV7IdGenerator(clock),
   });
+  const metrics = new MetricsRegistry();
+  messagingGauges(pool, metrics);
   const app = await buildServer({
     config,
+    metrics,
     readiness: databaseReadiness(pool),
     modules: [
       identity,
@@ -87,8 +92,11 @@ async function main(): Promise<void> {
   });
   relayLoop.start();
 
+  const metricsServer = await startMetricsServer(metrics, config.host, config.metricsPort);
+
   const shutdown = async (): Promise<void> => {
     await relayLoop.stop();
+    metricsServer.close();
     await app.close();
     await pool.end();
   };

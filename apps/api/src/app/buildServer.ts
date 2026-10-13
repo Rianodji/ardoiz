@@ -7,6 +7,8 @@ import { registerHardening } from "../platform/http/hardening.js";
 import { registerHealthRoutes, type ReadinessProbe } from "../platform/http/health.js";
 import { registerProblemHandlers, sendProblem } from "../platform/http/problems.js";
 import { loggerOptions } from "../platform/logging/logger.js";
+import { registerHttpMetrics } from "../platform/metrics/httpMetrics.js";
+import type { MetricsRegistry } from "../platform/metrics/Metrics.js";
 
 export type ServerConfig = Pick<AppConfig, "publicOrigin" | "logLevel" | "webDistDir" | "trustedProxies">;
 
@@ -22,7 +24,12 @@ export interface ServerDependencies {
   readonly modules?: readonly HttpModule[];
   /** Destination des journaux ; la sortie standard par défaut (collectée par Alloy). */
   readonly logStream?: DestinationStream;
+  /** Mesures HTTP, exposées sur le port des métriques (jamais sur celui de l'application). */
+  readonly metrics?: MetricsRegistry;
 }
+
+/** Chemins techniques : jamais servis par le repli de la SPA, pour qu'un /metrics réponde 404 ici. */
+const TECHNICAL_PATHS = new Set(["/metrics", "/healthz", "/readyz"]);
 
 /** Corps JSON limité à 1 Mio par défaut (R15, M14) ; les routes du cahier relèveront leur limite au lot L4. */
 export const DEFAULT_BODY_LIMIT = 1024 * 1024;
@@ -53,6 +60,8 @@ export async function buildServer(deps: ServerDependencies): Promise<FastifyInst
       : loggerOptions(deps.config.logLevel),
   });
 
+  if (deps.metrics !== undefined) registerHttpMetrics(app, deps.metrics);
+
   // JSON uniquement (R11) : tout autre type de contenu est refusé (415).
   app.removeContentTypeParser(["text/plain"]);
 
@@ -82,7 +91,8 @@ export async function buildServer(deps: ServerDependencies): Promise<FastifyInst
 
   app.setNotFoundHandler(async (request, reply) => {
     // Navigation de la SPA : toute URL hors API renvoie index.html, le routeur du front décide.
-    const isNavigation = request.method === "GET" && !request.url.startsWith("/api/");
+    const path = request.url.split("?")[0] ?? "";
+    const isNavigation = request.method === "GET" && !path.startsWith("/api/") && !TECHNICAL_PATHS.has(path);
     if (webDistDir !== undefined && isNavigation) return reply.type("text/html").sendFile("index.html");
     return sendProblem(request, reply, 404, "application.not-found");
   });
