@@ -8,12 +8,20 @@ const closed = { additionalProperties: false } as const;
 const DateTime = Type.String({ format: "date-time" });
 const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(schema: T) =>
   Type.Union([schema, Type.Null()]);
-const Level = Type.Union(
-  ["not_assessed", "not_acquired", "in_progress", "acquired", "exceeded"].map((level) => Type.Literal(level)),
-);
-const Badge = Type.Union(
-  ["first-step", "geometer", "units-master", "assiduous", "persevering"].map((badge) => Type.Literal(badge)),
-);
+const Level = Type.Union([
+  Type.Literal("not_assessed"),
+  Type.Literal("not_acquired"),
+  Type.Literal("in_progress"),
+  Type.Literal("acquired"),
+  Type.Literal("exceeded"),
+]);
+const Badge = Type.Union([
+  Type.Literal("first-step"),
+  Type.Literal("geometer"),
+  Type.Literal("units-master"),
+  Type.Literal("assiduous"),
+  Type.Literal("persevering"),
+]);
 const Streak = Type.Object({ current: Type.Integer(), best: Type.Integer(), paused: Type.Boolean() }, closed);
 
 export const LearnerProgressResponse = Type.Object(
@@ -61,9 +69,12 @@ export const LearnerProgressResponse = Type.Object(
 
 export const AdjustLevelRequest = Type.Object(
   {
-    level: Type.Union(
-      ["not_acquired", "in_progress", "acquired", "exceeded"].map((level) => Type.Literal(level)),
-    ),
+    level: Type.Union([
+      Type.Literal("not_acquired"),
+      Type.Literal("in_progress"),
+      Type.Literal("acquired"),
+      Type.Literal("exceeded"),
+    ]),
     justification: Type.String({ minLength: 1, maxLength: 500 }),
   },
   closed,

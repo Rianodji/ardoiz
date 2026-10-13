@@ -64,6 +64,13 @@ const MESSAGES: Readonly<Record<string, string>> = {
   "assessment.invalid-points": "Le barème se compte en demi-points, de 0,5 à 100.",
   "assessment.invalid-window": "La date limite doit être après la date d'ouverture.",
   "assessment.invalid-questions": "Ajoute au moins une question avant d'attribuer l'épreuve.",
+  "progress.invalid-justification": "Explique ton choix en 5 à 500 caractères.",
+  "progress.invalid-level": "Choisis un niveau dans la liste.",
+  "feedback.invalid-body":
+    "Ta suggestion doit contenir du texte, 2 000 caractères au plus, sans caractère de contrôle.",
+  "feedback.invalid-reply": "La réponse fait 500 caractères au plus.",
+  "feedback.invalid-category": "Choisis un thème dans la liste.",
+  "feedback.invalid-status": "Choisis « lue » ou « traitée ».",
 };
 
 const GENERIC = "Un problème est survenu. Réessaie dans un moment ; si ça continue, préviens ton tuteur.";

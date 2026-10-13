@@ -2,10 +2,13 @@ import { Type } from "typebox";
 
 /** Contrats HTTP des suggestions (règle 5) : du texte brut, borné (R4, R15). */
 const closed = { additionalProperties: false } as const;
-const Category = Type.Union(
-  ["lessons", "sessions", "assessments", "other"].map((value) => Type.Literal(value)),
-);
-const Status = Type.Union(["new", "read", "done"].map((value) => Type.Literal(value)));
+const Category = Type.Union([
+  Type.Literal("lessons"),
+  Type.Literal("sessions"),
+  Type.Literal("assessments"),
+  Type.Literal("other"),
+]);
+const Status = Type.Union([Type.Literal("new"), Type.Literal("read"), Type.Literal("done")]);
 const Nullable = <T extends Parameters<typeof Type.Union>[0][number]>(schema: T) =>
   Type.Union([schema, Type.Null()]);
 

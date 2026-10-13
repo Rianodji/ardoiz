@@ -4,7 +4,7 @@ import { fetchAgenda, joinOccurrence, type Occurrence } from "../api/scheduling"
 import { ErrorMessage } from "../components/ErrorMessage";
 
 /** Heure de l'appareil, rafraîchie toutes les 30 s : le bouton « Rejoindre » s'active sans recharger. */
-function useNow(): number {
+export function useNow(): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => {

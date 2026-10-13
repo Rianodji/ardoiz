@@ -47,6 +47,8 @@ export function AppLayout() {
               <NavLink to="/tuteur/corrections">Corrections</NavLink>
               <NavLink to="/tuteur/referentiel">Compétences</NavLink>
               <NavLink to="/tuteur/groupes">Groupes</NavLink>
+              <NavLink to="/tuteur/progression">Progression</NavLink>
+              <NavLink to="/tuteur/suggestions">Suggestions</NavLink>
               <NavLink to="/tuteur/familles">Familles</NavLink>
               <NavLink to="/tuteur/journal">Journal d'audit</NavLink>
             </>

@@ -7,6 +7,7 @@ import { Markdown } from "../markdown/Markdown";
 import { Agenda } from "./AgendaPages";
 import { MyAssignments } from "./AssessmentPages";
 import { LearnerProgrammeView } from "./LessonPages";
+import { LearnerDashboard } from "../components/ProgressViews";
 
 const dateTime = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "short",
@@ -98,12 +99,17 @@ export function LegalPage({ document }: { readonly document: LegalDocument }) {
   );
 }
 
-/** Espace élève (L1) : accueil ; les cours arrivent au lot L2. */
+/**
+ * Tableau de bord de l'élève (L6) : sa progression (points, niveau, série, badges, compétences, notes),
+ * ses cours, ses prochaines séances et ses épreuves à faire. Jamais de classement (R17).
+ */
 export function LearnerHomePage() {
   const me = useMe();
   return (
     <section className="card">
       <h1>Bonjour {me.data?.name ?? ""} !</h1>
+      <h2>Ma progression</h2>
+      {me.data !== null && me.data !== undefined && <LearnerDashboard learnerId={me.data.id} you />}
       <h2>Mes cours</h2>
       {me.data !== null && me.data !== undefined && (
         <LearnerProgrammeView

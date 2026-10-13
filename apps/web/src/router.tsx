@@ -13,6 +13,8 @@ import { ForgotPasswordPage, NewPasswordPage } from "./pages/PasswordPages";
 import { TotpEnrollPage, TotpVerifyPage } from "./pages/TotpPages";
 import { GroupsPage, ReferentialPage, TutorProgrammePage } from "./pages/TutorProgrammePages";
 import { GradingAttemptPage, GradingQueuePage, TutorAssessmentsPage } from "./pages/TutorAssessmentPages";
+import { SuggestionsInboxPage } from "./pages/SuggestionPages";
+import { TutorProgressPage } from "./pages/TutorProgressPage";
 import { TutorSessionsPage } from "./pages/TutorSessionsPage";
 import { AuditPage, TutorFamiliesPage } from "./pages/TutorPages";
 
@@ -115,6 +117,8 @@ export const routes: RouteObject[] = [
           ["tuteur/corrections/:attemptId", <GradingAttemptPage key="correction" />],
           ["tuteur/referentiel", <ReferentialPage key="referentiel" />],
           ["tuteur/groupes", <GroupsPage key="groupes" />],
+          ["tuteur/progression", <TutorProgressPage key="progression" />],
+          ["tuteur/suggestions", <SuggestionsInboxPage key="suggestions" />],
           [
             "tuteur/cours/:lessonId",
             <Suspense key="editeur" fallback={<p role="status">Chargement de l'éditeur…</p>}>

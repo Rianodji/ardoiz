@@ -12,6 +12,7 @@ export interface E2eState {
     readonly totpSecret: string;
     readonly usedStep: number;
   };
+  readonly guardian: { readonly email: string; readonly password: string };
   readonly assignmentId: string;
   readonly lessonId: string;
 }
@@ -98,6 +99,15 @@ function totpAt(secret: string, step: number): string {
   const digest = createHmac("sha1", base32Decode(secret)).update(counter).digest();
   const offset = (digest[digest.length - 1] ?? 0) & 0x0f;
   return String((digest.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, "0");
+}
+
+/** Connexion du parent (sans second facteur activé), par l'API du navigateur. */
+export async function loginGuardian(page: Page, state: E2eState): Promise<void> {
+  const login = await page.request.post("/api/auth/login/adult", {
+    headers: { origin: state.baseURL },
+    data: { email: state.guardian.email, password: state.guardian.password },
+  });
+  expect(login.status(), await login.text()).toBe(200);
 }
 
 let lastTutorStep = 0;
