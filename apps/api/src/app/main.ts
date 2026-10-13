@@ -2,10 +2,13 @@ import pino from "pino";
 import { createAssessmentModule } from "../assessment/index.js";
 import { createCurriculumModule } from "../curriculum/index.js";
 import { createIdentityModule, PgLearnerDirectory } from "../identity/index.js";
+import { createFeedbackModule } from "../feedback/index.js";
+import { createProgressModule } from "../progress/index.js";
 import { createSchedulingModule } from "../scheduling/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
+import { OutboxRelay, RelayLoop } from "../platform/messaging/OutboxRelay.js";
 import { LocalFileStorage } from "../platform/media/LocalFileStorage.js";
 import { SharpImageIngestion } from "../platform/media/SharpImageIngestion.js";
 import { createPool, databaseReadiness } from "../platform/postgres/pool.js";
@@ -56,13 +59,36 @@ async function main(): Promise<void> {
     ids: new UuidV7IdGenerator(clock),
     ...(config.meetingExtraHost === undefined ? {} : { extraMeetingHost: config.meetingExtraHost }),
   });
+  const progress = createProgressModule({
+    pool,
+    catalog: curriculum.directory,
+    learners: new PgLearnerDirectory(pool),
+    clock,
+    ids: new UuidV7IdGenerator(clock),
+  });
   const app = await buildServer({
     config,
     readiness: databaseReadiness(pool),
-    modules: [identity, curriculum, assessment, scheduling],
+    modules: [
+      identity,
+      curriculum,
+      assessment,
+      scheduling,
+      progress,
+      createFeedbackModule({ pool, clock, ids: new UuidV7IdGenerator(clock) }),
+    ],
   });
 
+  // Relais de l'outbox dans le processus (une seule instance) : livre les événements aux consommateurs.
+  const relay = new OutboxRelay(pool, clock);
+  for (const subscriber of [...identity.subscribers, ...progress.subscribers]) relay.subscribe(subscriber);
+  const relayLoop = new RelayLoop(relay, (code) => {
+    log.error({ code }, "relais de l'outbox en échec");
+  });
+  relayLoop.start();
+
   const shutdown = async (): Promise<void> => {
+    await relayLoop.stop();
     await app.close();
     await pool.end();
   };

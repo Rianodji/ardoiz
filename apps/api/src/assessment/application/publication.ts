@@ -10,13 +10,18 @@ import { auditOf, type AssessmentDependencies } from "./support.js";
 
 /** Événement d'intégration : la correction d'une copie est publiée (glossaire : CorrectionPubliée). */
 export const CORRECTION_PUBLISHED = "assessment.correction-published";
+/** Événement d'intégration : une copie est rendue (glossaire : CopieRendue), pour la série et les points. */
+export const ATTEMPT_SUBMITTED = "assessment.attempt-submitted";
+/** Événement d'intégration : une note publiée est rectifiée (glossaire : NoteRectifiée). */
+export const GRADE_RECTIFIED = "assessment.grade-rectified";
 /** Événement d'intégration : le tuteur révèle le corrigé d'une attribution (glossaire : CorrigéRévélé). */
 export const ANSWERS_REVEALED = "assessment.answers-revealed";
 
 /**
  * Publie une copie corrigée : statut, date, audit et événement `CorrectionPubliée` écrits dans la
- * MÊME transaction (outbox, ADR-0004). Les résultats par compétence voyagent dans l'événement ; aucun
- * contenu de copie ni réponse attendue n'y figure (minimisation).
+ * MÊME transaction (outbox, ADR-0004). L'événement porte, par question, les points obtenus, le barème et
+ * les compétences évaluées, pour la progression (L6) ; aucun contenu de copie ni réponse attendue n'y
+ * figure (minimisation).
  */
 export async function publishAttempt(
   deps: Pick<AssessmentDependencies, "ids" | "clock">,
@@ -39,15 +44,20 @@ export async function publishAttempt(
       attemptId: attempt.id,
       assignmentId: assignment.id,
       assessmentId: assessment.id,
+      subjectId: assessment.subjectId,
+      title: assessment.title,
       learnerId: attempt.learnerId,
       grade: attempt.grade,
-      competencies: assessment.questions.flatMap((question) =>
-        question.competencyIds.map((competencyId) => ({
-          competencyId,
-          earned: earned.get(question.id) ?? 0,
-          points: question.points,
-        })),
-      ),
+      publishedAt: now.toISOString(),
+      questions: assessment.questions.map((question) => ({
+        questionId: question.id,
+        kind: question.spec.kind,
+        // Une question numérique à unité imposée est un exercice de conversion (badge « Maître des unités »).
+        conversion: question.spec.kind === "numeric" && question.spec.unitMode === "imposed",
+        earned: earned.get(question.id) ?? 0,
+        points: question.points,
+        competencyIds: [...question.competencyIds],
+      })),
     },
   });
   await store.audit(auditOf(deps, actor, "assessment.published", "success", { targetId: attempt.id }));

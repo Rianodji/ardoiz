@@ -13,7 +13,8 @@ export class SchedulingConflictError extends DomainError {
       | "scheduling.in-the-past"
       | "scheduling.already-ended"
       | "scheduling.cancelled"
-      | "scheduling.link-not-available",
+      | "scheduling.link-not-available"
+      | "scheduling.link-to-replace",
   ) {
     super(`Action impossible (${code}).`);
   }

@@ -9,7 +9,7 @@ import { loadAttempt } from "./AttemptService.js";
 import { canAuthorOrGrade, canViewResults } from "./policies.js";
 import { attemptForTutor } from "./projections.js";
 import type { AttemptRecord, QuestionResult } from "./ports.js";
-import { ANSWERS_REVEALED, publishAttempt } from "./publication.js";
+import { ANSWERS_REVEALED, GRADE_RECTIFIED, publishAttempt } from "./publication.js";
 import { auditOf, authorize, type AssessmentDependencies } from "./support.js";
 
 export interface GradeInput {
@@ -231,6 +231,22 @@ export class GradingService {
         gradedAt: now,
       });
       await store.updateAttemptStatus(attemptId, "published", newGrade, attempt.publishedAt);
+      // NoteRectifiée : la progression met à jour la preuve et la note, dans la même transaction (L6).
+      await store.publish({
+        id: this.deps.ids.next("EventId"),
+        type: GRADE_RECTIFIED,
+        tutorSpaceId: actor.tutorSpaceId,
+        occurredAt: now,
+        payload: {
+          attemptId,
+          learnerId: attempt.learnerId,
+          questionId,
+          earned: newEarned,
+          points: question.points,
+          grade: newGrade,
+          rectifiedAt: now.toISOString(),
+        },
+      });
       await store.audit(
         auditOf(this.deps, actor, "assessment.rectified", "success", { targetId: attemptId }),
       );

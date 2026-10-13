@@ -263,6 +263,7 @@ describe("Identité : connexion, sessions, consentement, jetons", () => {
     });
 
     it("envoie une alerte par e-mail à chaque connexion du tuteur, et la journalise (M8, R12)", async () => {
+      await world.deliverEvents(); // alertes de la préparation du monde
       const before = world.mailer.sent.length;
       const pending = cookieFrom((await adultLogin("tuteur@example.org", ADULT_PASSWORD)).setCookie);
       await world.http({
@@ -272,6 +273,7 @@ describe("Identité : connexion, sessions, consentement, jetons", () => {
         payload: { code: nextTotp(world, family.tutor.totpSecret) },
       });
       await world.identity.background.idle();
+      await world.deliverEvents();
       expect(world.mailer.sent.slice(before).map((mail) => mail.template)).toEqual(["tutor-login-alert"]);
       const audit = await world.adminQuery<{ outcome: string }>(
         "SELECT outcome FROM audit.audit_log WHERE action = 'identity.tutor-login' ORDER BY occurred_at",

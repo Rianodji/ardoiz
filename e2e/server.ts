@@ -18,7 +18,10 @@ import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, REFERENTIAL_FILE } from "../a
 import { createAssessmentModule } from "../apps/api/src/assessment/index.js";
 import { createCurriculumModule } from "../apps/api/src/curriculum/index.js";
 import { createIdentityModule, PgLearnerDirectory } from "../apps/api/src/identity/index.js";
+import { createFeedbackModule } from "../apps/api/src/feedback/index.js";
+import { createProgressModule } from "../apps/api/src/progress/index.js";
 import { createSchedulingModule } from "../apps/api/src/scheduling/index.js";
+import { OutboxRelay } from "../apps/api/src/platform/messaging/OutboxRelay.js";
 import { InMemoryMailer } from "../apps/api/src/identity/infrastructure/mailers.js";
 import { UuidV7IdGenerator } from "../apps/api/src/platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../apps/api/src/platform/logging/logger.js";
@@ -155,10 +158,27 @@ const scheduling = createSchedulingModule({
   clock,
   ids,
 });
+const progress = createProgressModule({
+  pool,
+  catalog: curriculum.directory,
+  learners: new PgLearnerDirectory(pool),
+  clock,
+  ids,
+});
+// Le relais est appelé à la demande (après les données de démonstration), comme dans les tests d'intégration.
+const relay = new OutboxRelay(pool, clock);
+for (const subscriber of [...identity.subscribers, ...progress.subscribers]) relay.subscribe(subscriber);
 const app = await buildServer({
   config: { publicOrigin: origin, logLevel: "warn", trustedProxies: [], webDistDir: WEB_DIST_DIR },
   readiness: () => Promise.resolve(true),
-  modules: [identity, curriculum, assessment, scheduling],
+  modules: [
+    identity,
+    curriculum,
+    assessment,
+    scheduling,
+    progress,
+    createFeedbackModule({ pool, clock, ids }),
+  ],
 });
 await app.listen({ host: "127.0.0.1", port });
 
@@ -307,6 +327,15 @@ await call("tutor", "POST", "/api/unlocks", {
   audience: { kind: "learner", id: learnerId },
 });
 
+// Lina termine le cours : le relais livre CoursTerminé à la progression (badge « Premier pas », L6).
+await call("learner", "POST", "/api/auth/login/learner", {
+  spaceCode: SPACE_CODE,
+  username: "lina",
+  password: LEARNER_PASSWORD,
+});
+await call("learner", "POST", `/api/lessons/${lessonId}/completion`);
+while ((await relay.relayOnce()) > 0);
+
 // Une séance qui commence dans 10 min (heure de Paris) : la fenêtre du lien est ouverte (R9).
 const soon = new Date(Math.ceil((Date.now() + 10 * 60_000) / 300_000) * 300_000);
 const [soonDate = "", soonTime = ""] = new Intl.DateTimeFormat("sv-SE", {
@@ -339,6 +368,7 @@ writeFileSync(
       totpSecret: secret,
       usedStep: Math.floor(Date.now() / 30_000),
     },
+    guardian: { email: guardianEmail, password: ADULT_PASSWORD },
     assignmentId,
     lessonId,
   }),

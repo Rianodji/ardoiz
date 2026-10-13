@@ -3,7 +3,8 @@ import { Writable } from "node:stream";
 import { parseArgs } from "node:util";
 import pino from "pino";
 import { createCurriculumModule } from "../curriculum/index.js";
-import { createIdentityModule } from "../identity/index.js";
+import { createIdentityModule, PgLearnerDirectory } from "../identity/index.js";
+import { createProgressModule } from "../progress/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
@@ -14,8 +15,10 @@ import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, DEFAULT_MEDIA_DIR, REFERENTIA
 const USAGE = `Usage : npm run ardoiz -- init-space --space-name "Espace Dicard" --space-code dicard \\
          --tutor-email tuteur@example.org --tutor-name "Dicard"
         npm run ardoiz -- seed-referential --space-code dicard
+        npm run ardoiz -- rebuild-progress --space-code dicard
 Le mot de passe du tuteur est lu sur l'entrée standard (jamais en argument : il finirait dans l'historique).
-init-space charge aussi le référentiel de compétences validé ; seed-referential le recharge sans rien écraser.`;
+init-space charge aussi le référentiel de compétences validé ; seed-referential le recharge sans rien écraser.
+rebuild-progress reconstruit la progression d'un espace depuis les événements (les ajustements du tuteur restent).`;
 
 /** Lit une ligne sur l'entrée standard sans l'afficher : l'écho du terminal part dans un flux muet. */
 async function readSecretLine(prompt: string): Promise<string> {
@@ -39,7 +42,7 @@ async function readSecretLine(prompt: string): Promise<string> {
  */
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
-  if (command !== "init-space" && command !== "seed-referential") {
+  if (command !== "init-space" && command !== "seed-referential" && command !== "rebuild-progress") {
     process.stderr.write(`${USAGE}\n`);
     process.exitCode = 2;
     return;
@@ -79,6 +82,23 @@ async function main(): Promise<void> {
     });
 
     const spaceCode = values["space-code"];
+    if (command === "rebuild-progress") {
+      const tutorSpaceId = spaceCode === undefined ? null : await identity.spaceIdByCode(spaceCode);
+      if (tutorSpaceId === null) {
+        process.stderr.write(`${USAGE}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      const progress = createProgressModule({
+        pool,
+        catalog: curriculum.directory,
+        learners: new PgLearnerDirectory(pool),
+        clock,
+        ids,
+      });
+      log.info(await progress.rebuild(tutorSpaceId), "progression reconstruite depuis les événements");
+      return;
+    }
     if (command === "seed-referential") {
       const tutorSpaceId = spaceCode === undefined ? null : await identity.spaceIdByCode(spaceCode);
       if (tutorSpaceId === null) {

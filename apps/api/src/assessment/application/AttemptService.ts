@@ -5,7 +5,7 @@ import { AttemptRefusedError, InvalidAssessmentInput, TooManyUploadsError } from
 import { autoGrade, gradeOutOf20, type Answer } from "../domain/grading.js";
 import type { Question } from "../domain/questions.js";
 import { answersRevealed, assertCanStart, assertCanWork, assertDraftSaveAllowed } from "../domain/window.js";
-import { canViewAttempt, canWorkOnAssignment } from "./policies.js";
+import { canViewAttempt, canViewResults, canWorkOnAssignment } from "./policies.js";
 import { MAX_NOTEBOOK_IMAGES, storedScene } from "./notebook.js";
 import type {
   AssessmentRecord,
@@ -17,7 +17,7 @@ import type {
   StoredScene,
 } from "./ports.js";
 import { attemptForLearner, type LearnerAnswerView, type LearnerAttemptView } from "./projections.js";
-import { publishAttempt } from "./publication.js";
+import { ATTEMPT_SUBMITTED, publishAttempt } from "./publication.js";
 import { auditOf, authorize, canonicalJson, type AssessmentDependencies } from "./support.js";
 
 export interface AssignmentSummary {
@@ -45,7 +45,26 @@ export class AttemptService {
   /** Les épreuves attribuées à l'élève connecté, avec leur état. */
   async myAssignments(actor: Actor): Promise<AssignmentSummary[]> {
     if (actor.kind !== "learner") return [];
-    const learnerId = actor.id;
+    return this.#summariesOf(actor, actor.id);
+  }
+
+  /**
+   * Les épreuves d'un élève (tableau de bord du parent, L6) : l'élève lui-même, ses parents liés, le
+   * tuteur ; 👻 sinon. Aucune réponse ni corrigé : seulement l'état et la note publiée.
+   */
+  async assignmentsOf(actor: Actor, learnerId: LearnerId): Promise<AssignmentSummary[]> {
+    const inSpace = (await this.deps.learners.existingLearners(actor.tutorSpaceId, [learnerId])).length === 1;
+    await authorize(
+      this.deps,
+      actor,
+      canViewResults(actor, learnerId, inSpace),
+      "assessment.view-assignments",
+      learnerId,
+    );
+    return this.#summariesOf(actor, learnerId);
+  }
+
+  async #summariesOf(actor: Actor, learnerId: LearnerId): Promise<AssignmentSummary[]> {
     const now = this.deps.clock.now();
     return this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
       const assignments = await store.assignments();
@@ -246,6 +265,20 @@ export class AttemptService {
         if (assignment.publication === "auto")
           final = await publishAttempt(this.deps, store, actor, assessment, assignment, final, results);
       }
+      // CopieRendue : la série hebdomadaire, les points et le badge « Premier pas » (L6).
+      await store.publish({
+        id: this.deps.ids.next("EventId"),
+        type: ATTEMPT_SUBMITTED,
+        tutorSpaceId: actor.tutorSpaceId,
+        occurredAt: now,
+        payload: {
+          attemptId,
+          assignmentId: assignment.id,
+          learnerId: attempt.learnerId,
+          submittedAt: now.toISOString(),
+          late,
+        },
+      });
       await store.audit(
         auditOf(this.deps, actor, "assessment.submitted", "success", {
           targetId: attemptId,

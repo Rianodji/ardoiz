@@ -24,7 +24,9 @@
 | Voir sa note et ses points par question | ✅ | ✅ après publication | 👻 | ✅ après publication | 👻 | 🚫 |
 | Voir le corrigé (réponses attendues, explications) | ✅ | ✅ après **révélation** | 👻 | ✅ après **révélation** | 👻 | 🚫 |
 | Corriger, annoter, publier, rectifier une note | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| Voir les épreuves attribuées à un élève (état et note publiée, jamais de réponse) | ✅ | ✅ | 👻 | ✅ | 👻 | 🚫 |
 | Ajuster un niveau de compétence | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
+| Voir la synthèse de tous les élèves (par élève et par groupe) | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |
 | Envoyer une suggestion | 🚫 | ✅ | — | 🚫 | 🚫 | 🚫 |
 | Lire et traiter les suggestions | ✅ | ✅ (les siennes, lecture) | 👻 | 🚫 | 🚫 | 🚫 |
 | Consulter le journal d'audit | ✅ | 🚫 | 🚫 | 🚫 | 🚫 | 🚫 |

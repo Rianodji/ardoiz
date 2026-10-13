@@ -9,6 +9,8 @@ import { inject } from "vitest";
 import { buildServer } from "../../../src/app/buildServer.js";
 import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, REFERENTIAL_FILE } from "../../../src/app/paths.js";
 import { createAssessmentModule } from "../../../src/assessment/index.js";
+import { createFeedbackModule } from "../../../src/feedback/index.js";
+import { createProgressModule, type ProgressModule } from "../../../src/progress/index.js";
 import { createSchedulingModule } from "../../../src/scheduling/index.js";
 import { createCurriculumModule, type CurriculumModule } from "../../../src/curriculum/index.js";
 import {
@@ -21,6 +23,7 @@ import { InMemoryMailer } from "../../../src/identity/infrastructure/mailers.js"
 import { Secret } from "../../../src/platform/config/Secret.js";
 import { UuidV7IdGenerator } from "../../../src/platform/ids/UuidV7IdGenerator.js";
 import { LocalFileStorage } from "../../../src/platform/media/LocalFileStorage.js";
+import { OutboxRelay } from "../../../src/platform/messaging/OutboxRelay.js";
 import { SharpImageIngestion } from "../../../src/platform/media/SharpImageIngestion.js";
 import { loggerOptions } from "../../../src/platform/logging/logger.js";
 import { FixedClock } from "../../support/clock.js";
@@ -69,6 +72,8 @@ export class World {
   readonly logs = captureLogs();
   identity!: IdentityModule;
   curriculum!: CurriculumModule;
+  relay!: OutboxRelay;
+  progress!: ProgressModule;
   app!: FastifyInstance;
   /** Routes enregistrées par le serveur, avec leur niveau d'accès déclaré (pour les tests transverses). */
   readonly routes: Array<{ method: string; url: string; access: string }> = [];
@@ -165,6 +170,14 @@ export class World {
           clock: world.clock,
           ids: world.ids,
         }),
+        (world.progress = createProgressModule({
+          pool: world.pool,
+          catalog: world.curriculum.directory,
+          learners: new PgLearnerDirectory(world.pool),
+          clock: world.clock,
+          ids: world.ids,
+        })),
+        createFeedbackModule({ pool: world.pool, clock: world.clock, ids: world.ids }),
         createSchedulingModule({
           pool: world.pool,
           learners: new PgLearnerDirectory(world.pool),
@@ -174,8 +187,16 @@ export class World {
         }),
       ],
     });
+    world.relay = new OutboxRelay(world.pool, world.clock);
+    for (const subscriber of [...world.identity.subscribers, ...world.progress.subscribers])
+      world.relay.subscribe(subscriber);
     await world.app.ready();
     return world;
+  }
+
+  /** Livre tous les événements en attente, comme le relais de l'application (une passe jusqu'à épuisement). */
+  async deliverEvents(): Promise<void> {
+    while ((await this.relay.relayOnce()) > 0);
   }
 
   /** Requête HTTP réelle (sans réseau), depuis notre origine, avec un cookie de session facultatif. */

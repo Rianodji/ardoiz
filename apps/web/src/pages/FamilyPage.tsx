@@ -14,6 +14,9 @@ import { useReauth } from "../components/useReauth";
 import { Agenda } from "./AgendaPages";
 import { PublishedResults } from "./AssessmentPages";
 import { LearnerProgrammeView } from "./LessonPages";
+import { GuardianSuggestions } from "./SuggestionPages";
+import { LearnerDashboard, UpcomingAssignments } from "../components/ProgressViews";
+import { useNow } from "./AgendaPages";
 
 const LEVELS = ["6e", "5e", "4e", "3e"] as const;
 const LEARNERS_QUERY = ["learners"] as const;
@@ -52,6 +55,7 @@ export function FamilyPage() {
           />
         </section>
       )}
+      {(learners.data?.learners.length ?? 0) > 0 && <GuardianSuggestions />}
       <NewLearner />
     </div>
   );
@@ -72,6 +76,7 @@ function LearnerCard({
   readonly runSensitive: (action: () => Promise<void>) => Promise<void>;
 }) {
   const queryClient = useQueryClient();
+  const now = useNow();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -103,6 +108,12 @@ function LearnerCard({
         {learner.status === "disabled" && <strong> · compte désactivé</strong>}
       </p>
       <p>Parents liés : {learner.guardians.map((guardian) => guardian.displayName).join(", ")}</p>
+      <details open>
+        <summary>Son tableau de bord</summary>
+        <LearnerDashboard learnerId={learner.id} you={false} />
+        <h3>Ses épreuves</h3>
+        <UpcomingAssignments learnerId={learner.id} now={now} />
+      </details>
       <details>
         <summary>Ses cours débloqués</summary>
         <LearnerProgrammeView

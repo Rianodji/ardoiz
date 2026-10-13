@@ -1,3 +1,5 @@
+import type { EventSubscriber } from "../../platform/messaging/OutboxRelay.js";
+import { AlertMailSubscriber } from "./AlertMailSubscriber.js";
 import { readFileSync } from "node:fs";
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import type { Pool } from "pg";
@@ -44,6 +46,8 @@ export interface IdentityModule {
   /** Tâches lancées après les réponses (alertes, e-mails) : `idle()` attend leur fin. */
   readonly background: LoggedBackgroundTasks;
   readonly deps: IdentityDependencies;
+  /** Consommateurs d'événements du module (alertes de sécurité envoyées par l'outbox). */
+  readonly subscribers: readonly EventSubscriber[];
   register(app: FastifyInstance): Promise<void>;
   initSpace(input: InitSpaceInput): ReturnType<typeof initSpace>;
   /** Espace désigné par son code (CLI d'installation). */
@@ -98,6 +102,7 @@ export function createIdentityModule(options: IdentityModuleOptions): IdentityMo
     statuses: IDENTITY_STATUSES,
     background,
     deps,
+    subscribers: [new AlertMailSubscriber(mailer)],
     register: async (app) => {
       await registerAuthentication(app, auth);
       identityRoutes(app, {

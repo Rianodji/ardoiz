@@ -131,6 +131,35 @@ describe("Planification (L5)", () => {
     });
   });
 
+  describe("Lien relu en base (verdict L5, S-1)", () => {
+    it("un lien altéré en base n'est servi à personne : 409 au clic, absent de la séance, « à remplacer » pour le tuteur (R9)", async () => {
+      await world.adminQuery(
+        "UPDATE scheduling.tutoring_sessions SET meeting_link = 'https://evil.example/' WHERE id = $1",
+        [session.id.slice(4)],
+      );
+      const cookie = await learnerAt(at(0));
+      const joined = await join(cookie);
+      expect(joined.status).toBe(409);
+      expect(joined.body).toMatchObject({ code: "scheduling.link-to-replace" });
+      expect(JSON.stringify(joined.body)).not.toContain("evil.example");
+      expect((await view(cookie)).body).toMatchObject({ meetingLink: null });
+      const tutorCookie = await loginTutor(world, family);
+      expect((await join(tutorCookie)).status).toBe(409);
+      const list = (await world.http({ method: "GET", url: "/api/sessions", cookie: tutorCookie })).body as {
+        sessions: Array<{ id: string; linkToReplace: boolean }>;
+      };
+      expect(list.sessions.find((candidate) => candidate.id === session.id)?.linkToReplace).toBe(true);
+      // Remplacer le lien le remet en service.
+      await world.http({
+        method: "PUT",
+        url: `/api/sessions/${session.id}/link`,
+        cookie: tutorCookie,
+        payload: {},
+      });
+      expect((await join(cookie)).status).toBe(200);
+    });
+  });
+
   describe("Agenda (R9)", () => {
     it("l'agenda ne contient jamais le lien, même dans la fenêtre ; chacun ne voit que ses séances (R2, R9)", async () => {
       const cookie = await learnerAt(at(0));

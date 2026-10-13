@@ -1,3 +1,5 @@
+import { appendToOutbox } from "../../platform/messaging/PgOutbox.js";
+import type { IntegrationEvent } from "../../shared-kernel/IntegrationEvent.js";
 import type { Pool, PoolClient } from "pg";
 import { fromUuid, toUuid } from "../../platform/ids/UuidV7IdGenerator.js";
 import { withTenantTransaction } from "../../platform/postgres/withTenantTransaction.js";
@@ -627,6 +629,10 @@ export class PgIdentityStore implements IdentityStore {
         entry.reasonCode ?? null,
       ],
     );
+  }
+
+  async publish(event: IntegrationEvent): Promise<void> {
+    await appendToOutbox(this.client, event);
   }
 
   async latestAudit(limit: number): Promise<AuditRecord[]> {

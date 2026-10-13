@@ -1,3 +1,4 @@
+import type { IntegrationEvent } from "../../shared-kernel/IntegrationEvent.js";
 import type {
   AuthSessionId,
   GuardianId,
@@ -99,6 +100,8 @@ export interface IdentityStore {
   invalidatePasswordResetsOf(accountId: string, now: Date): Promise<void>;
 
   audit(entry: AuditEntry): Promise<void>;
+  /** Événement d'intégration écrit dans l'outbox, dans la transaction courante. */
+  publish(event: IntegrationEvent): Promise<void>;
   /** Dernières entrées du journal d'audit de l'espace, les plus récentes d'abord. */
   latestAudit(limit: number): Promise<AuditRecord[]>;
 }

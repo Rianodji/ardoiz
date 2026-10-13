@@ -32,8 +32,8 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | L2 | Programme et contenu de cours | ✅ (PR #5) |
 | L3 | Évaluation (QCM, numérique, réponse courte) | ✅ (PR #6) |
 | L4 | Cahier virtuel | ✅ (PR #7) |
-| L5 | Planification | 🔍 (PR #8) |
-| L6 | Progression, gamification, tableau de bord parent, suggestions | ⏳ |
+| L5 | Planification | ✅ (PR #8) |
+| L6 | Progression, gamification, tableau de bord parent, suggestions | 🔍 (PR #9) |
 | L7 | Mise en production | ⏳ |
 
 États : ⏳ à faire · 🛠️ en cours · 🔍 en revue · ✅ accepté.
@@ -87,7 +87,8 @@ apps/api/src/
   curriculum/     matières, référentiel de compétences, modules, cours, médias, groupes, déverrouillages (L2)
   assessment/     épreuves, attributions, copies, correction automatique et manuelle, publication, rectification (L3), cahier virtuel (L4)
   scheduling/     séances ponctuelles et hebdomadaires en heure de Paris, lien de visio, agenda, présence (L5)
-  <module>/       progress, feedback (lot suivant)
+  progress/       preuves, niveaux de compétence, points, série, badges, tirés des événements ; reconstruction (L6)
+  feedback/       suggestions des parents au tuteur (L6)
     domain/ application/ infrastructure/ index.ts
 apps/web/         SPA React (Vite, React Router, TanStack Query), servie par l'API sur la même origine
 packages/contracts/       schémas TypeBox partagés (ProblemDetails RFC 9457, santé)

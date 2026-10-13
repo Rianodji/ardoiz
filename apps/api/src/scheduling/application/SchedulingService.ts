@@ -218,7 +218,9 @@ export class SchedulingService {
     );
     if (found === null) throw new NotFoundError();
     const { session, occurrence } = found;
-    if (actor.kind !== "learner") return { meetingLink: session.meetingLink };
+    const link = this.servedLink(session);
+    if (link === null) throw new SchedulingConflictError("scheduling.link-to-replace");
+    if (actor.kind !== "learner") return { meetingLink: link };
     const learnerId = actor.id;
     const now = this.deps.clock.now();
     if (!linkWindowOpen({ ...occurrence, cancelled: occurrence.cancelledAt !== null }, now)) {
@@ -241,7 +243,20 @@ export class SchedulingService {
         },
       });
     });
-    return { meetingLink: session.meetingLink };
+    return { meetingLink: link };
+  }
+
+  /**
+   * Lien relu en base, REVALIDÉ avant d'être servi (verdict L5, S-1) : avec la liste d'hôtes et le
+   * `MEETING_EXTRA_HOST` courants. Un lien altéré en base, ou devenu invalide, n'est servi à personne
+   * (null) ; le tuteur voit qu'il est à remplacer.
+   */
+  servedLink(session: SessionRecord): string | null {
+    try {
+      return MeetingLink.parse(session.meetingLink, this.deps.extraMeetingHost).href;
+    } catch {
+      return null;
+    }
   }
 
   /** Déplacer une occurrence à venir (date, heure et durée en heure de Paris). */
@@ -363,7 +378,7 @@ export class SchedulingService {
       moved: occurrence.moved,
       participantIds: [...visibleParticipants],
       linkAvailableFrom: new Date(occurrence.startsAt.getTime() - LINK_LEAD_MS).toISOString(),
-      meetingLink: reveal && occurrence.cancelledAt === null ? session.meetingLink : null,
+      meetingLink: reveal && occurrence.cancelledAt === null ? this.servedLink(session) : null,
     };
   }
 
