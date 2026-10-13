@@ -73,11 +73,11 @@ export const PROGRESS_EVENTS: Readonly<Record<string, Apply>> = {
       readPayload(payload, (r) => {
         const event = {
           attemptId: r.string("attemptId", prefixedId("att")),
+          assignmentId: r.string("assignmentId", prefixedId("asg")),
           learnerId: learner(r),
           submittedAt: r.date("submittedAt"),
           late: r.boolean("late"),
         };
-        r.string("assignmentId", prefixedId("asg"));
         return event;
       }),
     ),

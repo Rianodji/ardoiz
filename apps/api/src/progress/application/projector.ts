@@ -40,6 +40,7 @@ export interface GradeRectified {
 
 export interface AttemptSubmitted {
   readonly attemptId: string;
+  readonly assignmentId: string;
   readonly learnerId: LearnerId;
   readonly submittedAt: Date;
   readonly late: boolean;
@@ -129,11 +130,13 @@ export class ProgressProjector {
   async attemptSubmitted(store: ProgressStore, event: AttemptSubmitted): Promise<void> {
     await store.recordSubmission(event.learnerId, event.attemptId, event.submittedAt, event.late);
     await store.addActivityWeek(event.learnerId, week(event.submittedAt));
+    // Une fois par ATTRIBUTION, même avec plusieurs tentatives : une copie vide de plus ne rapporte
+    // rien (big picture §8, verdict L6 S-3).
     if (!event.late) {
       await store.addXp(
         event.learnerId,
         "submitted-on-time",
-        event.attemptId,
+        event.assignmentId,
         XP_VALUES["submitted-on-time"],
         event.submittedAt,
       );

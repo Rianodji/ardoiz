@@ -147,6 +147,29 @@ describe("Progression (L6)", () => {
     expect(evidences[0]?.n).toBe(1);
   });
 
+  it("deux tentatives rendues à temps sur une même attribution rapportent 20 points, pas 40 (verdict L6 S-3)", async () => {
+    const before = (await progressOf(family.learner.cookie)).xp;
+    const created = await createAssessment(world, family.tutor.cookie, "Arithmétique 2", ([c = ""]) => [
+      mcqTwelve(c),
+    ]);
+    const assignmentId = await assign(world, family.tutor.cookie, created.assessmentId, {
+      learnerId: family.learner.id,
+      maxAttempts: 2,
+    });
+    for (let i = 0; i < 2; i++) {
+      const attempt = (await startAttempt(world, family.learner.cookie, assignmentId)).body as LearnerAttempt;
+      const submitted = await world.http({
+        method: "POST",
+        url: `/api/attempts/${attempt.attemptId}/submit`,
+        cookie: family.learner.cookie,
+        payload: { answers: {} },
+      });
+      expect(submitted.status, JSON.stringify(submitted.body)).toBe(200);
+    }
+    await world.deliverEvents();
+    expect((await progressOf(family.learner.cookie)).xp).toBe(before + 20);
+  });
+
   it("la reconstruction depuis les événements redonne exactement la même progression", async () => {
     const before = await progressOf(family.learner.cookie);
     const [space] = await world.adminQuery<{ id: string }>(
