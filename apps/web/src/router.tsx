@@ -13,6 +13,7 @@ import { ForgotPasswordPage, NewPasswordPage } from "./pages/PasswordPages";
 import { TotpEnrollPage, TotpVerifyPage } from "./pages/TotpPages";
 import { GroupsPage, ReferentialPage, TutorProgrammePage } from "./pages/TutorProgrammePages";
 import { GradingAttemptPage, GradingQueuePage, TutorAssessmentsPage } from "./pages/TutorAssessmentPages";
+import { TutorSessionsPage } from "./pages/TutorSessionsPage";
 import { AuditPage, TutorFamiliesPage } from "./pages/TutorPages";
 
 /** L'éditeur (TipTap) n'est chargé que par le tuteur, à la demande : la page des élèves reste légère. */
@@ -109,6 +110,7 @@ export const routes: RouteObject[] = [
         [
           ["tuteur/programme", <TutorProgrammePage key="programme" />],
           ["tuteur/epreuves", <TutorAssessmentsPage key="epreuves" />],
+          ["tuteur/seances", <TutorSessionsPage key="seances" />],
           ["tuteur/corrections", <GradingQueuePage key="corrections" />],
           ["tuteur/corrections/:attemptId", <GradingAttemptPage key="correction" />],
           ["tuteur/referentiel", <ReferentialPage key="referentiel" />],

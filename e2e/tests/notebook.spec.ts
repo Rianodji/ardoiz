@@ -11,7 +11,11 @@ const PNG_1PX =
 test("dessiner, recharger, retrouver le dessin, rendre, voir la copie verrouillée", async ({ page }) => {
   const state = e2eState();
   await loginLearner(page, state);
-  await page.getByRole("button", { name: "Commencer" }).click();
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Géométrie : tracer un triangle" })
+    .getByRole("button", { name: "Commencer" })
+    .click();
   await expect(page.getByRole("heading", { name: "Géométrie : tracer un triangle" })).toBeVisible();
   const canvas = page.locator(".notebook-canvas canvas.interactive");
   await expect(canvas).toBeVisible();
@@ -31,6 +35,12 @@ test("dessiner, recharger, retrouver le dessin, rendre, voir la copie verrouill�
   await page.locator("label", { has: page.getByTestId("toolbar-text") }).click();
   await page.mouse.click(box.x + box.width / 2 - 100, box.y + 320);
   await page.keyboard.type('<img src=x onerror="window.__xss=1">');
+  await page.keyboard.press("Escape");
+
+  // Un texte français (accents, ligature, guillemets) : affiché sans police de repli CJK (verdict L4, S-2).
+  await page.locator("label", { has: page.getByTestId("toolbar-text") }).click();
+  await page.mouse.click(box.x + box.width / 2 - 100, box.y + 380);
+  await page.keyboard.type("Côté hypoténuse : 5 cm — « œuf » à l'ébène, ça !");
   await page.keyboard.press("Escape");
 
   // Une photo importée : réencodée par le serveur, affichée depuis la route autorisée (R14, CSP).
@@ -60,15 +70,22 @@ test("dessiner, recharger, retrouver le dessin, rendre, voir la copie verrouill�
       return { status: body.status, elements: Object.values(body.answers)[0]?.elements ?? [] };
     }, attemptId);
   const saved = await scene();
-  expect(saved.elements.map((element) => element.type).sort()).toEqual(["image", "rectangle", "text"]);
-  expect(saved.elements.find((element) => element.type === "text")?.text).toBe(
-    '<img src=x onerror="window.__xss=1">',
-  );
+  expect(saved.elements.map((element) => element.type).sort()).toEqual([
+    "image",
+    "rectangle",
+    "text",
+    "text",
+  ]);
+  expect(
+    saved.elements.filter((element) => element.type === "text").map((element) => element.text),
+  ).toContain('<img src=x onerror="window.__xss=1">');
 
   // Recharger : le dessin revient.
   await page.reload();
   await expect(page.locator(".notebook-canvas canvas.interactive")).toBeVisible();
-  expect((await scene()).elements).toHaveLength(3);
+  expect((await scene()).elements).toHaveLength(4);
+  // Après rechargement, les textes sont redessinés : aucune police manquante (voir la fixture).
+  await page.waitForTimeout(1_500);
   expect(await page.locator("img[src='x']").count()).toBe(0);
   expect(await page.evaluate(() => (window as { __xss?: number }).__xss)).toBeUndefined();
 
@@ -114,5 +131,5 @@ test("le tuteur pose un tampon sur le calque d'annotation de la copie rendue", a
   }, attemptId);
   expect(after.stamps).toEqual(["✓"]);
   expect(after.sha).toBe(before);
-  expect(after.studentElements).toBe(3);
+  expect(after.studentElements).toBe(4);
 });

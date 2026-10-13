@@ -22,6 +22,7 @@ export const ID_PREFIXES = {
   LessonId: "les",
   UnlockId: "unl",
   TutoringSessionId: "tss",
+  SessionOccurrenceId: "soc",
   AssessmentId: "asm",
   QuestionId: "qst",
   AssignmentId: "asg",
@@ -57,6 +58,8 @@ export type ModuleId = Id<"ModuleId">;
 export type GroupId = Id<"GroupId">;
 export type UnlockId = Id<"UnlockId">;
 export type MediaId = Id<"MediaId">;
+export type TutoringSessionId = Id<"TutoringSessionId">;
+export type SessionOccurrenceId = Id<"SessionOccurrenceId">;
 export type NotebookMediaId = Id<"NotebookMediaId">;
 export type AssessmentId = Id<"AssessmentId">;
 export type QuestionId = Id<"QuestionId">;
@@ -97,6 +100,8 @@ export const ModuleId = idParser("ModuleId");
 export const GroupId = idParser("GroupId");
 export const UnlockId = idParser("UnlockId");
 export const MediaId = idParser("MediaId");
+export const TutoringSessionId = idParser("TutoringSessionId");
+export const SessionOccurrenceId = idParser("SessionOccurrenceId");
 export const NotebookMediaId = idParser("NotebookMediaId");
 export const AssessmentId = idParser("AssessmentId");
 export const QuestionId = idParser("QuestionId");

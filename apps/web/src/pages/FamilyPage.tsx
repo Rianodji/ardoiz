@@ -11,6 +11,7 @@ import { useMe } from "../auth/session";
 import { ConsentForm } from "../components/ConsentForm";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { useReauth } from "../components/useReauth";
+import { Agenda } from "./AgendaPages";
 import { PublishedResults } from "./AssessmentPages";
 import { LearnerProgrammeView } from "./LessonPages";
 
@@ -39,6 +40,18 @@ export function FamilyPage() {
         </ul>
         {reauth.prompt}
       </section>
+      {(learners.data?.learners.length ?? 0) > 0 && (
+        <section className="card">
+          <h2>Agenda des séances</h2>
+          <p className="hint">Le lien de la visio n'est donné qu'à ton enfant, au moment de la séance.</p>
+          <Agenda
+            canJoin={false}
+            nameOf={(id) =>
+              learners.data?.learners.find((learner) => learner.id === id)?.firstName ?? "Enfant"
+            }
+          />
+        </section>
+      )}
       <NewLearner />
     </div>
   );

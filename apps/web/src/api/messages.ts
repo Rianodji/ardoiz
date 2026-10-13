@@ -35,6 +35,15 @@ const MESSAGES: Readonly<Record<string, string>> = {
     "Le nom ne doit contenir que des lettres, des espaces, des tirets ou des apostrophes.",
   "identity.invalid-school-level": "Choisis une classe dans la liste.",
   "http.too-many-requests": "Trop d'essais d'un coup. Attends un peu, puis réessaie.",
+  "scheduling.link-not-available":
+    "Le lien de la séance s'ouvre 15 minutes avant le début. Reviens un peu plus tard.",
+  "scheduling.cancelled": "Cette séance a été annulée.",
+  "scheduling.in-the-past": "Cette date est déjà passée : choisis une date à venir.",
+  "scheduling.already-ended": "Cette séance est déjà terminée.",
+  "scheduling.invalid-link":
+    "Ce lien n'est pas accepté : il faut une adresse https de Jitsi (meet.jit.si), Google Meet ou Zoom, sans identifiant.",
+  "scheduling.invalid-until": "La date de fin doit suivre la première séance, dans l'année.",
+  "scheduling.invalid-duration": "La durée va de 15 minutes à 4 heures, par pas de 5 minutes.",
   "assessment.not-yet-open": "Cette épreuve n'est pas encore ouverte. Reviens à la date indiquée.",
   "assessment.closed": "Cette épreuve est fermée : la date limite est passée.",
   "assessment.no-attempts-left": "Tu as utilisé toutes tes tentatives pour cette épreuve.",

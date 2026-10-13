@@ -10,9 +10,12 @@ import type {
   FileStorage,
   ImageIngestion,
   LearnerDirectory,
+  UploadLimiter,
 } from "../application/ports.js";
+import { SlidingWindowLimiter } from "../../platform/limits/SlidingWindowLimiter.js";
 import type { AssessmentDependencies } from "../application/support.js";
-import { CryptoContentHasher, CryptoRandomSource } from "./CryptoContentHasher.js";
+import { CryptoRandomSource } from "../../platform/random/CryptoRandomSource.js";
+import { CryptoContentHasher } from "./CryptoContentHasher.js";
 import { ASSESSMENT_STATUSES, assessmentRoutes } from "./http/assessmentRoutes.js";
 import { PgAssessmentGateway } from "./PgAssessmentStore.js";
 
@@ -25,6 +28,8 @@ export interface AssessmentModuleOptions {
   /** Ingestion d'images PARTAGÉE avec les cours : une seule file d'attente bornée en mémoire (R14). */
   readonly images: ImageIngestion;
   readonly files: FileStorage;
+  /** Remplaçable dans les tests. */
+  readonly uploads?: UploadLimiter;
   /** Remplaçable dans les tests ; aléa cryptographique par défaut. */
   readonly random?: RandomSource;
 }
@@ -41,6 +46,13 @@ export function createAssessmentModule(options: AssessmentModuleOptions): Assess
     curriculum: options.curriculum,
     learners: options.learners,
     images: options.images,
+    // Une image toutes les 10 s et 20 par heure au plus, par élève (verdict L4, S-1).
+    uploads:
+      options.uploads ??
+      new SlidingWindowLimiter([
+        { limit: 1, windowMs: 10_000 },
+        { limit: 20, windowMs: 3_600_000 },
+      ]),
     files: options.files,
     hasher: new CryptoContentHasher(),
     random: options.random ?? new CryptoRandomSource(),

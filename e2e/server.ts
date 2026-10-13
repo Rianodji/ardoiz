@@ -18,6 +18,7 @@ import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, REFERENTIAL_FILE } from "../a
 import { createAssessmentModule } from "../apps/api/src/assessment/index.js";
 import { createCurriculumModule } from "../apps/api/src/curriculum/index.js";
 import { createIdentityModule, PgLearnerDirectory } from "../apps/api/src/identity/index.js";
+import { createSchedulingModule } from "../apps/api/src/scheduling/index.js";
 import { InMemoryMailer } from "../apps/api/src/identity/infrastructure/mailers.js";
 import { UuidV7IdGenerator } from "../apps/api/src/platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../apps/api/src/platform/logging/logger.js";
@@ -147,10 +148,17 @@ const assessment = createAssessmentModule({
   clock,
   ids,
 });
+const scheduling = createSchedulingModule({
+  pool,
+  learners: new PgLearnerDirectory(pool),
+  groups: curriculum.directory,
+  clock,
+  ids,
+});
 const app = await buildServer({
   config: { publicOrigin: origin, logLevel: "warn", trustedProxies: [], webDistDir: WEB_DIST_DIR },
   readiness: () => Promise.resolve(true),
-  modules: [identity, curriculum, assessment],
+  modules: [identity, curriculum, assessment, scheduling],
 });
 await app.listen({ host: "127.0.0.1", port });
 
@@ -239,6 +247,26 @@ const { id: assignmentId } = (await call("tutor", "POST", "/api/assignments", {
   publication: "manual",
 })) as { id: string };
 
+// Une seconde épreuve de cahier, pour l'essai en émulation tactile (tablette).
+const { id: sketchId } = (await call("tutor", "POST", "/api/assessments", {
+  subjectId,
+  title: "Croquis sur tablette",
+})) as { id: string };
+await call("tutor", "PUT", `/api/assessments/${sketchId}/questions`, {
+  questions: [
+    { kind: "notebook", prompt: "Trace une ligne au doigt.", points: 1, competencyIds: [competencyId] },
+  ],
+});
+await call("tutor", "POST", "/api/assignments", {
+  assessmentId: sketchId,
+  audience: { kind: "learner", id: learnerId },
+  opensAt: new Date(now - 3_600_000).toISOString(),
+  dueAt: new Date(now + 7 * 86_400_000).toISOString(),
+  maxAttempts: 1,
+  lateAllowed: false,
+  publication: "manual",
+});
+
 // Un cours publié avec une formule et un encadré, ouvert à Lina : pages de cours sous la CSP (dette L2).
 const { id: moduleId } = (await call("tutor", "POST", "/api/modules", {
   subjectId,
@@ -277,6 +305,25 @@ await call("tutor", "POST", `/api/lessons/${lessonId}/publish`);
 await call("tutor", "POST", "/api/unlocks", {
   target: { kind: "lesson", id: lessonId },
   audience: { kind: "learner", id: learnerId },
+});
+
+// Une séance qui commence dans 10 min (heure de Paris) : la fenêtre du lien est ouverte (R9).
+const soon = new Date(Math.ceil((Date.now() + 10 * 60_000) / 300_000) * 300_000);
+const [soonDate = "", soonTime = ""] = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: "Europe/Paris",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+})
+  .format(soon)
+  .split(" ");
+await call("tutor", "POST", "/api/sessions", {
+  title: "Séance de géométrie",
+  audience: { kind: "learner", id: learnerId },
+  schedule: { kind: "once", date: soonDate, time: soonTime, durationMinutes: 60 },
 });
 
 writeFileSync(

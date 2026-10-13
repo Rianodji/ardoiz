@@ -9,6 +9,7 @@ import { inject } from "vitest";
 import { buildServer } from "../../../src/app/buildServer.js";
 import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, REFERENTIAL_FILE } from "../../../src/app/paths.js";
 import { createAssessmentModule } from "../../../src/assessment/index.js";
+import { createSchedulingModule } from "../../../src/scheduling/index.js";
 import { createCurriculumModule, type CurriculumModule } from "../../../src/curriculum/index.js";
 import {
   createIdentityModule,
@@ -161,6 +162,13 @@ export class World {
           learners: new PgLearnerDirectory(world.pool),
           images: new SharpImageIngestion(),
           files: new LocalFileStorage(world.mediaDir),
+          clock: world.clock,
+          ids: world.ids,
+        }),
+        createSchedulingModule({
+          pool: world.pool,
+          learners: new PgLearnerDirectory(world.pool),
+          groups: world.curriculum.directory,
           clock: world.clock,
           ids: world.ids,
         }),

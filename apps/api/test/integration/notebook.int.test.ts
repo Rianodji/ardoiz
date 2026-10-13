@@ -153,6 +153,16 @@ describe("Cahier virtuel (L4, ADR-0004)", () => {
       }
     });
 
+    it("limite les imports d'un élève à une image toutes les 10 s, avec 429 et Retry-After (verdict L4, S-1)", async () => {
+      const attempt = await start();
+      expectStatus(await uploadNotebookImage(world, lina(), attempt.attemptId, await pngImage()), 201);
+      const tooSoon = await uploadNotebookImage(world, lina(), attempt.attemptId, await pngImage());
+      expect(tooSoon.status).toBe(429);
+      expect(tooSoon.headers["retry-after"]).toBe("10");
+      world.clock.advanceBy(10_000);
+      expectStatus(await uploadNotebookImage(world, lina(), attempt.attemptId, await pngImage()), 201);
+    });
+
     it("refuse une image qui n'a pas été importée pour cette copie (R14)", async () => {
       const attempt = await start();
       const res = await saveScene(world, lina(), attempt, [

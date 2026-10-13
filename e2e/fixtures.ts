@@ -45,6 +45,12 @@ export const test = base.extend<{ cspViolations: string[] }>({
           );
         });
       });
+      // Une ressource de notre origine en erreur (police manquante, image) est aussi un échec (verdict L4, S-2).
+      page.on("response", (response) => {
+        if (response.status() >= 400 && new URL(response.url()).pathname.startsWith("/assets/")) {
+          violations.push(`${String(response.status())} ${response.url()}`);
+        }
+      });
       page.on("console", (message) => {
         if (/Content Security Policy|Refused to/i.test(message.text()))
           violations.push(message.text().slice(0, 300));

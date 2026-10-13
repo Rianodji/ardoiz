@@ -42,6 +42,7 @@ export function AppLayout() {
           {kind === "tutor" && (
             <>
               <NavLink to="/tuteur/programme">Programme</NavLink>
+              <NavLink to="/tuteur/seances">Séances</NavLink>
               <NavLink to="/tuteur/epreuves">Épreuves</NavLink>
               <NavLink to="/tuteur/corrections">Corrections</NavLink>
               <NavLink to="/tuteur/referentiel">Compétences</NavLink>

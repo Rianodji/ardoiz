@@ -119,3 +119,22 @@ describe("loadConfig (R20)", () => {
     ).toBeInstanceOf(Secret);
   });
 });
+
+describe("MEETING_EXTRA_HOST (R9, Q5)", () => {
+  it("accepte un nom d'hôte seul, et rien par défaut (R9)", () => {
+    expect(loadConfig(validEnv).meetingExtraHost).toBeUndefined();
+    expect(loadConfig({ ...validEnv, MEETING_EXTRA_HOST: "visio.example.org" }).meetingExtraHost).toBe(
+      "visio.example.org",
+    );
+  });
+
+  it.each([
+    "https://visio.example.org",
+    "visio.example.org:8443",
+    "*.example.org",
+    "localhost",
+    "Visio.Example.org",
+  ])("refuse « %s » (R9)", (value) => {
+    expect(() => loadConfig({ ...validEnv, MEETING_EXTRA_HOST: value })).toThrow(ConfigurationError);
+  });
+});
