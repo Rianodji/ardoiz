@@ -1,7 +1,5 @@
 import type { Pool } from "pg";
-import type { AuditTrail } from "../../shared-kernel/AuditTrail.js";
-import type { Clock } from "../../shared-kernel/Clock.js";
-import type { IdGenerator, TutorSpaceId } from "../../shared-kernel/ids.js";
+import type { TutorSpaceId } from "../../shared-kernel/ids.js";
 import { fromUuid } from "../ids/UuidV7IdGenerator.js";
 
 /** Effacement d'un fichier du volume (images de cahier d'un élève purgé). */
@@ -23,15 +21,13 @@ export interface PurgeReport {
  *   anonyme, pour la trace du consentement) ;
  * - les invitations et liens de réinitialisation expirés ; le journal d'audit de plus de 6 mois.
  * Tout passe par les fonctions étroites `privacy.*`, qui lisent l'heure de la base : cette tâche ne peut
- * ni avancer une échéance ni désigner un élève. Les images effacées de la base le sont ensuite du volume.
+ * ni avancer une échéance ni désigner un élève. La trace d'audit est écrite par `purge_learner`, dans la
+ * transaction de la purge (verdict L7 S-4). Les images effacées de la base le sont ensuite du volume.
  */
 export class PurgeJob {
   constructor(
     private readonly pool: Pool,
     private readonly files: MediaRemover,
-    private readonly audit: AuditTrail,
-    private readonly clock: Clock,
-    private readonly ids: IdGenerator,
     private readonly onError: (code: string) => void,
   ) {}
 
@@ -59,15 +55,6 @@ export class PurgeJob {
             this.onError("purge.media-not-removed");
           }
         }
-        await this.audit.record({
-          id: this.ids.next("AuditEntryId"),
-          tutorSpaceId,
-          action: "privacy.learner-purged",
-          actor: { kind: "system" },
-          targetId: fromUuid("LearnerId", row.learner_id),
-          outcome: "success",
-          occurredAt: this.clock.now(),
-        });
         learners++;
       } catch (error) {
         this.onError(

@@ -7,7 +7,6 @@ import { createIdentityModule, PgLearnerDirectory } from "../identity/index.js";
 import { createProgressModule } from "../progress/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
 import { LocalFileStorage } from "../platform/media/LocalFileStorage.js";
-import { PgAuditTrail } from "../platform/postgres/PgAuditTrail.js";
 import { PurgeJob } from "../platform/privacy/PurgeJob.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
@@ -99,9 +98,6 @@ async function main(): Promise<void> {
       const report = await new PurgeJob(
         pool,
         new LocalFileStorage(config.mediaDir ?? DEFAULT_MEDIA_DIR),
-        new PgAuditTrail(pool),
-        clock,
-        ids,
         (code) => {
           log.error({ code }, "purge en échec");
           process.exitCode = 1;

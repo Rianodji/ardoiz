@@ -2,7 +2,6 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { LocalFileStorage } from "../../src/platform/media/LocalFileStorage.js";
-import { PgAuditTrail } from "../../src/platform/postgres/PgAuditTrail.js";
 import { PurgeJob } from "../../src/platform/privacy/PurgeJob.js";
 import { TutorSpaceId } from "../../src/shared-kernel/ids.js";
 import { startAttempt, type LearnerAttempt } from "./support/assessment.js";
@@ -86,16 +85,24 @@ describe("Purge des données échues (R16)", () => {
   });
 
   const job = () =>
-    new PurgeJob(
-      world.pool,
-      new LocalFileStorage(world.mediaDir),
-      new PgAuditTrail(world.pool),
-      world.clock,
-      world.ids,
-      (code) => {
-        throw new Error(`purge en échec : ${code}`);
-      },
+    new PurgeJob(world.pool, new LocalFileStorage(world.mediaDir), (code) => {
+      throw new Error(`purge en échec : ${code}`);
+    });
+  /**
+   * Fait passer 31 jours depuis le retrait, en tant que propriétaire (la garde R-1 ne vise que le rôle
+   * d'exécution) : retrait et suppression planifiée dans le passé.
+   */
+  const makeDue = async (learnerId: string) => {
+    await world.adminQuery(
+      `UPDATE identity.parental_consents SET given_at = now() - interval '400 days', withdrawn_at = now() - interval '31 days'
+        WHERE learner_id = $1`,
+      [uuid(learnerId)],
     );
+    await world.adminQuery(
+      "UPDATE identity.accounts SET scheduled_deletion_at = now() - interval '1 minute' WHERE id = $1",
+      [uuid(learnerId)],
+    );
+  };
   const uuid = (prefixed: string) => prefixed.slice(4);
   const withdraw = async () => {
     const res = await world.http({
@@ -146,10 +153,7 @@ describe("Purge des données échues (R16)", () => {
     expect(existsSync(file)).toBe(true);
     const consentsBefore = await countFor("identity.parental_consents", family.learner.id);
     const noeXp = await countFor("progress.xp_entries", family.otherLearner.id);
-    await world.adminQuery(
-      "UPDATE identity.accounts SET scheduled_deletion_at = now() - interval '1 minute' WHERE id = $1",
-      [uuid(family.learner.id)],
-    );
+    await makeDue(family.learner.id);
 
     expect(await job().runOnce()).toMatchObject({ learners: 1, media: 1 });
     expect(existsSync(file)).toBe(false);
@@ -206,6 +210,53 @@ describe("Purge des données échues (R16)", () => {
       payload: { spaceCode: "dicard", username: "lina", password: LEARNER_PASSWORD },
     });
     expect(login.status).toBe(401);
+  });
+
+  it("le rôle d'exécution ne peut ni dater un retrait ni avancer une suppression : la base impose les dates (verdict L7 R-1)", async () => {
+    const [space] = await world.adminQuery<{ id: string }>(
+      "SELECT id FROM tenancy.tutor_spaces WHERE code = 'dicard'",
+    );
+    const asApp = async (sql: string) => {
+      const client = await world.pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("SELECT set_config('app.tutor_space_id', $1, true)", [space?.id]);
+        await client.query(sql, [uuid(family.learner.id)]);
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    };
+    // Ce qu'écrirait une injection SQL : un retrait et une suppression en 2020.
+    await asApp("UPDATE identity.parental_consents SET withdrawn_at = '2020-01-01' WHERE learner_id = $1");
+    await asApp(
+      "UPDATE identity.accounts SET status = 'disabled', scheduled_deletion_at = '2020-01-01' WHERE id = $1",
+    );
+    const [dates] = await world.adminQuery<{ withdrawn_ok: boolean; deletion_ok: boolean }>(
+      `SELECT bool_and(c.withdrawn_at > now() - interval '1 minute') AS withdrawn_ok,
+              bool_and(a.scheduled_deletion_at > now() + interval '29 days') AS deletion_ok
+         FROM identity.parental_consents c JOIN identity.accounts a ON a.id = c.learner_id WHERE a.id = $1`,
+      [uuid(family.learner.id)],
+    );
+    expect(dates).toEqual({ withdrawn_ok: true, deletion_ok: true });
+    expect((await world.pool.query("SELECT learner_id FROM privacy.due_learners()")).rows).toEqual([]);
+    expect(await job().runOnce()).toMatchObject({ learners: 0 });
+    // Une fois posées, ces dates ne bougent plus pour le rôle d'exécution.
+    await expect(
+      asApp("UPDATE identity.parental_consents SET withdrawn_at = '2020-01-01' WHERE learner_id = $1"),
+    ).rejects.toThrow(/ne se modifie pas/);
+    await expect(
+      asApp("UPDATE identity.accounts SET scheduled_deletion_at = '2020-01-01' WHERE id = $1"),
+    ).rejects.toThrow(/ne se déplace pas/);
+    // Même une suppression échue ne suffit pas si le retrait a moins de 30 jours.
+    await world.adminQuery(
+      "UPDATE identity.accounts SET scheduled_deletion_at = now() - interval '1 minute' WHERE id = $1",
+      [uuid(family.learner.id)],
+    );
+    expect(await job().runOnce()).toMatchObject({ learners: 0 });
   });
 
   it("invitations expirées et audit de plus de 6 mois purgés ; le reste du journal reste en ajout seul (R16, R12)", async () => {
