@@ -2,6 +2,7 @@ import pino from "pino";
 import { createAssessmentModule } from "../assessment/index.js";
 import { createCurriculumModule } from "../curriculum/index.js";
 import { createIdentityModule, PgLearnerDirectory } from "../identity/index.js";
+import { createFeedbackModule } from "../feedback/index.js";
 import { createProgressModule } from "../progress/index.js";
 import { createSchedulingModule } from "../scheduling/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
@@ -68,7 +69,14 @@ async function main(): Promise<void> {
   const app = await buildServer({
     config,
     readiness: databaseReadiness(pool),
-    modules: [identity, curriculum, assessment, scheduling, progress],
+    modules: [
+      identity,
+      curriculum,
+      assessment,
+      scheduling,
+      progress,
+      createFeedbackModule({ pool, clock, ids: new UuidV7IdGenerator(clock) }),
+    ],
   });
 
   // Relais de l'outbox dans le processus (une seule instance) : livre les événements aux consommateurs.

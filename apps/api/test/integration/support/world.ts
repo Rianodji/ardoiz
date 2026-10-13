@@ -9,6 +9,7 @@ import { inject } from "vitest";
 import { buildServer } from "../../../src/app/buildServer.js";
 import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, REFERENTIAL_FILE } from "../../../src/app/paths.js";
 import { createAssessmentModule } from "../../../src/assessment/index.js";
+import { createFeedbackModule } from "../../../src/feedback/index.js";
 import { createProgressModule, type ProgressModule } from "../../../src/progress/index.js";
 import { createSchedulingModule } from "../../../src/scheduling/index.js";
 import { createCurriculumModule, type CurriculumModule } from "../../../src/curriculum/index.js";
@@ -176,6 +177,7 @@ export class World {
           clock: world.clock,
           ids: world.ids,
         })),
+        createFeedbackModule({ pool: world.pool, clock: world.clock, ids: world.ids }),
         createSchedulingModule({
           pool: world.pool,
           learners: new PgLearnerDirectory(world.pool),
