@@ -320,8 +320,10 @@ describe("Programme et contenu de cours (L2)", () => {
       const events = await world.adminQuery<{ type: string; payload: { lessonId: string } }>(
         "SELECT type, payload FROM messaging.outbox",
       );
-      expect(events.filter((event) => event.type === "curriculum.lesson-completed")).toHaveLength(1);
-      expect(events[0]?.payload.lessonId).toBe(programme.lessonId);
+      // L'outbox porte aussi d'autres événements (alertes de connexion depuis le L6) : on ne garde que CoursTerminé.
+      const completed = events.filter((event) => event.type === "curriculum.lesson-completed");
+      expect(completed).toHaveLength(1);
+      expect(completed[0]?.payload.lessonId).toBe(programme.lessonId);
     });
 
     it("le parent voit ce que son enfant a débloqué et terminé ; un autre parent ne voit rien (R2)", async () => {
