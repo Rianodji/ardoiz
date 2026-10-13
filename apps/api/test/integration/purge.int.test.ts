@@ -126,6 +126,15 @@ describe("Purge des données échues (R16)", () => {
       ]);
       expect(rows).toEqual([{ media: null }]);
     }
+    // Noé : compte désactivé et date échue, mais consentement encore actif → jamais purgé.
+    await world.adminQuery(
+      "UPDATE identity.accounts SET status = 'disabled', scheduled_deletion_at = now() - interval '1 day' WHERE id = $1",
+      [uuid(family.otherLearner.id)],
+    );
+    expect(await job().runOnce()).toMatchObject({ learners: 0 });
+    expect(await countFor("progress.xp_entries", family.otherLearner.id)).toBeGreaterThan(0);
+    const { rows: due } = await world.pool.query("SELECT learner_id FROM privacy.due_learners()");
+    expect(due).toEqual([]); // ni Lina (pas encore échue), ni Noé (consentement actif)
     expect(await countFor("assessment.attempts", family.learner.id)).toBe(1);
     expect(await countFor("progress.xp_entries", family.learner.id)).toBeGreaterThan(0);
   });

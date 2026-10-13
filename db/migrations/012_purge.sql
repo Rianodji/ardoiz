@@ -141,6 +141,10 @@ CREATE OR REPLACE FUNCTION audit.refuse_change() RETURNS trigger
     RAISE EXCEPTION 'Le journal d''audit est en ajout seul (R12).' USING ERRCODE = 'insufficient_privilege';
   END $$;
 
+-- Lecture des consentements par le propriétaire, pour `due_learners` (qui traverse les espaces) :
+-- même principe que les politiques `owner_lookup` de la migration 002.
+CREATE POLICY privacy_owner_read ON identity.parental_consents FOR SELECT TO ardoiz_owner USING (true);
+
 -- Élèves dont la suppression est échue (identifiants seulement). ------------------------------------
 CREATE FUNCTION privacy.due_learners()
   RETURNS TABLE (tutor_space_id uuid, learner_id uuid)
@@ -150,6 +154,7 @@ CREATE FUNCTION privacy.due_learners()
     SELECT a.tutor_space_id, a.id FROM identity.accounts a
      WHERE a.role = 'learner' AND a.status = 'disabled' AND a.purged_at IS NULL
        AND a.scheduled_deletion_at IS NOT NULL AND a.scheduled_deletion_at <= now()
+       AND NOT EXISTS (SELECT 1 FROM identity.parental_consents c WHERE c.learner_id = a.id AND c.withdrawn_at IS NULL)
      ORDER BY a.scheduled_deletion_at, a.id
      LIMIT 100
   $$;
@@ -178,6 +183,11 @@ CREATE FUNCTION privacy.purge_learner(target uuid)
        AND a.scheduled_deletion_at IS NOT NULL AND a.scheduled_deletion_at <= now()
      FOR UPDATE;
     IF NOT FOUND THEN RETURN NULL; END IF;
+    -- État cohérent exigé : aucun consentement encore actif pour cet élève (un retrait l'a clos). Une
+    -- date d'échéance modifiée seule ne suffit pas à déclencher une purge.
+    IF EXISTS (SELECT 1 FROM identity.parental_consents c WHERE c.learner_id = target AND c.withdrawn_at IS NULL) THEN
+      RETURN NULL;
+    END IF;
     PERFORM set_config('ardoiz.purge', 'on', true);
 
     SELECT coalesce(array_agg(m.id), '{}') INTO media FROM assessment.notebook_media m
