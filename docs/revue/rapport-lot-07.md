@@ -6,6 +6,34 @@
 | **Commits** | premier `866ffa0` → dernier `cd8ff42` (code), puis ce rapport et `aacd26e` (gitleaks) |
 | **Date** | 2026-10-13 |
 
+## 0. Traitement des réserves du verdict L7
+
+Commits `ae7d21c` → `7e95eee`, sur la même branche (PR #10). Aucun tag n'est poussé.
+
+| Point | Statut | Ce qui est fait | Preuve |
+|---|---|---|---|
+| **R-1** · Une injection SQL ne doit pas déclencher la purge d'un enfant sans délai | ✅ | Migration `013_retrait_date_par_la_base.sql`. **Pour le rôle d'exécution** (`current_user = 'ardoiz_user'`) : un retrait reçoit l'heure de la base (`greatest(now(), given_at)`) et ne change plus ; une suppression planifiée reçoit `now() + 30 jours` de la base et ne se déplace plus (elle ne peut qu'être levée, c'est l'annulation de S-1). `due_learners` et `purge_learner` exigent en plus que le **dernier** retrait ait plus de 30 jours. Le propriétaire reste libre de dater (fixtures, exploitation) | `purge.int.test.ts › le rôle d'exécution ne peut ni dater un retrait ni avancer une suppression : la base impose les dates (verdict L7 R-1)` : en `ardoiz_user`, sous la RLS de l'espace, un `UPDATE` direct écrit un retrait et une suppression en 2020. Les dates stockées sont celles de la base, `due_learners()` ne renvoie rien, la purge ne fait rien, toute modification ultérieure est refusée, et même une suppression échue ne suffit pas si le retrait a moins de 30 jours. `identityFlows.int.test.ts` vérifie que le retrait par l'API donne bien l'heure de la base + 30 jours |
+| **S-1** · Annuler un retrait | ✅ | Commande `cancel-withdrawal --space-code … --learner lrn_… --guardian-email …` (`identity/application/cancelWithdrawal.ts`). Elle n'agit qu'avant la purge, pour un parent **lié**, sur un compte désactivé. Elle enregistre un **nouveau consentement** au nom de ce parent (le retrait reste dans l'historique), réactive le compte, lève la suppression et écrit `identity.withdrawal-cancelled` à l'audit. Le parent voit la date de suppression et « Pour annuler, contacte le tuteur avant cette date. ». Runbook §6 : procédure, et demande **écrite** exigée depuis l'adresse du compte | `purge.int.test.ts › un retrait annulé au jour 29 sur demande écrite du parent : rien n'est purgé au jour 31 (verdict L7, S-1)` : parent non lié refusé, compte réactivé, nouveau consentement actif, ancien retrait conservé, audit présent, aucune purge au jour 31, l'élève se reconnecte, une seconde annulation est refusée. Web : `family.test.tsx` (le message et la date, seulement après un retrait) |
+| **S-2** · `.env.migrate` reste sur le serveur | ✅ | `remote-deploy.sh` l'efface à sa sortie (`trap … EXIT`, posé **avant** toute vérification) : succès, échec de la migration, ou arguments refusés. De plus, `release.yml` ne le dépose plus du tout pour un retour arrière | `apps/api/test/deploy/remoteDeploy.test.ts` (4 tests, script réel avec un faux `docker`) : effacé après une migration réussie, après une migration en échec (et l'application n'est alors pas redémarrée), et pour des arguments refusés ; un retour arrière ne migre pas |
+| **S-3** · Le retour arrière exécute le script de la branche choisie | ✅ | Le `checkout` du job `deploy` prend `refs/tags/<tag>` en retour arrière, et la référence du tag poussé sinon | `releaseWorkflow.test.ts` : le `ref` est celui du tag et précède tout usage du script et du compose ; `.env.migrate` n'est déposé que pour migrer ; aucun `${{ secrets.… }}` dans un script ; actionlint vert |
+| **S-4** · Trace de la purge dans la même transaction | ✅ | `purge_learner` écrit lui-même l'entrée `privacy.learner-purged` ; `PurgeJob` n'écrit plus rien à l'audit. Le rapport ne dit plus que le pseudo est « aléatoire » : il est dérivé de l'identifiant (§6) | `purge.int.test.ts › 30 jours après le retrait…` : une entrée d'audit et une seule |
+| **S-5** · Purge des événements fondée sur une convention | ✅ | ADR-0001 : tout événement qui désigne un élève porte `learnerId` **au premier niveau**, un événement par élève | `purge.int.test.ts` : le parcours de l'élève comprend maintenant cours terminé, copie de cahier corrigée et publiée, et **séance rejointe**. Avant la purge, ses événements de chaque module sont dans l'outbox ; après, son identifiant n'apparaît **nulle part** dans `payload::text` |
+
+Vérifications après les réserves :
+
+```
+npm run lint / typecheck  → 0 erreur
+npm test                  → 35 fichiers, 501 tests réussis
+npm run test:integration  → 26 fichiers, 449 tests réussis
+npm run test:e2e          → 12 réussis ; contre l'image (E2E_IMAGE) : 12 réussis
+npm run depcruise         → aucune violation (180 modules) ; npm audit : 0 ; licences : 290, permissives
+actionlint, shellcheck    → aucune remarque
+```
+
+Réponses du lead prises en compte : GPL-3.0 gardée avec la LGPL-3.0 ; purge, distroless, migrateur séparé, retour arrière sans migration et métriques validés.
+
+**Conséquence de R-1 sur l'exploitation.** Il n'y a plus d'effacement **anticipé** d'un enfant : avancer les dates à la main falsifierait la trace du consentement. Le runbook §6 le dit ; la politique de confidentialité promet une suppression « sous 30 jours », ce qui reste tenu.
+
 ## 1. Résumé
 
 En tête de branche, j'ai traité les suites S-1 à S-5 du verdict L6, chacune avec son test, et aligné la matrice des droits exécutée sur les deux libellés ajoutés par le lead.
@@ -88,7 +116,7 @@ Deux défauts trouvés en chemin sont corrigés :
 |---|---|---|---|
 | R10 | RLS forcée sur les 46 tables métier (9 schémas, hors `public`) ; purge et métriques dans l'espace de chaque élève, par des fonctions étroites | Empreinte de restauration : 0 table métier sans RLS forcée ; `outbox.int.test.ts`, matrices | ✅ |
 | R11 | En-têtes inchangés ; vérifiés aussi contre l'image | E2E contre l'image | ✅ |
-| R12 | Alertes dans la transaction de l'acte (S-1) ; `privacy.learner-purged` ; audit en ajout seul, sauf les entrées de plus de 6 mois **par la purge** (`audit.refuse_change`) | `identityReserves.int.test.ts` (S-1) ; `purge.int.test.ts › … le reste du journal reste en ajout seul (R16, R12)` (le propriétaire lui-même ne peut pas effacer une entrée récente) | ✅ |
+| R12 | Alertes dans la transaction de l'acte (S-1) ; `privacy.learner-purged`, écrit par `purge_learner` dans la transaction de la purge (verdict L7, S-4) ; audit en ajout seul, sauf les entrées de plus de 6 mois **par la purge** (`audit.refuse_change`) | `identityReserves.int.test.ts` (S-1) ; `purge.int.test.ts › … le reste du journal reste en ajout seul (R16, R12)` (le propriétaire lui-même ne peut pas effacer une entrée récente) | ✅ |
 | R16 | `platform/privacy/PurgeJob.ts` ; migration `012_purge.sql` (`privacy.due_learners`, `purge_learner`, `purge_expired`) ; commande `purge` | `purge.int.test.ts` : `avant l'échéance rien n'est purgé, et le rôle d'exécution ne peut désigner aucun élève (R16)` ; `30 jours après le retrait du consentement, tout est purgé, images comprises ; le consentement et l'autre élève restent (R16, H9)` ; `invitations expirées et audit de plus de 6 mois purgés…` | ✅ partie L7 ; J3 pour le reste |
 | R18 | `createPool(…, onIdleError)` : une connexion inactive coupée n'arrête plus le processus ; jauges à `NaN` si la base ne répond pas | `readiness.int.test.ts › une connexion inactive coupée par la base n'arrête pas l'application ; la suivante est rouverte (L7)` | ✅ |
 | R20 | `deploy/Dockerfile` (distroless, uid 65532), compose (lecture seule, `cap_drop: ALL`, `no-new-privileges`), migrateur seul à recevoir l'URL du propriétaire, `release.yml` | hadolint, uid vérifié en CI, E2E contre l'image durcie, gitleaks | ✅ |
@@ -141,14 +169,14 @@ tools/restore-drill.sh   → restauration vérifiée (empreinte identique, /read
   - un élève n'est purgé que s'il est désactivé, que sa date est échue, **et qu'aucun consentement ne reste actif** : une date modifiée seule ne suffit pas ;
   - les gardes « en ajout seul » ne cèdent qu'à une suppression faite par le **propriétaire** pendant une purge ;
   - le journal d'audit ne cède que pour une entrée de plus de 6 mois.
-- **Ce que garde la purge** : un compte « pierre tombale » (prénom « Supprimé », pseudo aléatoire, mot de passe inutilisable), parce que la **trace du consentement** (3 ans) le désigne. Les événements de l'outbox qui désignent l'élève sont supprimés, sinon une reconstruction le ferait revivre (testé). Le journal d'audit garde ses identifiants opaques, jusqu'à 6 mois.
+- **Ce que garde la purge** : un compte « pierre tombale » (prénom « Supprimé », pseudo dérivé de l'identifiant par `md5`, donc opaque mais **pas aléatoire** (correction du verdict L7, S-4), mot de passe inutilisable), parce que la **trace du consentement** (3 ans) le désigne. Les événements de l'outbox qui désignent l'élève sont supprimés, sinon une reconstruction le ferait revivre (testé). Le journal d'audit garde ses identifiants opaques, jusqu'à 6 mois.
 - **Expand / contract** : le script remplace les migrations du tag précédent par les courantes, **après** avoir vérifié qu'elles n'ont pas été modifiées.
 
 ## 7. Questions pour le lead
 
 Pas de nouvelle question métier. Une question à l'**infra** est posée dans `HANDOFF_INFRA.md` : les options de `postgres-backup` (§8). Deux points sont à trancher par toi :
-1. **Purge et injection SQL** : le rôle d'exécution peut modifier `status` et `scheduled_deletion_at` (c'est ce que fait le retrait du consentement), et `withdrawn_at` des consentements. Une injection dans un espace pourrait donc rendre un élève « échu » plus tôt, en modifiant les trois. Je n'ai pas ajouté de garde qui compare ces dates à l'heure de la base : les tests figent l'horloge de l'application et non celle de la base, et une telle garde rendrait la suite fragile avec le temps. Je propose de l'accepter au J1, comme M22 (une injection dans un espace peut déjà désactiver des comptes). Sinon, je vois deux options : un journal immuable des retraits, ou une horloge de l'application lue en base.
-2. **Notices** : je livre la GPL-3.0 en plus de la LGPL-3.0, parce que la LGPL-3.0 renvoie à ses termes. Dis-moi si tu préfères la LGPL seule.
+1. **Purge et injection SQL** : le rôle d'exécution peut modifier `status` et `scheduled_deletion_at` (c'est ce que fait le retrait du consentement), et `withdrawn_at` des consentements. Une injection dans un espace pourrait donc rendre un élève « échu » plus tôt, en modifiant les trois. Je n'ai pas ajouté de garde qui compare ces dates à l'heure de la base : les tests figent l'horloge de l'application et non celle de la base, et une telle garde rendrait la suite fragile avec le temps. Je propose de l'accepter au J1, comme M22 (une injection dans un espace peut déjà désactiver des comptes). Sinon, je vois deux options : un journal immuable des retraits, ou une horloge de l'application lue en base. **→ Refusé par le lead (verdict L7, R-1) ; traité au §0 : la base impose les dates au rôle d'exécution.**
+2. **Notices** : je livre la GPL-3.0 en plus de la LGPL-3.0, parce que la LGPL-3.0 renvoie à ses termes. Dis-moi si tu préfères la LGPL seule. **→ Lead : GPL-3.0 gardée avec la LGPL-3.0.**
 
 ## 8. Dette et risques connus
 
