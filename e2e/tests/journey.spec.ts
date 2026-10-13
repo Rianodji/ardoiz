@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { randomBytes } from "node:crypto";
 import { e2eState, expect, loginTutor, test } from "../fixtures.js";
 import { invitationToken } from "../mail.js";
 
@@ -15,7 +16,8 @@ test("de l'invitation du parent au tableau de bord, en passant par le cahier et 
   test.setTimeout(240_000);
   const state = e2eState();
   const parentEmail = "fatou.parcours@example.org";
-  const childPassword = "baleine-parcours-7";
+  // Tiré au hasard à chaque exécution : aucun mot de passe écrit en dur (R20, gitleaks).
+  const childPassword = `baleine-${randomBytes(4).toString("hex")}`;
 
   // 1. Le tuteur invite un parent, depuis sa page des familles.
   const tutorContext = await browser.newContext({ baseURL: state.baseURL });
