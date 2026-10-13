@@ -30,5 +30,7 @@ Règles :
 
 Le format de `CorrectionPubliée` a changé en place au lot L6, avant toute mise en production. C'est la dernière fois.
 
+**Événements qui désignent un élève** (verdict L7, S-5) : tout événement qui concerne un élève porte son identifiant dans un champ **`learnerId` au premier niveau** du contenu, et seulement là (ni liste, ni champ imbriqué, ni autre nom). C'est ainsi que la purge (R16) retrouve et efface les événements d'un enfant, pour qu'une reconstruction ne le fasse pas revivre. Un événement qui viserait plusieurs élèves s'écrit en un événement par élève. Un test d'intégration vérifie qu'après le parcours complet d'un élève puis sa purge, son identifiant n'apparaît plus nulle part dans l'outbox.
+
 ## Liens
 `architecture/contextes.md` · livre ch. 2 (ADR-0003 d'OptiPass)

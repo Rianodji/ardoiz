@@ -14,6 +14,7 @@ import {
   uploadNotebookImage,
 } from "./support/notebook.js";
 import { pngImage, setupProgramme, unlock, type Programme } from "./support/programme.js";
+import { plannedSession } from "./support/scheduling.js";
 import { LEARNER_PASSWORD, World, type Snapshot } from "./support/world.js";
 
 /**
@@ -71,6 +72,19 @@ describe("Purge des données échues (R16)", () => {
       url: `/api/grading/attempts/${attempt.attemptId}/publish`,
       cookie: family.tutor.cookie,
     });
+    // Et une séance rejointe (SéanceRejointe) : le parcours complet d'un élève.
+    const session = await plannedSession(base, family.tutor.cookie, {
+      learnerId: family.learner.id,
+      date: "2026-10-12",
+      time: "10:10",
+      link: "https://meet.jit.si/ardoiz-purge",
+    });
+    const joined = await base.http({
+      method: "POST",
+      url: `/api/occurrences/${session.occurrences[0]?.occurrenceId ?? ""}/join`,
+      cookie: family.learner.cookie,
+    });
+    expect(joined.status, JSON.stringify(joined.body)).toBe(200);
     await base.deliverEvents();
     snapshot = await base.freeze();
   });
@@ -153,6 +167,22 @@ describe("Purge des données échues (R16)", () => {
     expect(existsSync(file)).toBe(true);
     const consentsBefore = await countFor("identity.parental_consents", family.learner.id);
     const noeXp = await countFor("progress.xp_entries", family.otherLearner.id);
+    const mentioning = async () =>
+      (
+        await world.adminQuery<{ type: string }>(
+          "SELECT DISTINCT type FROM messaging.outbox WHERE payload::text LIKE '%' || $1 || '%' ORDER BY type",
+          [uuid(family.learner.id)],
+        )
+      ).map((row) => row.type);
+    // Avant : ses événements sont bien là, de chaque module.
+    expect(await mentioning()).toEqual(
+      expect.arrayContaining([
+        "assessment.attempt-submitted",
+        "assessment.correction-published",
+        "curriculum.lesson-completed",
+        "scheduling.session-joined",
+      ]) as unknown,
+    );
     await makeDue(family.learner.id);
 
     expect(await job().runOnce()).toMatchObject({ learners: 1, media: 1 });
@@ -172,11 +202,10 @@ describe("Purge des données échues (R16)", () => {
       expect(await countFor(table, family.learner.id), table).toBe(0);
     }
     expect(await linaMedia()).toEqual([]);
-    const events = await world.adminQuery<{ n: number }>(
-      "SELECT count(*)::int AS n FROM messaging.outbox WHERE payload ->> 'learnerId' = $1",
-      [family.learner.id],
-    );
-    expect(events[0]?.n).toBe(0);
+    // Son identifiant n'apparaît plus NULLE PART dans l'outbox, quel que soit le champ (verdict L7, S-5).
+    const types = await world.adminQuery<{ type: string }>("SELECT DISTINCT type FROM messaging.outbox");
+    expect(types.length).toBeGreaterThan(0);
+    expect(await mentioning()).toEqual([]);
     // Pierre tombale anonyme ; la trace du consentement reste (3 ans).
     const [account] = await world.adminQuery<{
       first_name: string;
