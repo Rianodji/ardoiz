@@ -30,6 +30,22 @@ const rows: ReadonlyArray<MatrixRow<Fixture>> = [
     },
   },
   {
+    action: "Voir les épreuves à venir ou en retard d'un élève (tableau de bord du parent)",
+    expected: {
+      tutor: "allow",
+      linkedGuardian: "allow",
+      unlinkedGuardian: "hide",
+      learner: "allow",
+      otherLearner: "hide",
+      anonymous: "deny",
+      otherSpaceTutor: "hide",
+    },
+    request: (f) => ({ method: "GET", url: `/api/learners/${f.learner.id}/assignments` }),
+    verify: (result) => {
+      expect(Array.isArray((result.body as { assignments: unknown }).assignments)).toBe(true);
+    },
+  },
+  {
     action: "Ajuster un niveau de compétence",
     expected: {
       tutor: "allow",

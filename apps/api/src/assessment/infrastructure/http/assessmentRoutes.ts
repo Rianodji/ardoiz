@@ -206,6 +206,14 @@ export async function assessmentRoutes(
   );
 
   app.get<{ Params: Static<typeof LearnerParams> }>(
+    "/api/learners/:learnerId/assignments",
+    { schema: { params: LearnerParams, response: { 200: LearnerAssignmentsResponse } } },
+    async (request) => ({
+      assignments: await attempts.assignmentsOf(actorOf(request), LearnerId(request.params.learnerId)),
+    }),
+  );
+
+  app.get<{ Params: Static<typeof LearnerParams> }>(
     "/api/learners/:learnerId/results",
     { schema: { params: LearnerParams, response: { 200: PublishedResultsResponse } } },
     async (request) => ({
