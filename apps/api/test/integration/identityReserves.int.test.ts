@@ -94,7 +94,8 @@ describe("Réserves du verdict L1", () => {
       await world.identity.background.idle();
       await world.deliverEvents();
       expect(world.mailer.sent.filter((mail) => mail.template === "mfa-failures-alert")).toHaveLength(1);
-    });
+      // Une vingtaine de connexions avec argon2 : 10 s seul, davantage quand toute la suite tourne en parallèle.
+    }, 60_000);
 
     it("au 10e échec, les sessions en attente du compte sont révoquées (R7)", async () => {
       let evaluated = 0;

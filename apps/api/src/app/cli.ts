@@ -6,6 +6,9 @@ import { createCurriculumModule } from "../curriculum/index.js";
 import { createIdentityModule, PgLearnerDirectory } from "../identity/index.js";
 import { createProgressModule } from "../progress/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
+import { LocalFileStorage } from "../platform/media/LocalFileStorage.js";
+import { PgAuditTrail } from "../platform/postgres/PgAuditTrail.js";
+import { PurgeJob } from "../platform/privacy/PurgeJob.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
 import { createPool } from "../platform/postgres/pool.js";
@@ -16,10 +19,12 @@ const USAGE = `Usage : npm run ardoiz -- init-space --space-name "Espace Dicard"
          --tutor-email tuteur@example.org --tutor-name "Dicard"
         npm run ardoiz -- seed-referential --space-code dicard
         npm run ardoiz -- rebuild-progress --space-code dicard [--skip-unreadable]
+        npm run ardoiz -- purge
 Le mot de passe du tuteur est lu sur l'entrée standard (jamais en argument : il finirait dans l'historique).
 init-space charge aussi le référentiel de compétences validé ; seed-referential le recharge sans rien écraser.
 rebuild-progress reconstruit la progression d'un espace depuis les événements (les ajustements du tuteur restent) ;
-elle s'arrête sans rien changer sur un événement illisible, sauf avec --skip-unreadable. Arrêter l'application avant.`;
+elle s'arrête sans rien changer sur un événement illisible, sauf avec --skip-unreadable. Arrêter l'application avant.
+purge applique tout de suite les durées de conservation (l'application le fait déjà toutes les heures).`;
 
 /** Lit une ligne sur l'entrée standard sans l'afficher : l'écho du terminal part dans un flux muet. */
 async function readSecretLine(prompt: string): Promise<string> {
@@ -43,7 +48,12 @@ async function readSecretLine(prompt: string): Promise<string> {
  */
 async function main(): Promise<void> {
   const [command, ...rest] = process.argv.slice(2);
-  if (command !== "init-space" && command !== "seed-referential" && command !== "rebuild-progress") {
+  if (
+    command !== "init-space" &&
+    command !== "seed-referential" &&
+    command !== "rebuild-progress" &&
+    command !== "purge"
+  ) {
     process.stderr.write(`${USAGE}\n`);
     process.exitCode = 2;
     return;
@@ -85,6 +95,21 @@ async function main(): Promise<void> {
       ids,
     });
 
+    if (command === "purge") {
+      const report = await new PurgeJob(
+        pool,
+        new LocalFileStorage(config.mediaDir ?? DEFAULT_MEDIA_DIR),
+        new PgAuditTrail(pool),
+        clock,
+        ids,
+        (code) => {
+          log.error({ code }, "purge en échec");
+          process.exitCode = 1;
+        },
+      ).runOnce();
+      log.info(report, "purge des données échues");
+      return;
+    }
     const spaceCode = values["space-code"];
     if (command === "rebuild-progress") {
       const tutorSpaceId = spaceCode === undefined ? null : await identity.spaceIdByCode(spaceCode);

@@ -9,6 +9,8 @@ import { loadConfig } from "../platform/config/loadConfig.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
 import { MetricsRegistry } from "../platform/metrics/Metrics.js";
+import { PgAuditTrail } from "../platform/postgres/PgAuditTrail.js";
+import { PurgeJob, PurgeLoop } from "../platform/privacy/PurgeJob.js";
 import { messagingGauges, startMetricsServer } from "../platform/metrics/metricsServer.js";
 import { OutboxRelay, RelayLoop } from "../platform/messaging/OutboxRelay.js";
 import { LocalFileStorage } from "../platform/media/LocalFileStorage.js";
@@ -94,10 +96,31 @@ async function main(): Promise<void> {
   });
   relayLoop.start();
 
+  // Durées de conservation appliquées toutes les heures (R16, H9).
+  const purgeLoop = new PurgeLoop(
+    new PurgeJob(
+      pool,
+      new LocalFileStorage(mediaDir),
+      new PgAuditTrail(pool),
+      clock,
+      new UuidV7IdGenerator(clock),
+      (code) => {
+        log.error({ code }, "purge en échec");
+      },
+    ),
+    (report) => {
+      if (Object.values(report).some((count) => count > 0)) log.info(report, "purge des données échues");
+    },
+    (code) => {
+      log.error({ code }, "purge en échec");
+    },
+  );
+  purgeLoop.start();
   const metricsServer = await startMetricsServer(metrics, config.host, config.metricsPort);
 
   const shutdown = async (): Promise<void> => {
     await relayLoop.stop();
+    await purgeLoop.stop();
     metricsServer.close();
     await app.close();
     await pool.end();

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { toUuid } from "../../platform/ids/UuidV7IdGenerator.js";
 import type { TutorSpaceId } from "../../shared-kernel/ids.js";
@@ -24,6 +24,13 @@ export class LocalFileStorage {
 
   read(tutorSpaceId: TutorSpaceId, mediaId: string): Promise<Buffer> {
     return readFile(join(this.root, this.#safe(toUuid(tutorSpaceId)), `${this.#safe(toUuid(mediaId))}.webp`));
+  }
+
+  /** Efface un fichier (purge, R16) ; un fichier déjà absent n'est pas une erreur. */
+  async remove(tutorSpaceId: TutorSpaceId, mediaId: string): Promise<void> {
+    await rm(join(this.root, this.#safe(toUuid(tutorSpaceId)), `${this.#safe(toUuid(mediaId))}.webp`), {
+      force: true,
+    });
   }
 
   #safe(segment: string): string {
