@@ -10,6 +10,7 @@ import { SpaceCode } from "../domain/values.js";
 import { AuditQuery } from "../application/AuditQuery.js";
 import { AuthService } from "../application/AuthService.js";
 import { FamilyService } from "../application/FamilyService.js";
+import { cancelWithdrawal, type CancelWithdrawalInput } from "../application/cancelWithdrawal.js";
 import { initSpace, type InitSpaceInput } from "../application/initSpace.js";
 import { MfaService } from "../application/MfaService.js";
 import { PasswordResetService } from "../application/PasswordResetService.js";
@@ -50,6 +51,8 @@ export interface IdentityModule {
   readonly subscribers: readonly EventSubscriber[];
   register(app: FastifyInstance): Promise<void>;
   initSpace(input: InitSpaceInput): ReturnType<typeof initSpace>;
+  /** Annulation d'un retrait de consentement, avant la purge (CLI d'exploitation, verdict L7 S-1). */
+  cancelWithdrawal(input: CancelWithdrawalInput): ReturnType<typeof cancelWithdrawal>;
   /** Espace désigné par son code (CLI d'installation). */
   spaceIdByCode(code: string): Promise<TutorSpaceId | null>;
 }
@@ -116,6 +119,7 @@ export function createIdentityModule(options: IdentityModuleOptions): IdentityMo
       });
     },
     initSpace: (input) => initSpace(deps, input),
+    cancelWithdrawal: (input) => cancelWithdrawal(deps, input),
     spaceIdByCode: (code) => deps.gateway.spaceByCode(SpaceCode(code)),
   };
 }

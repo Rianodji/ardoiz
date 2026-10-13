@@ -120,6 +120,8 @@ export const LearnerView = Type.Object(
     username: Type.String(),
     schoolLevel: Type.String(),
     status: Type.Union([Type.Literal("active"), Type.Literal("disabled")]),
+    // Après un retrait du consentement : date de suppression des données (verdict L7, S-1).
+    scheduledDeletionAt: Type.Union([Type.String({ format: "date-time" }), Type.Null()]),
     guardians: Type.Array(
       Type.Object(
         { guardianshipId: Type.String(), guardianId: Type.String(), displayName: Type.String() },

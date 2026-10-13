@@ -19,11 +19,13 @@ const USAGE = `Usage : npm run ardoiz -- init-space --space-name "Espace Dicard"
         npm run ardoiz -- seed-referential --space-code dicard
         npm run ardoiz -- rebuild-progress --space-code dicard [--skip-unreadable]
         npm run ardoiz -- purge
+        npm run ardoiz -- cancel-withdrawal --space-code dicard --learner lrn_… --guardian-email parent@example.org
 Le mot de passe du tuteur est lu sur l'entrée standard (jamais en argument : il finirait dans l'historique).
 init-space charge aussi le référentiel de compétences validé ; seed-referential le recharge sans rien écraser.
 rebuild-progress reconstruit la progression d'un espace depuis les événements (les ajustements du tuteur restent) ;
 elle s'arrête sans rien changer sur un événement illisible, sauf avec --skip-unreadable. Arrêter l'application avant.
-purge applique tout de suite les durées de conservation (l'application le fait déjà toutes les heures).`;
+purge applique tout de suite les durées de conservation (l'application le fait déjà toutes les heures).
+cancel-withdrawal annule un retrait de consentement avant la purge, à la demande écrite d'un parent lié (runbook §6).`;
 
 /** Lit une ligne sur l'entrée standard sans l'afficher : l'écho du terminal part dans un flux muet. */
 async function readSecretLine(prompt: string): Promise<string> {
@@ -51,7 +53,8 @@ async function main(): Promise<void> {
     command !== "init-space" &&
     command !== "seed-referential" &&
     command !== "rebuild-progress" &&
-    command !== "purge"
+    command !== "purge" &&
+    command !== "cancel-withdrawal"
   ) {
     process.stderr.write(`${USAGE}\n`);
     process.exitCode = 2;
@@ -65,6 +68,8 @@ async function main(): Promise<void> {
       "tutor-email": { type: "string" },
       "tutor-name": { type: "string" },
       "skip-unreadable": { type: "boolean" },
+      learner: { type: "string" },
+      "guardian-email": { type: "string" },
     },
     strict: true,
   });
@@ -107,6 +112,20 @@ async function main(): Promise<void> {
       return;
     }
     const spaceCode = values["space-code"];
+    if (command === "cancel-withdrawal") {
+      const learner = values.learner;
+      const guardianEmail = values["guardian-email"];
+      if (spaceCode === undefined || learner === undefined || guardianEmail === undefined) {
+        process.stderr.write(`${USAGE}\n`);
+        process.exitCode = 2;
+        return;
+      }
+      log.info(
+        await identity.cancelWithdrawal({ spaceCode, learnerId: learner, guardianEmail }),
+        "retrait du consentement annulé : compte réactivé, suppression levée",
+      );
+      return;
+    }
     if (command === "rebuild-progress") {
       const tutorSpaceId = spaceCode === undefined ? null : await identity.spaceIdByCode(spaceCode);
       if (tutorSpaceId === null) {

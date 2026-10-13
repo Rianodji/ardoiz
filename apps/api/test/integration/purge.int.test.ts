@@ -212,6 +212,63 @@ describe("Purge des données échues (R16)", () => {
     expect(login.status).toBe(401);
   });
 
+  it("un retrait annulé au jour 29 sur demande écrite du parent : rien n'est purgé au jour 31 (verdict L7, S-1)", async () => {
+    await withdraw();
+    // Jour 29 (en tant que propriétaire : les fixtures datent librement).
+    await world.adminQuery(
+      `UPDATE identity.parental_consents SET given_at = now() - interval '400 days', withdrawn_at = now() - interval '29 days'
+        WHERE learner_id = $1`,
+      [uuid(family.learner.id)],
+    );
+    await world.adminQuery(
+      "UPDATE identity.accounts SET scheduled_deletion_at = now() + interval '1 day' WHERE id = $1",
+      [uuid(family.learner.id)],
+    );
+    const cancel = (guardianEmail: string) =>
+      world.identity.cancelWithdrawal({ spaceCode: "dicard", learnerId: family.learner.id, guardianEmail });
+    // Seul un parent LIÉ peut le demander.
+    await expect(cancel("bintou@example.org")).rejects.toMatchObject({
+      code: "identity.withdrawal-not-cancellable",
+    });
+    await cancel("awa@example.org");
+
+    const [account] = await world.adminQuery<{ status: string; scheduled_deletion_at: Date | null }>(
+      "SELECT status, scheduled_deletion_at FROM identity.accounts WHERE id = $1",
+      [uuid(family.learner.id)],
+    );
+    expect(account).toEqual({ status: "active", scheduled_deletion_at: null });
+    const consents = await world.adminQuery<{ withdrawn: boolean }>(
+      "SELECT withdrawn_at IS NOT NULL AS withdrawn FROM identity.parental_consents WHERE learner_id = $1 ORDER BY given_at",
+      [uuid(family.learner.id)],
+    );
+    // Le retrait reste dans l'historique ; un nouveau consentement est actif.
+    expect(consents.some((consent) => consent.withdrawn)).toBe(true);
+    expect(consents.at(-1)).toEqual({ withdrawn: false });
+    const audit = await world.adminQuery<{ n: number }>(
+      "SELECT count(*)::int AS n FROM audit.audit_log WHERE action = 'identity.withdrawal-cancelled' AND target_id = $1",
+      [family.learner.id],
+    );
+    expect(audit[0]?.n).toBe(1);
+
+    // Jour 31 : l'ancien retrait a plus de 30 jours, mais l'élève n'est plus échu.
+    await world.adminQuery(
+      "UPDATE identity.parental_consents SET withdrawn_at = now() - interval '31 days' WHERE learner_id = $1 AND withdrawn_at IS NOT NULL",
+      [uuid(family.learner.id)],
+    );
+    expect(await job().runOnce()).toMatchObject({ learners: 0 });
+    expect(await countFor("assessment.attempts", family.learner.id)).toBe(1);
+    const login = await world.http({
+      method: "POST",
+      url: "/api/auth/login/learner",
+      payload: { spaceCode: "dicard", username: "lina", password: LEARNER_PASSWORD },
+    });
+    expect(login.status).toBe(200);
+    // Un compte actif n'a pas de retrait à annuler.
+    await expect(cancel("awa@example.org")).rejects.toMatchObject({
+      code: "identity.withdrawal-not-cancellable",
+    });
+  });
+
   it("le rôle d'exécution ne peut ni dater un retrait ni avancer une suppression : la base impose les dates (verdict L7 R-1)", async () => {
     const [space] = await world.adminQuery<{ id: string }>(
       "SELECT id FROM tenancy.tutor_spaces WHERE code = 'dicard'",
