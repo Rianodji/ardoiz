@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Branche** | `lot/07-production` |
-| **Commits** | premier `866ffa0` → dernier `cd8ff42` (code), puis le commit de ce rapport |
+| **Commits** | premier `866ffa0` → dernier `cd8ff42` (code), puis ce rapport et `aacd26e` (gitleaks) |
 | **Date** | 2026-10-13 |
 
 ## 1. Résumé
@@ -127,6 +127,7 @@ tools/restore-drill.sh   → restauration vérifiée (empreinte identique, /read
 - **Correctif hors plan (R18)** : l'arrêt de l'application quand Postgres coupe une connexion inactive (§1). Sur le serveur partagé, un simple redémarrage de Postgres aurait arrêté Ardoiz.
 - **E2E unifiés** : les deux modes (en processus, et contre l'image) lisent les e-mails dans un **Mailpit jetable**, au lieu de la boîte en mémoire. Le parcours ouvre ainsi l'invitation comme le ferait un parent.
 - **Test `progress.spec.ts` assoupli** : « 10 points » exact dépendait de l'ordre des fichiers, car la copie de cahier rendue plus tôt en rapporte 20 de plus. Il vérifie désormais que les points sont arrivés.
+- **gitleaks en CI (PR #10)** : faux positif sur le mot de passe factice de l'enfant du parcours E2E. Ce mot de passe est maintenant tiré au hasard à l'exécution, et la détection est acquittée par son empreinte exacte dans `.gitleaksignore`, avec sa justification. L'historique publié n'est pas réécrit.
 - **Délai d'un test du L1 relevé à 60 s** (`un attaquant patient n'échappe pas à l'alarme`). Il enchaîne une vingtaine de connexions argon2 : 10 s seul, plus de 20 s quand toute la suite tourne en parallèle. Le code n'est pas plus lent ; la suite a des fichiers en plus.
 
 ## 6. Décisions prises
