@@ -92,14 +92,16 @@ Le tuteur **invite** une famille → le parent **consent** et **crée le compte*
 | ≥ 90 % **et** au moins 3 preuves | Dépassé |
 | Aucune preuve | Non évalué |
 
-Le tuteur peut ajuster un niveau avec une justification ; l'ajustement prime jusqu'à la preuve suivante.
+Le tuteur peut ajuster un niveau avec une justification ; l'ajustement prime jusqu'à la preuve suivante. La justification est visible par l'élève et ses parents.
+
+**Évolution d'un niveau** (verdict du lot 06) : le niveau d'une compétence ne change qu'**à la publication d'une copie** (ou à une rectification), jamais au milieu d'une copie. Les preuves d'une même copie entrent toutes ensemble dans le calcul. Ainsi, « passée à Acquis » et « passée de non acquis à acquis » comparent les niveaux **après chaque copie**, ceux que l'élève a vraiment vus.
 
 **Gamification** (valeurs initiales, paramétrables) :
 
 | Action | Points d'expérience |
 |---|---|
 | Cours terminé | 10 |
-| Copie rendue avant l'échéance | 20 |
+| Copie rendue avant l'échéance (une fois par attribution, même avec plusieurs tentatives) | 20 |
 | Question réussie (≥ 70 % des points) | 5 |
 | Compétence passée à « Acquis » | 30 |
 | Présence en séance | 15 |

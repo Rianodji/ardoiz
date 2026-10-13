@@ -162,7 +162,7 @@ Livrables :
 - Sauvegarde : vérifier que la base `ardoiz` est incluse dans `postgres-backup` ; sauvegarde du volume de fichiers ; **procédure de restauration testée** et documentée.
 - `docs/exploitation/runbook.md` : déployer, revenir en arrière (tag précédent), restaurer, faire tourner un secret, répondre à une demande RGPD (accès, suppression) à la main.
 - Tests E2E Playwright du parcours complet (invitation → consentement → élève → cours → devoir cahier → correction → tableau de bord parent) lancés **en CI contre l'image de production** démarrée localement (compose de test).
-- Tableau de bord Grafana minimal (requêtes, erreurs 5xx, latence, âge de l'outbox, échecs de connexion).
+- Tableau de bord Grafana minimal (requêtes, erreurs 5xx, latence, âge de l'outbox, **événements abandonnés** de `messaging.failed_events`, échecs de connexion), avec une alerte dès qu'un événement est abandonné ; le runbook explique comment le relire et quoi faire (`rebuild-progress` pour la progression, renvoi manuel pour une alerte de sécurité) (verdict L6).
 
 Critères d'acceptation :
 - [ ] hadolint et actionlint passent ; l'image tourne avec uid ≠ 0 et un système de fichiers en lecture seule.

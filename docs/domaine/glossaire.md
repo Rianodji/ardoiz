@@ -31,6 +31,8 @@
 | Révélation du corrigé | `revealedAt` de l'attribution ; événement `assessment.answers-revealed` | Les réponses attendues et les explications deviennent visibles, pour tous les élèves de l'attribution |
 | Rectification | `GradeRectification` | Modification motivée d'une note publiée, historisée en ajout seul |
 | Preuve de compétence | `CompetencyEvidence` | Résultat d'une question corrigée pour une compétence |
+| Copie rendue | `AttemptSubmitted` | Événement émis quand l'élève rend une copie (série, points, badge « Premier pas ») |
+| Note rectifiée | `GradeRectified` | Événement émis à chaque rectification d'une note publiée ; corrige la preuve et la note, jamais les points gagnés |
 | Niveau de compétence | `MasteryLevel` (`not_assessed \| not_acquired \| in_progress \| acquired \| exceeded`) | Calculé (§8 du big picture) ou ajusté |
 | Points d'expérience | `Xp` | Récompense cumulée |
 | Badge | `Badge` | Récompense ponctuelle d'un catalogue fixe |
