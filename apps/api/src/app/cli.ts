@@ -62,7 +62,9 @@ async function main(): Promise<void> {
 
   const config = loadConfig(process.env);
   const log = pino(loggerOptions(config.logLevel));
-  const pool = createPool({ connectionString: config.databaseUrl, max: 2 });
+  const pool = createPool({ connectionString: config.databaseUrl, max: 2 }, (code) => {
+    log.warn({ code }, "connexion inactive à la base perdue");
+  });
   const clock = new SystemClock();
   const ids = new UuidV7IdGenerator(clock);
   try {

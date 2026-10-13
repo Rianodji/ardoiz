@@ -22,7 +22,9 @@ import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, DEFAULT_MEDIA_DIR, REFERENTIA
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
   const log = pino(loggerOptions(config.logLevel));
-  const pool = createPool({ connectionString: config.databaseUrl, max: config.databasePoolMax });
+  const pool = createPool({ connectionString: config.databaseUrl, max: config.databasePoolMax }, (code) => {
+    log.warn({ code }, "connexion inactive à la base perdue ; elle sera rouverte");
+  });
   const clock = new SystemClock();
   const identity = createIdentityModule({
     pool,
