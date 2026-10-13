@@ -17,7 +17,7 @@ import type {
   StoredScene,
 } from "./ports.js";
 import { attemptForLearner, type LearnerAnswerView, type LearnerAttemptView } from "./projections.js";
-import { publishAttempt } from "./publication.js";
+import { ATTEMPT_SUBMITTED, publishAttempt } from "./publication.js";
 import { auditOf, authorize, canonicalJson, type AssessmentDependencies } from "./support.js";
 
 export interface AssignmentSummary {
@@ -246,6 +246,20 @@ export class AttemptService {
         if (assignment.publication === "auto")
           final = await publishAttempt(this.deps, store, actor, assessment, assignment, final, results);
       }
+      // CopieRendue : la série hebdomadaire, les points et le badge « Premier pas » (L6).
+      await store.publish({
+        id: this.deps.ids.next("EventId"),
+        type: ATTEMPT_SUBMITTED,
+        tutorSpaceId: actor.tutorSpaceId,
+        occurredAt: now,
+        payload: {
+          attemptId,
+          assignmentId: assignment.id,
+          learnerId: attempt.learnerId,
+          submittedAt: now.toISOString(),
+          late,
+        },
+      });
       await store.audit(
         auditOf(this.deps, actor, "assessment.submitted", "success", {
           targetId: attemptId,
