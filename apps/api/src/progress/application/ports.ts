@@ -2,15 +2,13 @@ import type { AuditEntry } from "../../shared-kernel/AuditTrail.js";
 import type { CompetencyId, GroupId, LearnerId, SubjectId, TutorSpaceId } from "../../shared-kernel/ids.js";
 import type { Badge } from "../domain/badges.js";
 import type { XpReason } from "../domain/experience.js";
-import type { Adjustment } from "../domain/mastery.js";
+import type { Adjustment, Evidence } from "../domain/mastery.js";
 
-export interface EvidenceRecord {
+/** Une preuve stockée ; sa copie (`copyId`) est la tentative dont elle vient. */
+export interface EvidenceRecord extends Evidence {
   readonly competencyId: CompetencyId;
   readonly attemptId: string;
   readonly questionId: string;
-  readonly earned: number;
-  readonly points: number;
-  readonly recordedAt: Date;
 }
 
 export interface GradeRecord {

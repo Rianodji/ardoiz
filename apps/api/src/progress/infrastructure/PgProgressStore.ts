@@ -80,6 +80,7 @@ export class PgProgressStore implements ProgressStore {
     return rows.map((row) => ({
       competencyId: fromUuid("CompetencyId", row.competency_id),
       attemptId: fromUuid("AttemptId", row.attempt_id),
+      copyId: fromUuid("AttemptId", row.attempt_id),
       questionId: fromUuid("QuestionId", row.question_id),
       earned: Number(row.earned),
       points: Number(row.points),

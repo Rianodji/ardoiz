@@ -82,6 +82,7 @@ export class ProgressProjector {
         await store.insertEvidence(learnerId, {
           competencyId,
           attemptId: event.attemptId,
+          copyId: event.attemptId,
           questionId: question.questionId,
           earned: question.earned,
           points: question.points,

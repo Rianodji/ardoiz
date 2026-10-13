@@ -17,6 +17,8 @@ export interface Evidence {
   readonly earned: number;
   readonly points: number;
   readonly recordedAt: Date;
+  /** Copie dont vient la preuve : les preuves d'une même copie entrent ensemble dans le calcul. */
+  readonly copyId: string;
 }
 
 export interface Adjustment {
@@ -70,8 +72,20 @@ export function currentLevel(evidences: readonly Evidence[], adjustment: Adjustm
 
 export const isAcquired = (level: MasteryLevel): boolean => level === "acquired" || level === "exceeded";
 
-/** Niveaux calculés successifs, preuve après preuve (pour « passée à Acquis » et « Persévérant »). */
+/**
+ * Niveaux calculés successifs, COPIE après copie (pour « passée à Acquis » et « Persévérant »).
+ * Le niveau ne change qu'à la publication d'une copie : les preuves d'une même copie entrent toutes
+ * ensemble dans le calcul, et l'ordre des questions ne décide jamais du résultat (big picture §8,
+ * « Évolution d'un niveau », verdict L6 S-2).
+ */
 export function levelHistory(evidences: readonly Evidence[]): MasteryLevel[] {
   const ordered = [...evidences].sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime());
-  return ordered.map((_, index) => computedLevel(ordered.slice(0, index + 1)));
+  const history: MasteryLevel[] = [];
+  const seen = new Set<string>();
+  for (const evidence of ordered) {
+    if (seen.has(evidence.copyId)) continue;
+    seen.add(evidence.copyId);
+    history.push(computedLevel(ordered.filter((candidate) => seen.has(candidate.copyId))));
+  }
+  return history;
 }
