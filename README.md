@@ -16,7 +16,8 @@ Conçu en **security by design** selon la routine du *Manuel de l'architecte* (D
 | Revue des lots | [`docs/revue/`](docs/revue/) |
 | Référentiel de compétences | [`docs/domaine/referentiel-competences.md`](docs/domaine/referentiel-competences.md) |
 | Textes juridiques | [`docs/juridique/`](docs/juridique/) |
-| Coordination avec l'infra du serveur | [`HANDOFF_INFRA.md`](HANDOFF_INFRA.md) |
+| Exploitation (déployer, revenir en arrière, restaurer, RGPD) | [`docs/exploitation/runbook.md`](docs/exploitation/runbook.md) |
+| Coordination avec l'infra du serveur | `HANDOFF_INFRA.md` (local, jamais versionné) |
 | Questions en attente | [`docs/questions-ouvertes.md`](docs/questions-ouvertes.md) |
 | Instructions de l'IA développeuse | [`PROMPT-DEVELOPPEUR.md`](PROMPT-DEVELOPPEUR.md), [`CLAUDE.md`](CLAUDE.md) |
 
@@ -33,8 +34,8 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | L3 | Évaluation (QCM, numérique, réponse courte) | ✅ (PR #6) |
 | L4 | Cahier virtuel | ✅ (PR #7) |
 | L5 | Planification | ✅ (PR #8) |
-| L6 | Progression, gamification, tableau de bord parent, suggestions | 🔍 (PR #9) |
-| L7 | Mise en production | ⏳ |
+| L6 | Progression, gamification, tableau de bord parent, suggestions | ✅ (PR #9) |
+| L7 | Mise en production | 🔍 (PR #10) |
 
 États : ⏳ à faire · 🛠️ en cours · 🔍 en revue · ✅ accepté.
 
@@ -82,7 +83,8 @@ apps/api/src/
   shared-kernel/  identifiants typés, Clock, DomainError, Result, Decision, ports AuditTrail et Inbox
   platform/       adaptateurs techniques : config (Secret, loadConfig), http (durcissement, RFC 9457, sondes),
                   logging (pino + redaction), postgres (pool, migrations, withTenantTransaction, audit),
-                  messaging (outbox, relais, inbox)
+                  messaging (outbox, relais, inbox, file d'échec), metrics (Prometheus, port 9464),
+                  privacy (purge des données échues, L7), media (import d'images, stockage)
   identity/       comptes, sessions serveur, TOTP, invitations, liens parentaux, consentement (L1)
   curriculum/     matières, référentiel de compétences, modules, cours, médias, groupes, déverrouillages (L2)
   assessment/     épreuves, attributions, copies, correction automatique et manuelle, publication, rectification (L3), cahier virtuel (L4)
@@ -94,6 +96,9 @@ apps/web/         SPA React (Vite, React Router, TanStack Query), servie par l'A
 packages/contracts/       schémas TypeBox partagés (ProblemDetails RFC 9457, santé)
 packages/content-schema/  schéma fermé du contenu des cours : validateur partagé API/front, KaTeX, YouTube (L2)
 db/migrations/    SQL versionné, immuable une fois livré
+deploy/           image de production (Dockerfile), compose du serveur, script de déploiement, observabilité (L7)
+e2e/              Playwright : l'application en processus, ou son image de production (E2E_IMAGE)
+tools/            licences, avis des tiers, textes juridiques, expand / contract, exercice de restauration
 ```
 
 - **Isolation** : toute donnée porte `tutor_space_id` ; chaque transaction passe par `withTenantTransaction`, qui déclare l'espace à la RLS **forcée**. Le rôle `ardoiz_user` n'est pas propriétaire ; les migrations tournent avec `ardoiz_owner` (ADR-0002).
@@ -101,7 +106,16 @@ db/migrations/    SQL versionné, immuable une fois livré
 - **Accès** : l'`Actor` vient de la session (cookie `__Host-ardoiz_session`, seule son empreinte est en base). Chaque route déclare son niveau d'accès (`public`, `mfa-pending`, `enrollment`, `business` par défaut) ; le tuteur sans TOTP n'atteint aucune route métier (R7). Les politiques `allow/deny/hide` d'`identity` sont vérifiées par le harnais de la matrice des droits (`apps/api/test/integration/support/rightsMatrix.ts`).
 - **Contenu des cours** : un document JSON à schéma fermé (ADR-0005), validé à l'écriture par l'API et relu par le front avant rendu ; rendu par des composants React, formules en MathML (ADR-0011 proposée), vidéo YouTube chargée après un clic. Les images importées sont réencodées en WebP sans métadonnées et servies par `/api/media/:id`, avec les droits du cours.
 - **E-mails** : Mailpit en développement (http://127.0.0.1:8025), Brevo en production ; les jetons des liens sont dans le fragment `#jeton=`.
-- **Événements** : outbox écrite dans la transaction métier, relais qui livre chaque événement dans une transaction de son espace, inbox idempotente.
+- **Événements** : outbox écrite dans la transaction métier, relais qui livre chaque événement dans une transaction de son espace, inbox idempotente. Le format d'un événement est un contrat : il ne change jamais en place en production (ADR-0001 amendée).
+- **Production** : une image distroless non root, en lecture seule, déployée sur tag `v*` après approbation (`.github/workflows/release.yml`) ; métriques sur le port 9464, jamais routé ; purge horaire des données échues (R16). Tout est décrit dans le [runbook](docs/exploitation/runbook.md).
+
+### Image de production en local
+
+```sh
+docker build -f deploy/Dockerfile -t ardoiz:local .
+E2E_IMAGE=ardoiz:local npm run test:e2e        # toute la suite E2E contre l'image
+tools/restore-drill.sh dump.sql.gz empreinte.txt ardoiz:local   # exercice de restauration
+```
 
 ### Dépendances : pourquoi Excalidraw est déclaré à la racine
 

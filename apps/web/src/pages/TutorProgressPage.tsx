@@ -120,7 +120,7 @@ function AdjustForm({
   const [competencyId, setCompetencyId] = useState(competencies[0]?.competencyId ?? "");
   const [level, setLevel] = useState<AdjustableLevel>("in_progress");
   const [justification, setJustification] = useState("");
-  const ids = { competency: useId(), level: useId(), justification: useId() };
+  const ids = { competency: useId(), level: useId(), justification: useId(), visibility: useId() };
   const adjust = useMutation({
     mutationFn: () => adjustLevel(learnerId, competencyId, level, justification),
     onSuccess: async () => {
@@ -168,8 +168,13 @@ function AdjustForm({
         ))}
       </select>
       <label htmlFor={ids.justification}>Justification (5 à 500 caractères)</label>
+      {/* La justification est servie à l'élève et à ses parents (transparence, big picture §8, verdict L6 S-4). */}
+      <p className="hint" id={ids.visibility}>
+        Visible par l'élève et ses parents.
+      </p>
       <textarea
         id={ids.justification}
+        aria-describedby={ids.visibility}
         value={justification}
         maxLength={500}
         rows={2}

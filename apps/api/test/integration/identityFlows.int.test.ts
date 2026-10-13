@@ -399,9 +399,12 @@ describe("Identité : connexion, sessions, consentement, jetons", () => {
         "SELECT status, scheduled_deletion_at FROM identity.accounts WHERE username = 'lina'",
       );
       expect(learner?.status).toBe("disabled");
-      expect(learner?.scheduled_deletion_at?.getTime()).toBe(
-        world.clock.now().getTime() + 30 * 24 * 3_600_000,
+      // Date imposée par la base (verdict L7, R-1) : son heure + 30 jours, pas celle de l'application.
+      const [planned] = await world.adminQuery<{ thirty_days: boolean }>(
+        "SELECT scheduled_deletion_at BETWEEN now() + interval '30 days' - interval '1 minute' AND now() + interval '30 days' AS thirty_days FROM identity.accounts WHERE username = 'lina'",
       );
+      expect(learner?.scheduled_deletion_at).not.toBeNull();
+      expect(planned?.thirty_days).toBe(true);
       const consents = await world.adminQuery<{ withdrawn_at: Date | null }>(
         "SELECT c.withdrawn_at FROM identity.parental_consents c JOIN identity.accounts l ON l.id = c.learner_id WHERE l.username = 'lina'",
       );

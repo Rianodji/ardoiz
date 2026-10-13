@@ -2,7 +2,7 @@
 
 | Champ | Traitement 1 : soutien scolaire à distance |
 |---|---|
-| Responsable | Dicard Rianodji, [[adresse e-mail de contact]] |
+| Responsable | Dicard Rianodji, contact@teamnoble.fr |
 | Finalités | Gestion des comptes ; mise à disposition de cours ; planification des séances ; évaluation et suivi de la progression ; information des parents ; sécurité du service |
 | Personnes concernées | Élèves (mineurs), parents, tuteur |
 | Catégories de données | Identification minimale (prénom, pseudo, classe ; nom et e-mail du parent) ; vie scolaire (travaux, notes, compétences, présences) ; connexion (journaux, IP tronquée) ; consentements |

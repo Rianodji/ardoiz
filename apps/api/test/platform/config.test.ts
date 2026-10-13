@@ -32,6 +32,7 @@ describe("loadConfig (R20)", () => {
       environment: "production",
       publicOrigin: "https://ardoiz.example.test",
       port: 3000,
+      metricsPort: 9464,
     });
     expect(JSON.stringify(config)).not.toContain("mot-de-passe-factice");
     expect(inspect(config)).not.toContain("mot-de-passe-factice");
@@ -62,6 +63,10 @@ describe("loadConfig (R20)", () => {
     ["transport d'e-mail inconnu", { MAIL_TRANSPORT: "sendmail" }],
     ["mandataire de confiance universel", { TRUSTED_PROXIES: "0.0.0.0/0" }],
     ["préfixe CIDR impossible", { TRUSTED_PROXIES: "172.18.0.0/40" }],
+    [
+      "métriques sur le port public (elles deviendraient publiques derrière Traefik)",
+      { METRICS_PORT: "3000" },
+    ],
   ])("refuse de démarrer : %s (R20)", (_label, override) => {
     expect(() => loadConfig({ ...validEnv, ...override })).toThrow(ConfigurationError);
   });

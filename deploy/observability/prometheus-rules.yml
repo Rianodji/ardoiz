@@ -1,0 +1,48 @@
+# Règles d'alerte d'Ardoiz, à charger par le Prometheus mutualisé (session infra), avec le job
+# « ardoiz » qui lit ardoiz:9464/metrics sur le réseau infra. Le runbook (docs/exploitation) dit quoi faire.
+groups:
+  - name: ardoiz
+    rules:
+      # Verdict L6 : alerte dès qu'un événement est abandonné (lettre morte).
+      - alert: ArdoizEvenementAbandonne
+        expr: ardoiz_failed_events_dead > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ardoiz : {{ $value }} événement(s) abandonné(s)"
+          description: "Un consommateur a abandonné un événement (illisible ou 5 échecs). Runbook : « Événements abandonnés »."
+      - alert: ArdoizMetriquesIllisibles
+        expr: up{job="ardoiz"} == 0 or absent(up{job="ardoiz"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ardoiz ne répond plus sur son port de métriques"
+          description: "Conteneur arrêté, en redémarrage ou injoignable sur le réseau infra."
+      - alert: ArdoizOutboxEnRetard
+        expr: ardoiz_outbox_oldest_pending_seconds > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ardoiz : l'outbox a un événement en attente depuis plus de 10 min"
+          description: "Le relais ne publie plus (base lente, consommateur en échec répété)."
+      - alert: ArdoizErreursServeur
+        expr: |
+          sum(rate(ardoiz_http_requests_total{status="5xx"}[10m]))
+            / clamp_min(sum(rate(ardoiz_http_requests_total[10m])), 0.001) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ardoiz : plus de 5 % d'erreurs 5xx sur 10 min"
+          description: "Voir les journaux (Loki, service ardoiz) avec le requestId des réponses."
+      - alert: ArdoizEchecsDeConnexion
+        expr: sum(increase(ardoiz_login_failures_total[15m])) > 30
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ardoiz : plus de 30 échecs de connexion en 15 min"
+          description: "Essais de mots de passe ou de codes ; la limitation de débit freine déjà (R8)."

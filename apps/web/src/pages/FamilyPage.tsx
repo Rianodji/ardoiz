@@ -71,6 +71,7 @@ function LearnerCard({
     username: string;
     schoolLevel: string;
     status: string;
+    scheduledDeletionAt: string | null;
     guardians: ReadonlyArray<{ displayName: string }>;
   };
   readonly runSensitive: (action: () => Promise<void>) => Promise<void>;
@@ -107,6 +108,15 @@ function LearnerCard({
         Pseudo de connexion : <code>{learner.username}</code>
         {learner.status === "disabled" && <strong> · compte désactivé</strong>}
       </p>
+      {learner.status === "disabled" && learner.scheduledDeletionAt !== null && (
+        <p role="note" className="warning">
+          Ses données seront supprimées le{" "}
+          {new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", dateStyle: "long" }).format(
+            new Date(learner.scheduledDeletionAt),
+          )}
+          . Pour annuler, contacte le tuteur avant cette date.
+        </p>
+      )}
       <p>Parents liés : {learner.guardians.map((guardian) => guardian.displayName).join(", ")}</p>
       <details open>
         <summary>Son tableau de bord</summary>

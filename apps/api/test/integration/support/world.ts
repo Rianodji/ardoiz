@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import { MetricsRegistry } from "../../../src/platform/metrics/Metrics.js";
+import { messagingGauges } from "../../../src/platform/metrics/metricsServer.js";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -74,6 +76,8 @@ export class World {
   curriculum!: CurriculumModule;
   relay!: OutboxRelay;
   progress!: ProgressModule;
+  /** Mesures de l'application, comme celles servies sur le port 9464. */
+  readonly metrics = new MetricsRegistry();
   app!: FastifyInstance;
   /** Routes enregistrées par le serveur, avec leur niveau d'accès déclaré (pour les tests transverses). */
   readonly routes: Array<{ method: string; url: string; access: string }> = [];
@@ -143,8 +147,10 @@ export class World {
       clock: world.clock,
       ids: world.ids,
     });
+    messagingGauges(world.pool, world.metrics);
     world.app = await buildServer({
       config: { publicOrigin: ORIGIN, logLevel: "info", trustedProxies: [] },
+      metrics: world.metrics,
       readiness: () => Promise.resolve(true),
       logStream: world.logs.stream,
       modules: [

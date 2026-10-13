@@ -23,8 +23,14 @@ export interface ProgressModule {
   /** Consommateurs de CorrectionPubliée, NoteRectifiée, CopieRendue, CoursTerminé, SéanceRejointe. */
   readonly subscribers: readonly EventSubscriber[];
   register(app: FastifyInstance): Promise<void>;
-  /** Reconstruit les projections d'un espace depuis l'outbox. */
-  rebuild(tutorSpaceId: TutorSpaceId): Promise<{ applied: number; skipped: number }>;
+  /**
+   * Reconstruit les projections d'un espace depuis l'outbox. Échoue sur un événement illisible, sauf
+   * avec `skipUnreadable` (ADR-0001, amendement du 2026-10-13).
+   */
+  rebuild(
+    tutorSpaceId: TutorSpaceId,
+    options?: { readonly skipUnreadable: boolean },
+  ): Promise<{ applied: number; skipped: number }>;
 }
 
 /** Assemble le module progress à partir de ses adaptateurs. */
@@ -40,9 +46,9 @@ export function createProgressModule(options: ProgressModuleOptions): ProgressMo
     statuses: {},
     subscribers: progressSubscribers(service),
     register: (app) => progressRoutes(app, service),
-    rebuild: (tutorSpaceId) =>
+    rebuild: (tutorSpaceId, rebuildOptions = { skipUnreadable: false }) =>
       withTenantTransaction(options.pool, tutorSpaceId, (client) =>
-        rebuildProgress(client, service, tutorSpaceId),
+        rebuildProgress(client, service, tutorSpaceId, rebuildOptions),
       ),
   };
 }

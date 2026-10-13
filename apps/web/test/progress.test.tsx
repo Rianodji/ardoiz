@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LearnerDashboard, UpcomingAssignments } from "../src/components/ProgressViews";
 import { GuardianSuggestions } from "../src/pages/SuggestionPages";
+import { TutorProgressPage } from "../src/pages/TutorProgressPage";
 import { json, stubServer } from "./support";
 
 afterEach(() => {
@@ -149,5 +150,35 @@ describe("Suggestions du parent (R4, R15)", () => {
       category: "assessments",
       body: "Plus de QCM ?",
     });
+  });
+});
+
+describe("Ajustement d'un niveau par le tuteur (verdict L6 S-4)", () => {
+  it("le formulaire dit que la justification est visible par l'élève et ses parents", async () => {
+    stubServer((url) => {
+      if (url === "/api/progress/overview")
+        return json(200, {
+          learners: [
+            {
+              learnerId: "lrn_1",
+              xp: 130,
+              level: 1,
+              streak: { current: 2, best: 3, paused: false },
+              levelCounts: { not_assessed: 0, not_acquired: 0, in_progress: 1, acquired: 0, exceeded: 0 },
+              averages: [],
+            },
+          ],
+          groups: [],
+        });
+      if (url === "/api/families") return json(200, { guardians: [], learners: [] });
+      if (url === "/api/learners/lrn_1/progress") return json(200, progress);
+      return undefined;
+    });
+    renderWith(<TutorProgressPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Voir et ajuster" }));
+    const justification = await screen.findByLabelText(/Justification/);
+    expect(justification.getAttribute("aria-describedby")).toBeTruthy();
+    const hint = document.getElementById(justification.getAttribute("aria-describedby") ?? "");
+    expect(hint?.textContent).toBe("Visible par l'élève et ses parents.");
   });
 });

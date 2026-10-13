@@ -94,7 +94,8 @@ describe("Réserves du verdict L1", () => {
       await world.identity.background.idle();
       await world.deliverEvents();
       expect(world.mailer.sent.filter((mail) => mail.template === "mfa-failures-alert")).toHaveLength(1);
-    });
+      // Une vingtaine de connexions avec argon2 : 10 s seul, davantage quand toute la suite tourne en parallèle.
+    }, 60_000);
 
     it("au 10e échec, les sessions en attente du compte sont révoquées (R7)", async () => {
       let evaluated = 0;
@@ -143,6 +144,73 @@ describe("Réserves du verdict L1", () => {
       );
       expect(JSON.stringify(events)).not.toContain("tuteur@example.org");
       expect(world.logs.text()).not.toContain("tuteur@example.org");
+    });
+  });
+
+  describe("Verdict L6, S-1 · pas d'alerte, pas de connexion : l'alerte est écrite dans la transaction (R12, M8)", () => {
+    /** Panne injectée : toute écriture d'une alerte dans l'outbox échoue. */
+    const breakAlerts = () =>
+      world.adminQuery(`
+        CREATE FUNCTION public.refuse_alert() RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+          IF NEW.type = 'identity.alert-requested' THEN RAISE EXCEPTION 'panne injectée'; END IF;
+          RETURN NEW;
+        END $$;
+        CREATE TRIGGER refuse_alert BEFORE INSERT ON messaging.outbox
+          FOR EACH ROW EXECUTE FUNCTION public.refuse_alert();`);
+    const authenticatedSessions = async (email: string) =>
+      (
+        await world.adminQuery<{ n: number }>(
+          `SELECT count(*)::int AS n FROM identity.auth_sessions s JOIN identity.accounts a ON a.id = s.account_id
+            WHERE a.email = $1 AND NOT s.mfa_pending AND s.revoked_at IS NULL`,
+          [email],
+        )
+      )[0]?.n ?? 0;
+
+    it("tuteur avec TOTP : si l'alerte ne peut pas être écrite, le code est refusé et la session reste en attente", async () => {
+      const before = await authenticatedSessions("tuteur@example.org");
+      const pending = cookieFrom((await tutorPassword()).setCookie);
+      await breakAlerts();
+      const res = await verify(pending, nextTotp(world, family.tutor.totpSecret));
+      expect(res.status).toBe(500);
+      expect(await authenticatedSessions("tuteur@example.org")).toBe(before);
+      expect((await world.http({ method: "GET", url: "/api/families", cookie: pending })).status).toBe(401);
+    });
+
+    it("tuteur sans TOTP : si l'alerte ne peut pas être écrite, aucune session n'est ouverte", async () => {
+      await world.identity.initSpace({
+        spaceName: "Espace neuf",
+        spaceCode: "neuf",
+        tutorEmail: "neuf@example.org",
+        tutorName: "Neuf",
+        tutorPassword: ADULT_PASSWORD,
+      });
+      await breakAlerts();
+      const res = await world.http({
+        method: "POST",
+        url: "/api/auth/login/adult",
+        payload: { email: "neuf@example.org", password: ADULT_PASSWORD },
+      });
+      expect(res.status).toBe(500);
+      expect(res.setCookie).toBeUndefined();
+      const sessions = await world.adminQuery<{ n: number }>(
+        `SELECT count(*)::int AS n FROM identity.auth_sessions s JOIN identity.accounts a ON a.id = s.account_id
+          WHERE a.email = 'neuf@example.org'`,
+      );
+      expect(sessions[0]?.n).toBe(0);
+    });
+
+    it("l'alerte de connexion est écrite dans la même transaction que l'élévation de la session", async () => {
+      const pending = cookieFrom((await tutorPassword()).setCookie);
+      expect((await verify(pending, nextTotp(world, family.tutor.totpSecret))).status).toBe(200);
+      const [row] = await world.adminQuery<{ same: boolean }>(
+        `SELECT (SELECT xmin::text FROM messaging.outbox WHERE type = 'identity.alert-requested'
+                  ORDER BY id DESC LIMIT 1)
+              = (SELECT s.xmin::text FROM identity.auth_sessions s JOIN identity.accounts a ON a.id = s.account_id
+                  WHERE a.email = 'tuteur@example.org' AND NOT s.mfa_pending ORDER BY s.authenticated_at DESC LIMIT 1)
+              AS same`,
+      );
+      expect(row?.same).toBe(true);
     });
   });
 

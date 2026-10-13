@@ -8,6 +8,9 @@ import { createSchedulingModule } from "../scheduling/index.js";
 import { loadConfig } from "../platform/config/loadConfig.js";
 import { UuidV7IdGenerator } from "../platform/ids/UuidV7IdGenerator.js";
 import { loggerOptions } from "../platform/logging/logger.js";
+import { MetricsRegistry } from "../platform/metrics/Metrics.js";
+import { PurgeJob, PurgeLoop } from "../platform/privacy/PurgeJob.js";
+import { messagingGauges, startMetricsServer } from "../platform/metrics/metricsServer.js";
 import { OutboxRelay, RelayLoop } from "../platform/messaging/OutboxRelay.js";
 import { LocalFileStorage } from "../platform/media/LocalFileStorage.js";
 import { SharpImageIngestion } from "../platform/media/SharpImageIngestion.js";
@@ -20,7 +23,9 @@ import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, DEFAULT_MEDIA_DIR, REFERENTIA
 async function main(): Promise<void> {
   const config = loadConfig(process.env);
   const log = pino(loggerOptions(config.logLevel));
-  const pool = createPool({ connectionString: config.databaseUrl, max: config.databasePoolMax });
+  const pool = createPool({ connectionString: config.databaseUrl, max: config.databasePoolMax }, (code) => {
+    log.warn({ code }, "connexion inactive à la base perdue ; elle sera rouverte");
+  });
   const clock = new SystemClock();
   const identity = createIdentityModule({
     pool,
@@ -66,8 +71,11 @@ async function main(): Promise<void> {
     clock,
     ids: new UuidV7IdGenerator(clock),
   });
+  const metrics = new MetricsRegistry();
+  messagingGauges(pool, metrics);
   const app = await buildServer({
     config,
+    metrics,
     readiness: databaseReadiness(pool),
     modules: [
       identity,
@@ -87,8 +95,25 @@ async function main(): Promise<void> {
   });
   relayLoop.start();
 
+  // Durées de conservation appliquées toutes les heures (R16, H9).
+  const purgeLoop = new PurgeLoop(
+    new PurgeJob(pool, new LocalFileStorage(mediaDir), (code) => {
+      log.error({ code }, "purge en échec");
+    }),
+    (report) => {
+      if (Object.values(report).some((count) => count > 0)) log.info(report, "purge des données échues");
+    },
+    (code) => {
+      log.error({ code }, "purge en échec");
+    },
+  );
+  purgeLoop.start();
+  const metricsServer = await startMetricsServer(metrics, config.host, config.metricsPort);
+
   const shutdown = async (): Promise<void> => {
     await relayLoop.stop();
+    await purgeLoop.stop();
+    metricsServer.close();
     await app.close();
     await pool.end();
   };

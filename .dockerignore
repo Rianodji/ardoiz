@@ -1,0 +1,16 @@
+# Contexte de construction minimal : jamais de secret, de dépendance installée ni de donnée locale.
+**/node_modules
+**/dist
+.git
+.github
+.env
+.env.*
+!.env.example
+HANDOFF_INFRA.md
+var
+test-results
+playwright-report
+coverage
+sbom.cdx.json
+THIRD-PARTY-NOTICES
+**/*.log

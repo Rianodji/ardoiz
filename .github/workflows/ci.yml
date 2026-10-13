@@ -6,6 +6,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Réutilisé par release.yml : une version n'est publiée que si toutes ces vérifications passent.
+  workflow_call:
 
 # Moindre privilège : le jeton du workflow ne peut que lire le dépôt.
 permissions:
@@ -85,6 +87,62 @@ jobs:
           name: sbom
           path: sbom.cdx.json
           retention-days: 90
+
+  image:
+    name: Image de production (hadolint, actionlint, shellcheck, E2E contre l'image)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Outils de lint épinglés par empreinte, lancés depuis leur image officielle.
+      - name: hadolint
+        run: docker run --rm -i hadolint/hadolint:v2.12.0@sha256:30a8fd2e785ab6176eed53f74769e04f125afb2f74a6c52aef7d463583b6d45e < deploy/Dockerfile
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 -color
+      - name: shellcheck
+        run: docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:stable@sha256:bb596a0d169b85ddd81d8b6d3a2ff6d5baf5fca10b97f575ebc647c3dff62b3d deploy/remote-deploy.sh tools/expand-contract.sh tools/restore-drill.sh
+      - name: Construction de l'image
+        run: docker build -f deploy/Dockerfile -t ardoiz:ci .
+      - name: Utilisateur non root et poids de l'image
+        run: |
+          user="$(docker image inspect ardoiz:ci --format '{{.Config.User}}')"
+          echo "Utilisateur de l'image : $user"
+          case "$user" in ""|0|0:*|root|root:*) echo "L'image tourne en root." >&2; exit 1 ;; esac
+          size="$(docker image inspect ardoiz:ci --format '{{.Size}}')"
+          echo "Poids de l'image : $((size / 1000000)) Mo" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      # Toute la suite E2E, parcours complet compris, contre l'image : lecture seule, sans capacité.
+      - run: npm run test:e2e
+        env:
+          E2E_IMAGE: ardoiz:ci
+      - if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: traces-e2e-image
+          path: test-results/
+          retention-days: 14
+
+  expand-contract:
+    name: Expand / contract (suite du tag précédent sur le nouveau schéma)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # les tags
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: tools/expand-contract.sh
 
   secrets:
     name: Détection de secrets (gitleaks)

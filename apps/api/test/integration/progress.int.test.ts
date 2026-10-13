@@ -11,6 +11,10 @@ import {
 import { setupFamily, type Family } from "./support/families.js";
 import { setupProgramme, unlock, type Programme } from "./support/programme.js";
 import { plannedSession } from "./support/scheduling.js";
+import { spawnSync } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import { fileURLToPath } from "node:url";
+import { UnreadableHistoryError } from "../../src/progress/infrastructure/events.js";
 import { TutorSpaceId } from "../../src/shared-kernel/ids.js";
 import { World, type Snapshot } from "./support/world.js";
 
@@ -28,6 +32,8 @@ interface Progress {
   }>;
   subjects: Array<{ name: string; average: number | null; grades: Array<{ grade: number }> }>;
 }
+
+const CLI = fileURLToPath(new URL("../../src/app/cli.ts", import.meta.url));
 
 describe("Progression (L6)", () => {
   let snapshot: Snapshot;
@@ -111,6 +117,28 @@ describe("Progression (L6)", () => {
     return res.body as Progress;
   };
 
+  /** Un CoursTerminé avec un champ inconnu (`xp: 1000`) : illisible pour la lecture stricte. */
+  const insertUnreadableEvent = async (): Promise<void> => {
+    const [space] = await world.adminQuery<{ id: string }>(
+      "SELECT id FROM tenancy.tutor_spaces WHERE code = 'dicard'",
+    );
+    await world.adminQuery(
+      `INSERT INTO messaging.outbox (id, tutor_space_id, type, payload, occurred_at)
+         VALUES ($3, $1, 'curriculum.lesson-completed', $2, now())`,
+      [
+        space?.id,
+        JSON.stringify({
+          learnerId: family.learner.id,
+          lessonId: programme.lessonId,
+          completedAt: "2026-10-12T08:00:00.000Z",
+          subjectId: null,
+          xp: 1000,
+        }),
+        world.ids.next("EventId").slice(4),
+      ],
+    );
+  };
+
   it("points, compétence, badge, note et série sont tirés des événements (big picture §8)", async () => {
     const progress = await progressOf(family.learner.cookie);
     // Cours terminé 10 + copie rendue à temps 20 + question réussie 5 + compétence acquise 30 + présence 15.
@@ -147,6 +175,29 @@ describe("Progression (L6)", () => {
     expect(evidences[0]?.n).toBe(1);
   });
 
+  it("deux tentatives rendues à temps sur une même attribution rapportent 20 points, pas 40 (verdict L6 S-3)", async () => {
+    const before = (await progressOf(family.learner.cookie)).xp;
+    const created = await createAssessment(world, family.tutor.cookie, "Arithmétique 2", ([c = ""]) => [
+      mcqTwelve(c),
+    ]);
+    const assignmentId = await assign(world, family.tutor.cookie, created.assessmentId, {
+      learnerId: family.learner.id,
+      maxAttempts: 2,
+    });
+    for (let i = 0; i < 2; i++) {
+      const attempt = (await startAttempt(world, family.learner.cookie, assignmentId)).body as LearnerAttempt;
+      const submitted = await world.http({
+        method: "POST",
+        url: `/api/attempts/${attempt.attemptId}/submit`,
+        cookie: family.learner.cookie,
+        payload: { answers: {} },
+      });
+      expect(submitted.status, JSON.stringify(submitted.body)).toBe(200);
+    }
+    await world.deliverEvents();
+    expect((await progressOf(family.learner.cookie)).xp).toBe(before + 20);
+  });
+
   it("la reconstruction depuis les événements redonne exactement la même progression", async () => {
     const before = await progressOf(family.learner.cookie);
     const [space] = await world.adminQuery<{ id: string }>(
@@ -158,30 +209,73 @@ describe("Progression (L6)", () => {
   });
 
   it("un événement illisible part en file d'échec sans effet ni panne du relais (verdict L5 §6)", async () => {
-    const [space] = await world.adminQuery<{ id: string }>(
-      "SELECT id FROM tenancy.tutor_spaces WHERE code = 'dicard'",
-    );
-    await world.adminQuery(
-      `INSERT INTO messaging.outbox (id, tutor_space_id, type, payload, occurred_at)
-       VALUES ($3, $1, 'curriculum.lesson-completed', $2, now())`,
-      [
-        space?.id,
-        JSON.stringify({
-          learnerId: family.learner.id,
-          lessonId: programme.lessonId,
-          completedAt: "2026-10-12T08:00:00.000Z",
-          subjectId: null,
-          xp: 1000,
-        }),
-        world.ids.next("EventId").slice(4),
-      ],
-    );
+    await insertUnreadableEvent();
     await world.deliverEvents();
     const failed = await world.adminQuery<{ dead: boolean; error_code: string }>(
       "SELECT dead, error_code FROM messaging.failed_events WHERE consumer = 'progress'",
     );
     expect(failed).toEqual([{ dead: true, error_code: "unreadable-event" }]);
     expect((await progressOf(family.learner.cookie)).xp).toBe(80);
+  });
+
+  describe("reconstruction et événement illisible (verdict L6 S-5, ADR-0001 amendée)", () => {
+    const spaceId = async () =>
+      TutorSpaceId(
+        `tsp_${(await world.adminQuery<{ id: string }>("SELECT id FROM tenancy.tutor_spaces WHERE code = 'dicard'"))[0]?.id ?? ""}`,
+      );
+
+    it("la reconstruction échoue sans rien changer ; avec skipUnreadable, l'événement est ignoré et compté", async () => {
+      const before = await progressOf(family.learner.cookie);
+      await insertUnreadableEvent();
+      await expect(world.progress.rebuild(await spaceId())).rejects.toThrow(UnreadableHistoryError);
+      expect(await progressOf(family.learner.cookie)).toEqual(before);
+      const result = await world.progress.rebuild(await spaceId(), { skipUnreadable: true });
+      expect(result.skipped).toBe(1);
+      expect(await progressOf(family.learner.cookie)).toEqual(before);
+    });
+
+    it("la commande rebuild-progress sort avec un code non nul, sauf avec --skip-unreadable", async () => {
+      await insertUnreadableEvent();
+      const evidences = async () =>
+        (await world.adminQuery<{ n: number }>("SELECT count(*)::int AS n FROM progress.evidences"))[0]?.n;
+      const before = await evidences();
+      const run = (...extra: string[]) =>
+        spawnSync(
+          process.execPath,
+          [
+            "--import",
+            "tsx",
+            "--conditions=@ardoiz/source",
+            CLI,
+            "rebuild-progress",
+            "--space-code",
+            "dicard",
+            ...extra,
+          ],
+          {
+            encoding: "utf8",
+            env: {
+              PATH: process.env["PATH"] ?? "",
+              DATABASE_URL: String(world.pool.options.connectionString),
+              SESSION_SECRET: randomBytes(32).toString("base64"),
+              TOTP_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+              MAILPIT_URL: "http://127.0.0.1:1",
+              NODE_ENV: "test",
+              PUBLIC_BASE_URL: "http://localhost:3000",
+              MAIL_TRANSPORT: "mailpit",
+              LOG_LEVEL: "warn",
+            },
+          },
+        );
+      const refused = run();
+      expect(refused.status, refused.stderr + refused.stdout).toBe(1);
+      expect(refused.stdout, `stdout=${refused.stdout} stderr=${refused.stderr}`).toContain("illisible");
+      expect(await evidences()).toBe(before);
+      const skipped = run("--skip-unreadable");
+      expect(skipped.status, skipped.stderr + skipped.stdout).toBe(0);
+      expect(skipped.stdout).toContain("ignorés");
+      expect(await evidences()).toBe(before);
+    });
   });
 
   it("l'ajustement du tuteur exige une justification, est audité, et prime jusqu'à la preuve suivante", async () => {

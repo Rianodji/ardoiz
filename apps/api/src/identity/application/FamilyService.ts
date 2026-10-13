@@ -49,6 +49,8 @@ export interface LearnerView {
   readonly username: string;
   readonly schoolLevel: string;
   readonly status: "active" | "disabled";
+  /** Après un retrait du consentement : date de la suppression des données (annulable avant, S-1). */
+  readonly scheduledDeletionAt: Date | null;
   readonly guardians: ReadonlyArray<{
     readonly guardianshipId: GuardianshipId;
     readonly guardianId: GuardianId;
@@ -477,6 +479,7 @@ export class FamilyService {
         username: learner.username,
         schoolLevel: learner.schoolLevel,
         status: learner.status,
+        scheduledDeletionAt: learner.scheduledDeletionAt,
         guardians: links
           .filter((link) => link.learnerId === learner.id)
           .map((link) => ({

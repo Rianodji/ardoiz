@@ -98,7 +98,11 @@ function loginStatus(result: LoginResult): Static<typeof LoginResponse> {
 }
 
 function learnerView(view: LearnerModel): Static<typeof LearnerView> {
-  return { ...view, guardians: view.guardians.map((guardian) => ({ ...guardian })) };
+  return {
+    ...view,
+    scheduledDeletionAt: view.scheduledDeletionAt?.toISOString() ?? null,
+    guardians: view.guardians.map((guardian) => ({ ...guardian })),
+  };
 }
 
 const LearnerParams = Type.Object(

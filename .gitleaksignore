@@ -5,3 +5,8 @@
 # seulement contre des bases Testcontainers jetables. Depuis, les mots de passe de test sont tirés
 # au hasard à l'exécution ; le commit est publié et l'historique n'est pas réécrit.
 82d84b6a0d1515d5c9e6ddc3bc0c0a17cb2c2b4d:apps/api/test/integration/support/world.ts:generic-api-key:19
+#
+# 2026-10-13 · faux positif : mot de passe factice de l'enfant créé par le parcours E2E (journey.spec.ts),
+# utilisé seulement contre un serveur de test jetable. Il est désormais tiré au hasard à l'exécution ;
+# le commit est publié et l'historique n'est pas réécrit.
+c854bfcc6f550c35fc8c465d3802b6e2ec1a0839:e2e/tests/journey.spec.ts:generic-api-key:18

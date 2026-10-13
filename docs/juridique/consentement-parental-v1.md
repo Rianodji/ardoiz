@@ -21,7 +21,7 @@ J'ai bien noté que :
 - les vidéos YouTube ne se chargent que si mon enfant clique dessus ;
 - les données sont hébergées dans l'Union européenne et conservées selon les durées indiquées dans la politique de confidentialité ;
 - je peux **retirer cet accord à tout moment** depuis mon espace parent : le compte de mon enfant sera alors désactivé immédiatement et ses données supprimées sous 30 jours ;
-- je peux exercer mes droits (accès, rectification, effacement, portabilité) en écrivant à [[adresse e-mail de contact]].
+- je peux exercer mes droits (accès, rectification, effacement, portabilité) en écrivant à contact@teamnoble.fr.
 
 ☐ Je suis titulaire de l'autorité parentale, j'ai lu la [politique de confidentialité](/confidentialite) et je donne mon accord.
 

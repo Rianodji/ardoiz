@@ -1,13 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { earnedBadges, type BadgeFacts } from "../../src/progress/domain/badges.js";
 import { levelForXp, questionSucceeded, xpForLevel } from "../../src/progress/domain/experience.js";
-import { computedLevel, currentLevel, type Evidence } from "../../src/progress/domain/mastery.js";
+import {
+  computedLevel,
+  currentLevel,
+  isAcquired,
+  levelHistory,
+  type Evidence,
+} from "../../src/progress/domain/mastery.js";
 import { mondayOf, parisDate, streakOf } from "../../src/progress/domain/streak.js";
 
 const day = (n: number) => new Date(Date.UTC(2026, 9, 1 + n, 12));
-/** Preuves au taux `percent` (sur 100 points), datées dans l'ordre. */
+/** Preuves au taux `percent` (sur 100 points), une copie par preuve, datées dans l'ordre. */
 const evidences = (...percents: number[]): Evidence[] =>
-  percents.map((percent, index) => ({ earned: percent, points: 100, recordedAt: day(index) }));
+  percents.map((percent, index) => ({
+    earned: percent,
+    points: 100,
+    recordedAt: day(index),
+    copyId: `att_${String(index)}`,
+  }));
+/** Une seule copie : toutes les preuves publiées au même instant. */
+const oneCopy = (copyId: string, at: Date, ...percents: number[]): Evidence[] =>
+  percents.map((percent) => ({ earned: percent, points: 100, recordedAt: at, copyId }));
 
 describe("Niveau de compétence aux bornes (big picture §8)", () => {
   it.each([
@@ -30,11 +44,11 @@ describe("Niveau de compétence aux bornes (big picture §8)", () => {
 
   it("calcul exact : 2/3 et 1/3 donnent 50 %, en cours d'acquisition ; 89,5 % reste « acquis »", () => {
     const thirds: Evidence[] = [
-      { earned: 2, points: 3, recordedAt: day(0) },
-      { earned: 1, points: 3, recordedAt: day(1) },
+      { earned: 2, points: 3, recordedAt: day(0), copyId: "a" },
+      { earned: 1, points: 3, recordedAt: day(1), copyId: "b" },
     ];
     expect(computedLevel(thirds)).toBe("in_progress");
-    expect(computedLevel([{ earned: 89.5, points: 100, recordedAt: day(0) }])).toBe("acquired");
+    expect(computedLevel([{ earned: 89.5, points: 100, recordedAt: day(0), copyId: "a" }])).toBe("acquired");
   });
 
   it("ne garde que les 5 dernières preuves", () => {
@@ -46,8 +60,53 @@ describe("Niveau de compétence aux bornes (big picture §8)", () => {
     const before = evidences(10, 20);
     const adjustment = { level: "acquired" as const, adjustedAt: day(5) };
     expect(currentLevel(before, adjustment)).toBe("acquired");
-    const after = [...before, { earned: 30, points: 100, recordedAt: day(6) }];
+    const after = [...before, { earned: 30, points: 100, recordedAt: day(6), copyId: "c" }];
     expect(currentLevel(after, adjustment)).toBe("not_acquired");
+  });
+});
+
+describe("Évolution d'un niveau : copie après copie (big picture §8, verdict L6 S-2)", () => {
+  it("une copie, 1 bonne puis 3 fausses : jamais « acquis » en cours de route, donc pas de points « compétence acquise »", () => {
+    const copy = oneCopy("att_1", day(0), 100, 0, 0, 0);
+    expect(levelHistory(copy)).toEqual(["not_acquired"]);
+    expect(levelHistory(copy).some(isAcquired)).toBe(false);
+  });
+
+  it("une copie, 1 fausse puis 3 bonnes : pas de badge « Persévérant » sur une seule copie", () => {
+    const copy = oneCopy("att_1", day(0), 0, 100, 100, 100);
+    expect(levelHistory(copy)).toEqual(["acquired"]);
+    expect(
+      earnedBadges({
+        submittedCopies: 1,
+        levelsByCode: new Map(),
+        conversions: [],
+        bestStreak: 0,
+        evidencesByCompetency: new Map([["c", copy]]),
+      }),
+    ).toEqual(["first-step"]);
+  });
+
+  it("deux copies, « non acquis » puis « acquis » : le badge « Persévérant » est mérité", () => {
+    const evidencesOverTime = [
+      ...oneCopy("att_1", day(0), 0),
+      ...oneCopy("att_2", day(7), 100, 100, 100, 100),
+    ];
+    expect(levelHistory(evidencesOverTime)).toEqual(["not_acquired", "acquired"]);
+    expect(
+      earnedBadges({
+        submittedCopies: 2,
+        levelsByCode: new Map(),
+        conversions: [],
+        bestStreak: 0,
+        evidencesByCompetency: new Map([["c", evidencesOverTime]]),
+      }),
+    ).toEqual(["first-step", "persevering"]);
+  });
+
+  it("l'ordre des questions dans une copie ne change pas le résultat", () => {
+    expect(levelHistory(oneCopy("a", day(0), 100, 0, 0, 0))).toEqual(
+      levelHistory(oneCopy("a", day(0), 0, 0, 0, 100)),
+    );
   });
 });
 

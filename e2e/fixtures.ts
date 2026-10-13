@@ -13,6 +13,10 @@ export interface E2eState {
     readonly usedStep: number;
   };
   readonly guardian: { readonly email: string; readonly password: string };
+  /** Mot de passe des comptes adultes de démonstration, pour en créer d'autres dans un parcours. */
+  readonly adultPassword: string;
+  /** API de Mailpit : les e-mails envoyés par l'application. */
+  readonly mailpitUrl: string;
   readonly assignmentId: string;
   readonly lessonId: string;
 }

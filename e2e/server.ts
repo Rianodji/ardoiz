@@ -1,40 +1,24 @@
 /**
  * Serveur des tests de bout en bout (Playwright) : la VRAIE application, avec ses en-têtes de
  * production (CSP, HSTS, Origin), qui sert la SPA construite, sur un PostgreSQL jetable migré.
- * Seuls changent la boîte d'envoi (en mémoire, pour lire les invitations) et l'origine (localhost).
+ * L'application tourne dans ce processus, ou dans son IMAGE DE PRODUCTION si E2E_IMAGE est donnée
+ * (L7). Seuls changent l'origine (localhost) et la boîte d'envoi (un Mailpit jetable, lu par son API).
  * Il prépare un espace de démonstration, écrit son état dans un fichier, puis attend d'être arrêté.
  */
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { createHmac, randomBytes } from "node:crypto";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import pg from "pg";
-import pino from "pino";
-import { buildServer } from "../apps/api/src/app/buildServer.js";
-import { COMMON_PASSWORDS_FILE, DEFAULT_LEGAL_DIR, REFERENTIAL_FILE } from "../apps/api/src/app/paths.js";
-import { createAssessmentModule } from "../apps/api/src/assessment/index.js";
-import { createCurriculumModule } from "../apps/api/src/curriculum/index.js";
-import { createIdentityModule, PgLearnerDirectory } from "../apps/api/src/identity/index.js";
-import { createFeedbackModule } from "../apps/api/src/feedback/index.js";
-import { createProgressModule } from "../apps/api/src/progress/index.js";
-import { createSchedulingModule } from "../apps/api/src/scheduling/index.js";
-import { OutboxRelay } from "../apps/api/src/platform/messaging/OutboxRelay.js";
-import { InMemoryMailer } from "../apps/api/src/identity/infrastructure/mailers.js";
-import { UuidV7IdGenerator } from "../apps/api/src/platform/ids/UuidV7IdGenerator.js";
-import { loggerOptions } from "../apps/api/src/platform/logging/logger.js";
-import { LocalFileStorage } from "../apps/api/src/platform/media/LocalFileStorage.js";
-import { SharpImageIngestion } from "../apps/api/src/platform/media/SharpImageIngestion.js";
-import { migrate } from "../apps/api/src/platform/postgres/migrate.js";
-import { SystemClock } from "../apps/api/src/platform/time/SystemClock.js";
-import { Secret } from "../apps/api/src/platform/config/Secret.js";
+import { GenericContainer } from "testcontainers";
+import { startImage } from "./image.js";
+import { startInProcess } from "./inProcess.js";
+import { invitationToken, MAILPIT_IMAGE } from "./mail.js";
 
 const POSTGRES_IMAGE =
   "postgres:16.14-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777";
-const MIGRATIONS_DIR = fileURLToPath(new URL("../db/migrations", import.meta.url));
-const WEB_DIST_DIR = fileURLToPath(new URL("../apps/web/dist", import.meta.url));
 const STATE_FILE = process.env["E2E_STATE_FILE"] ?? join(tmpdir(), "ardoiz-e2e-state.json");
 
 const ADULT_PASSWORD = `Girafe-${randomBytes(6).toString("hex")}-42`;
@@ -100,87 +84,23 @@ const urlFor = (user: string, password: string) => {
   url.pathname = "/ardoiz";
   return url.toString();
 };
-const owner = new pg.Client({ connectionString: urlFor("ardoiz_owner", ownerPassword) });
-await owner.connect();
-await migrate(owner, MIGRATIONS_DIR);
-await owner.end();
 
-// --- Application, assemblée comme dans main.ts --------------------------------------------------
+// --- Mailpit jetable : les e-mails sont lus comme un destinataire les lirait ------------------------
+const mailpit = await new GenericContainer(MAILPIT_IMAGE).withExposedPorts(8025).start();
+const mailpitUrl = `http://127.0.0.1:${String(mailpit.getMappedPort(8025))}`;
+
+// --- Application : dans ce processus, ou dans l'image de production si E2E_IMAGE est donnée (L7) ----
 const port = await freePort();
-const origin = `http://localhost:${String(port)}`;
-const pool = new pg.Pool({ connectionString: urlFor("ardoiz_user", appPassword), max: 5 });
-const clock = new SystemClock();
-const ids = new UuidV7IdGenerator(clock);
-const mailer = new InMemoryMailer();
-const mediaDir = mkdtempSync(join(tmpdir(), "ardoiz-e2e-media-"));
-const images = new SharpImageIngestion();
-const identity = createIdentityModule({
-  pool,
-  config: {
-    publicOrigin: origin,
-    sessionSecret: new Secret(randomBytes(32).toString("base64")),
-    totpEncryptionKey: new Secret(randomBytes(32).toString("base64")),
-    mail: {
-      transport: "mailpit",
-      url: "http://127.0.0.1:1",
-      senderEmail: "no-reply@example.test",
-      senderName: "Ardoiz",
-    },
-  },
-  legalDir: DEFAULT_LEGAL_DIR,
-  commonPasswordsFile: COMMON_PASSWORDS_FILE,
-  clock,
-  ids,
-  log: pino(loggerOptions("warn")),
-  mailer,
-});
-const curriculum = createCurriculumModule({
-  pool,
-  mediaDir,
-  images,
-  referentialFile: REFERENTIAL_FILE,
-  clock,
-  ids,
-});
-const assessment = createAssessmentModule({
-  pool,
-  curriculum: curriculum.directory,
-  learners: new PgLearnerDirectory(pool),
-  images,
-  files: new LocalFileStorage(mediaDir),
-  clock,
-  ids,
-});
-const scheduling = createSchedulingModule({
-  pool,
-  learners: new PgLearnerDirectory(pool),
-  groups: curriculum.directory,
-  clock,
-  ids,
-});
-const progress = createProgressModule({
-  pool,
-  catalog: curriculum.directory,
-  learners: new PgLearnerDirectory(pool),
-  clock,
-  ids,
-});
-// Le relais est appelé à la demande (après les données de démonstration), comme dans les tests d'intégration.
-const relay = new OutboxRelay(pool, clock);
-for (const subscriber of [...identity.subscribers, ...progress.subscribers]) relay.subscribe(subscriber);
-const app = await buildServer({
-  config: { publicOrigin: origin, logLevel: "warn", trustedProxies: [], webDistDir: WEB_DIST_DIR },
-  readiness: () => Promise.resolve(true),
-  modules: [
-    identity,
-    curriculum,
-    assessment,
-    scheduling,
-    progress,
-    createFeedbackModule({ pool, clock, ids }),
-  ],
-});
-await app.listen({ host: "127.0.0.1", port });
+const database = {
+  appUrl: urlFor("ardoiz_user", appPassword),
+  ownerUrl: urlFor("ardoiz_owner", ownerPassword),
+};
+const imageName = process.env["E2E_IMAGE"];
+const backend =
+  imageName === undefined || imageName === ""
+    ? await startInProcess(database, mailpitUrl, port)
+    : await startImage(imageName, database, mailpitUrl, port, await freePort());
+const origin = backend.origin;
 
 // --- Données de démonstration, créées par l'API comme le ferait un utilisateur -------------------
 const jar = new Map<string, string>();
@@ -202,26 +122,20 @@ async function call(who: string, method: string, path: string, body?: unknown): 
 }
 
 const tutorEmail = "tuteur@example.org";
-const { tutorSpaceId } = await identity.initSpace({
+await backend.initSpace({
   spaceName: "Espace de démonstration",
   spaceCode: SPACE_CODE,
   tutorEmail,
   tutorName: "Dicard",
   tutorPassword: ADULT_PASSWORD,
 });
-await curriculum.seedReferential(tutorSpaceId);
 await call("tutor", "POST", "/api/auth/login/adult", { email: tutorEmail, password: ADULT_PASSWORD });
 const { secret } = (await call("tutor", "POST", "/api/auth/totp/enroll")) as { secret: string };
 await call("tutor", "POST", "/api/auth/totp/activate", { code: totp(secret) });
 
 const guardianEmail = "awa@example.org";
 await call("tutor", "POST", "/api/invitations", { email: guardianEmail });
-await identity.background.idle();
-const token = [...mailer.sent]
-  .reverse()
-  .find((mail) => mail.to === guardianEmail)
-  ?.text.match(/#jeton=([A-Za-z0-9_-]{43})/)?.[1];
-if (token === undefined) throw new Error("Invitation introuvable.");
+const token = await invitationToken(mailpitUrl, guardianEmail);
 const consentText = (await call("anon", "GET", "/api/legal/consentement")) as {
   version: string;
   sha256: string;
@@ -334,7 +248,13 @@ await call("learner", "POST", "/api/auth/login/learner", {
   password: LEARNER_PASSWORD,
 });
 await call("learner", "POST", `/api/lessons/${lessonId}/completion`);
-while ((await relay.relayOnce()) > 0);
+// Le relais tourne en boucle : on attend que la progression ait reçu l'événement.
+for (let waited = 0; ; waited += 250) {
+  const progress = (await call("learner", "GET", `/api/learners/${learnerId}/progress`)) as { xp: number };
+  if (progress.xp >= 10) break;
+  if (waited > 30_000) throw new Error("CoursTerminé n'a pas été livré à la progression.");
+  await new Promise((resolve) => setTimeout(resolve, 250));
+}
 
 // Une séance qui commence dans 10 min (heure de Paris) : la fenêtre du lien est ouverte (R9).
 const soon = new Date(Math.ceil((Date.now() + 10 * 60_000) / 300_000) * 300_000);
@@ -369,6 +289,8 @@ writeFileSync(
       usedStep: Math.floor(Date.now() / 30_000),
     },
     guardian: { email: guardianEmail, password: ADULT_PASSWORD },
+    adultPassword: ADULT_PASSWORD,
+    mailpitUrl,
     assignmentId,
     lessonId,
   }),
@@ -376,10 +298,13 @@ writeFileSync(
 process.stdout.write(`e2e prêt sur ${origin}\n`);
 
 const shutdown = async () => {
-  await app.close();
-  await pool.end();
+  await backend.close();
+  await mailpit.stop();
   await container.stop();
   process.exit(0);
 };
 process.once("SIGTERM", () => void shutdown());
 process.once("SIGINT", () => void shutdown());
+// En mode image, plus rien ne retient ce processus : il doit pourtant vivre (et garder la base et
+// Mailpit, que Testcontainers arrête à sa sortie) jusqu'au signal d'arrêt de Playwright.
+setInterval(() => undefined, 60_000);
