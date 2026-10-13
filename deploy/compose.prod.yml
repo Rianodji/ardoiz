@@ -1,0 +1,49 @@
+# Production d'Ardoiz sur le VPS partagé (ADR-0008 amendée), d'après le squelette de la session infra
+# (HANDOFF_INFRA.md). Déployé par .github/workflows/release.yml dans ~/ardoiz/ ; .env et .env.migrate
+# y sont régénérés à chaque déploiement (chmod 600) et ne sont jamais versionnés.
+services:
+  # Nom unique sur les réseaux partagés web et infra (jamais api, app, web ni backend).
+  ardoiz:
+    image: dididenoble/ardoiz:${ARDOIZ_TAG:?ARDOIZ_TAG est obligatoire}
+    env_file: .env
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 512m
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    volumes: [ardoiz_files:/data/files]
+    networks: [web, infra]
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.ardoiz.rule=Host(`ardoiz.teamnoble.fr`)
+      - traefik.http.routers.ardoiz.entrypoints=websecure
+      - traefik.http.routers.ardoiz.tls.certresolver=le
+      # Seul le port 3000 est routé. Les métriques (9464) ne sont lues que par Prometheus, sur infra.
+      - traefik.http.services.ardoiz.loadbalancer.server.port=3000
+    stop_grace_period: 20s
+    restart: unless-stopped
+
+  # Migrations : conteneur éphémère, rôle propriétaire. L'URL du propriétaire n'est que dans
+  # .env.migrate, jamais dans l'environnement de l'application (R10, R20).
+  # docker compose --profile migrate run --rm ardoiz-migrate
+  ardoiz-migrate:
+    image: dididenoble/ardoiz:${ARDOIZ_TAG:?ARDOIZ_TAG est obligatoire}
+    profiles: [migrate]
+    env_file: .env.migrate
+    command: ["apps/api/dist/platform/postgres/migrate-cli.js"]
+    read_only: true
+    tmpfs: [/tmp]
+    mem_limit: 512m
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    networks: [infra]
+    restart: "no"
+
+volumes:
+  # Nom explicite : le conteneur de sauvegarde de l'infra le monte sous ce nom.
+  ardoiz_files: { name: ardoiz_files }
+
+networks:
+  web: { external: true }
+  infra: { external: true }
