@@ -4,6 +4,7 @@ import { fetchLegal, fetchSessions, revokeSession, type LegalDocument } from "..
 import { homePathFor, useMe } from "../auth/session";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Markdown } from "../markdown/Markdown";
+import { Agenda } from "./AgendaPages";
 import { MyAssignments } from "./AssessmentPages";
 import { LearnerProgrammeView } from "./LessonPages";
 
@@ -110,6 +111,8 @@ export function LearnerHomePage() {
           emptyText="Ton tuteur n'a pas encore ouvert de cours pour toi. Ils apparaîtront ici."
         />
       )}
+      <h2>Mes séances</h2>
+      <Agenda canJoin />
       <h2>Mes épreuves</h2>
       <MyAssignments />
       <p>
