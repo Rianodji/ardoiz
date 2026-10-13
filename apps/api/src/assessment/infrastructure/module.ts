@@ -14,7 +14,8 @@ import type {
 } from "../application/ports.js";
 import { SlidingWindowLimiter } from "../../platform/limits/SlidingWindowLimiter.js";
 import type { AssessmentDependencies } from "../application/support.js";
-import { CryptoContentHasher, CryptoRandomSource } from "./CryptoContentHasher.js";
+import { CryptoRandomSource } from "../../platform/random/CryptoRandomSource.js";
+import { CryptoContentHasher } from "./CryptoContentHasher.js";
 import { ASSESSMENT_STATUSES, assessmentRoutes } from "./http/assessmentRoutes.js";
 import { PgAssessmentGateway } from "./PgAssessmentStore.js";
 

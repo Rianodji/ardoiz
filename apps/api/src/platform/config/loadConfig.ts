@@ -30,6 +30,8 @@ export interface AppConfig {
   readonly legalDir?: string;
   /** Volume des fichiers importés (images réencodées, R14) ; obligatoire en production (ADR-0008). */
   readonly mediaDir?: string;
+  /** Hôte Jitsi supplémentaire accepté pour les liens de visio (R9, Q5) ; aucun par défaut. */
+  readonly meetingExtraHost?: string;
 }
 
 export type MailConfig =
@@ -181,6 +183,16 @@ export function loadConfig(env: Env): AppConfig {
   const webDistDir = optional(env, "WEB_DIST_DIR");
   const legalDir = optional(env, "LEGAL_DIR");
   const mediaDir = optional(env, "MEDIA_DIR");
+  const meetingExtraHost = optional(env, "MEETING_EXTRA_HOST");
+  // Un nom d'hôte seul, en minuscules, avec au moins un point (pas d'URL, de port ni de joker) (R9).
+  if (
+    meetingExtraHost !== undefined &&
+    !/^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(meetingExtraHost)
+  )
+    throw new ConfigurationError(
+      "MEETING_EXTRA_HOST",
+      "doit être un nom d'hôte, par exemple visio.example.org",
+    );
   if (environment === "production" && mediaDir === undefined)
     throw new ConfigurationError("MEDIA_DIR", "absente");
   return {
@@ -202,6 +214,7 @@ export function loadConfig(env: Env): AppConfig {
     mail: mailConfig(env, environment),
     ...(legalDir === undefined ? {} : { legalDir }),
     ...(mediaDir === undefined ? {} : { mediaDir }),
+    ...(meetingExtraHost === undefined ? {} : { meetingExtraHost }),
   };
 }
 

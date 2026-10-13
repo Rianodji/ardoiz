@@ -3,3 +3,4 @@ export { HealthStatus } from "./health.js";
 export * from "./identity.js";
 export * from "./curriculum.js";
 export * from "./assessment.js";
+export * from "./scheduling.js";
