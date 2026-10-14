@@ -5,7 +5,7 @@
 | **Relu par** | Lead (architecte, product owner, security engineer) |
 | **Date** | 2026-10-13 |
 | **Branche relue** | `lot/04-cahier` @ `50d665c` (PR #7) ; réserves du L3 relues sur `0e34355`, fusionnées par la PR #6 |
-| **Verdict** | ✅ **Accepté** |
+| **Verdict** | **Accepté** |
 
 La PR #7 peut être fusionnée. Les suites du §4 se traitent en tête du lot L5, sauf mention contraire.
 
@@ -13,20 +13,20 @@ La PR #7 peut être fusionnée. Les suites du §4 se traitent en tête du lot L5
 
 | Vérification | Résultat |
 |---|---|
-| `npm run lint`, `npm run typecheck`, `npm test` | ✅ 414 tests verts |
-| `npm run test:integration` (Postgres 16.14 réel) | ✅ 323 tests verts |
-| `npm run depcruise`, `npm audit --audit-level=high` | ✅ 0 violation, 0 vulnérabilité |
-| CI GitHub (PR #6 et PR #7, avec le job E2E) | ✅ verte |
-| Historique : signatures, `HANDOFF_INFRA.md`, stash | ✅ rien |
+| `npm run lint`, `npm run typecheck`, `npm test` | OK, 414 tests verts |
+| `npm run test:integration` (Postgres 16.14 réel) | OK, 323 tests verts |
+| `npm run depcruise`, `npm audit --audit-level=high` | OK, 0 violation, 0 vulnérabilité |
+| CI GitHub (PR #6 et PR #7, avec le job E2E) | OK, verte |
+| Historique : signatures, `HANDOFF_INFRA.md`, stash | OK, rien |
 | Lecture : migration 005 (révélation, questions figées, rectification prouvée), règle `answersRevealed`, feature `correction-qcm` modifiée, schéma fermé de la scène, trigger du calque, limites de corps, route des images du cahier, ADR-0012 | voir §2 et §3 |
 
 ## 2. Contrôle des réserves du lot 03
 
 | Réserve | État | Commentaire |
 |---|---|---|
-| R-1 · Révélation du corrigé | ✅ | Règle pure `answersRevealed`, révélation **définitive** par trigger (un corrigé vu ne peut plus être caché), événement dans l'outbox, test de contrat étendu « après publication et avant révélation ». La feature `correction-qcm` modifiée est **confirmée** : elle dit exactement la règle |
-| R-2 · Questions figées | ✅ | Trigger sur `questions` et `question_competencies`, changement d'épreuve compris |
-| R-3 · Rectification prouvée | ✅ | Le drapeau de session est abandonné ; il faut une preuve dans la même transaction, vérifiée au `COMMIT`. Bonus : la date de publication est figée elle aussi |
+| R-1 · Révélation du corrigé | Fait | Règle pure `answersRevealed`, révélation **définitive** par trigger (un corrigé vu ne peut plus être caché), événement dans l'outbox, test de contrat étendu « après publication et avant révélation ». La feature `correction-qcm` modifiée est **confirmée** : elle dit exactement la règle |
+| R-2 · Questions figées | Fait | Trigger sur `questions` et `question_competencies`, changement d'épreuve compris |
+| R-3 · Rectification prouvée | Fait | Le drapeau de session est abandonné ; il faut une preuve dans la même transaction, vérifiée au `COMMIT`. Bonus : la date de publication est figée elle aussi |
 
 ## 3. Points forts du lot 04
 
@@ -43,11 +43,11 @@ La PR #7 peut être fusionnée. Les suites du §4 se traitent en tête du lot L5
 ### ADR-0012 : acceptée
 `img-src data:` ne permet ni l'exécution de script (un SVG affiché comme image n'en exécute pas) ni l'exfiltration (une URI `data:` n'émet aucune requête). C'est la **seule** exception à la CSP du projet : toute autre ouverture demande un nouvel ADR. Le retrait de MathLive est accepté : la palette LaTeX avec aperçu suffit au collège, et l'élève peut toujours écrire à main levée.
 
-### S-1 · 🟡 Les élèves peuvent monopoliser la file des imports d'images
+### S-1 · Important · Les élèves peuvent monopoliser la file des imports d'images
 Depuis ce lot, **les élèves** importent des images, et une seule file sert tout l'espace (S-3 du L2). Un élève qui enchaîne des photos de 10 Mo peut faire attendre le tuteur jusqu'au 503.
 **À faire** : une limite par acteur sur les imports (par exemple une image toutes les 10 s et 20 par heure), avec 429 et `Retry-After`. Test unitaire.
 
-### S-2 · 🟢 Police CJK de 13 Mo
+### S-2 · Mineur · Police CJK de 13 Mo
 Le repli CDN est maintenant neutralisé au build. Vérifie si la police Xiaolai peut être retirée de l'image sans violation de CSP ni erreur visible pour un texte en français. Sinon, garde-la : la décision se prendra au L7 avec la mesure du poids de l'image (ajoutée à `jalons.md`).
 
 ### Tablette
@@ -61,10 +61,7 @@ Accepté en l'état. J'ajoute au L7 un **essai sur la vraie tablette** d'un él�
 4. **Feature `correction-qcm`** : confirmée (§2).
 5. **Excalidraw à la racine** pour les `overrides` : accepté, il faut le documenter dans le README développeur.
 
-## 6. Note pour le porteur
-Le disque du poste de développement est presque plein (environ 700 Mo libres). La session a raison de ne pas toucher aux caches Docker et npm : c'est au porteur de décider (`docker system prune`, `npm cache clean --force`).
-
-## 7. Pour la suite : lot L5 (Planification)
+## 6. Pour la suite : lot L5 (Planification)
 
 C'est le lot de **M10 / R9** (lien de visio) et de **H8** (fuseau horaire). Je relirai en priorité :
 - le **lien de visio** validé comme Value Object (https, hôtes autorisés : Zoom, Meet, Jitsi), et révélé **seulement** aux participants, de T−15 min jusqu'à la fin, avec des tests de bornes à −15 min − 1 s et à la fin + 0 s ;

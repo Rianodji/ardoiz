@@ -26,7 +26,7 @@ export ARDOIZ_TAG="$tag"
 compose=(docker compose -f compose.prod.yml)
 
 # Au tout premier push d'un dépôt Docker Hub, le pull anonyme peut échouer 30 à 40 s (leçon
-# soukify-delivery) : 5 essais espacés de 10 s.
+# d'un projet précédent) : 5 essais espacés de 10 s.
 for attempt in 1 2 3 4 5; do
   if "${compose[@]}" pull ardoiz < /dev/null; then break; fi
   if [ "$attempt" -eq 5 ]; then

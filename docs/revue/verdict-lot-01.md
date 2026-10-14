@@ -5,7 +5,7 @@
 | **Relu par** | Lead (architecte, product owner, security engineer) |
 | **Date** | 2026-10-12 |
 | **Branche relue** | `lot/01-identite` @ `e9bba02` (PR #4) |
-| **Verdict** | 🔁 **Accepté avec réserves** |
+| **Verdict** | **Accepté avec réserves** |
 
 La PR #4 sera fusionnée **après** traitement des réserves R-1 à R-5, avec une CI verte. La R-6 est facultative. Le lot L2 commence ensuite.
 
@@ -13,10 +13,10 @@ La PR #4 sera fusionnée **après** traitement des réserves R-1 à R-5, avec un
 
 | Vérification | Résultat |
 |---|---|
-| `npm run lint`, `npm run typecheck`, `npm test` | ✅ 157 tests verts |
-| `npm run test:integration` (Postgres 16.14 réel) | ✅ 112 tests verts |
-| `npm run depcruise`, `npm audit --audit-level=high` | ✅ 0 violation, 0 vulnérabilité |
-| Historique : `Co-Authored-By`, `HANDOFF_INFRA.md`, stash | ✅ rien |
+| `npm run lint`, `npm run typecheck`, `npm test` | OK, 157 tests verts |
+| `npm run test:integration` (Postgres 16.14 réel) | OK, 112 tests verts |
+| `npm run depcruise`, `npm audit --audit-level=high` | OK, 0 violation, 0 vulnérabilité |
+| Historique : `Co-Authored-By`, `HANDOFF_INFRA.md`, stash | OK, rien |
 | Lecture : migration 002, `AuthService`, `MfaService`, `PasswordResetService`, `FamilyService` (invitations, consentement, comptes existants), `HmacSecretTokens`, `AesGcmTotpService`, `InMemoryLoginThrottle`, hook d'authentification, routes, mailers, harnais de la matrice | voir §2 et §3 |
 
 ## 2. Points forts
@@ -32,7 +32,7 @@ La PR #4 sera fusionnée **après** traitement des réserves R-1 à R-5, avec un
 
 ## 3. Réserves à traiter avant la fusion
 
-### R-1 · 🔴 Le second facteur peut être forcé par qui connaît le mot de passe (R7, M8)
+### R-1 · Bloquant · Le second facteur peut être forcé par qui connaît le mot de passe (R7, M8)
 Le compteur du code TOTP est indexé par **session** (`mfa:${session.id}`). Après 5 échecs, la session est révoquée, mais une nouvelle connexion avec le bon mot de passe **remet à zéro** le compteur de l'identifiant (`recordSuccess`) et ouvre une session neuve avec 5 nouveaux essais. Les échecs TOTP ne comptent pas non plus dans le compteur de l'IP.
 
 Un attaquant qui a le mot de passe du tuteur (fuite, réutilisation, hameçonnage) peut donc enchaîner « mot de passe → 5 codes » sans fin. Avec 3 codes valides par fenêtre sur 10⁶, il lui faut de l'ordre de 50 000 cycles, soit **environ une journée**. Et cela **sans aucune alerte** : pour un tuteur avec TOTP, l'e-mail n'est envoyé qu'après le code. C'est précisément le scénario que le TOTP doit arrêter.
@@ -44,13 +44,13 @@ Un attaquant qui a le mot de passe du tuteur (fuite, réutilisation, hameçonnag
 - les échecs TOTP du tuteur sont journalisés dans l'audit (aujourd'hui, seuls les succès le sont) ;
 - **test** : trois cycles « bon mot de passe + 5 mauvais codes », puis le **bon** code est refusé et l'e-mail d'alerte est parti.
 
-### R-2 · 🟠 L'alerte de connexion : le « mode fermé » est illusoire et fragile
+### R-2 · Important · L'alerte de connexion : le « mode fermé » est illusoire et fragile
 Dans `verifyMfa`, la session est promue (`mfaPending: false`) et **commitée** avant l'envoi de l'e-mail. Si Brevo échoue, le client reçoit une 500, mais son cookie est **déjà** une session complète. On n'a donc ni la sécurité du mode fermé, ni une bonne expérience. Et une panne de Brevo (clé partagée avec les autres applications du serveur) empêcherait le tuteur de se connecter.
 
 **Décision du lead** : l'alerte est un contrôle de **détection**, pas de prévention. Elle est envoyée **après** la connexion, au mieux. Un échec n'empêche pas la connexion, mais il est journalisé au niveau `error` avec un code stable (`identity.login-alert-failed`), sans destinataire, pour qu'une alerte Loki puisse le repérer au L7. Au L3, quand le relais aura son premier consommateur, l'envoi passera par l'outbox (envoi durable avec reprise).
 **Test** : un mailer qui échoue → la connexion répond 200 et le journal contient `identity.login-alert-failed`.
 
-### R-3 · 🟠 « Mot de passe oublié » : ni limite, ni temps constant réel
+### R-3 · Important · « Mot de passe oublié » : ni limite, ni temps constant réel
 - **Aucune limitation** sur `POST /api/auth/password-reset/request`. N'importe qui peut inonder la boîte d'un parent, et surtout épuiser le **quota Brevo partagé** avec les autres applications du porteur, ce qui coupe aussi les invitations et les alertes.
 - **Le plancher de 600 ms ne suffit pas** : pour une adresse connue, l'appel à Brevo (jusqu'à 10 s de délai) a lieu **dans** le plancher. Dès que Brevo dépasse 600 ms, le temps de réponse révèle que le compte existe (M9).
 
@@ -60,14 +60,14 @@ Dans `verifyMfa`, la session est promue (`mfaPending: false`) et **commitée** a
 - une nouvelle demande **invalide** les jetons de réinitialisation précédents du compte ;
 - **test** : avec un mailer qui met 2 s, l'adresse connue et l'adresse inconnue répondent dans le même délai ; la 4e demande dans l'heure n'envoie rien.
 
-### R-4 · 🟡 Rejeu concurrent d'un code TOTP
+### R-4 · Important · Rejeu concurrent d'un code TOTP
 `lastUsedStep` est lu puis écrit sans verrou. Deux requêtes simultanées avec le même code passent toutes les deux. La fenêtre est courte, mais la règle « un code ne sert qu'une fois » doit tenir par construction, comme pour les jetons.
 **À faire** : `UPDATE … SET mfa_last_used_step = $step WHERE id = $id AND (mfa_last_used_step IS NULL OR mfa_last_used_step < $step)` avec contrôle de `rowCount`, dans `verifyMfa` comme dans `reauthenticate`. **Test** : deux vérifications concurrentes du même code, une seule réussit.
 
-### R-5 · 🟡 Clé IP en IPv6
+### R-5 · Important · Clé IP en IPv6
 Une adresse IPv6 complète est une clé faible : un attaquant dispose d'au moins un /64 et change d'adresse à chaque essai. **À faire** : en IPv6, la clé du limiteur est le préfixe **/64**. Test unitaire.
 
-### R-6 · 🟢 QR code (facultatif dans ce lot)
+### R-6 · Mineur · QR code (facultatif dans ce lot)
 Oui au QR code : le tuteur doit pouvoir enrôler son téléphone sans recopier 32 caractères. Il est généré **côté navigateur** à partir de l'URI `otpauth://`, qui ne quitte pas la page. Prends une bibliothèque sans dépendance, sous licence MIT (`uqr` ou `qrcode`), et rends-la en SVG, sans `style` en ligne, pour rester compatible avec la CSP. Si ce n'est pas fait ici, ce sera en tête du L2.
 
 ## 4. Points acceptés comme dette
@@ -109,12 +109,12 @@ Relu sur `c619364`, fusionné dans `main` par la PR #4. J'ai relancé les vérif
 
 | Réserve | État | Commentaire |
 |---|---|---|
-| R-1 | ✅ | Compteur par compte, partagé avec la réauthentification ; alarme, audit, sessions en attente révoquées. Le test enchaîne de vrais cycles « mot de passe + code faux ». Voir le reliquat ci-dessous |
-| R-2 | ✅ | `LoggedBackgroundTasks` : code stable, type d'erreur seulement, aucun destinataire |
-| R-3 | ✅ | Quotas par adresse et par IP, silencieux ; envoi détaché ; liens précédents invalidés ; test avec un fournisseur de 2 s |
-| R-4 | ✅ | `useTotpStep` conditionnel ; `updateAccount` ne peut plus faire reculer le pas. Bonne prise en compte d'un effet de bord que je n'avais pas signalé |
-| R-5 | ✅ | Clé /64 en IPv6 |
-| R-6 | ✅ | QR code SVG calculé dans le navigateur |
+| R-1 | Fait | Compteur par compte, partagé avec la réauthentification ; alarme, audit, sessions en attente révoquées. Le test enchaîne de vrais cycles « mot de passe + code faux ». Voir le reliquat ci-dessous |
+| R-2 | Fait | `LoggedBackgroundTasks` : code stable, type d'erreur seulement, aucun destinataire |
+| R-3 | Fait | Quotas par adresse et par IP, silencieux ; envoi détaché ; liens précédents invalidés ; test avec un fournisseur de 2 s |
+| R-4 | Fait | `useTotpStep` conditionnel ; `updateAccount` ne peut plus faire reculer le pas. Bonne prise en compte d'un effet de bord que je n'avais pas signalé |
+| R-5 | Fait | Clé /64 en IPv6 |
+| R-6 | Fait | QR code SVG calculé dans le navigateur |
 
 **Reliquat de R-1, à traiter en tête du L2 (petit)** : les compteurs sont oubliés après 1 h sans échec. Un attaquant patient peut donc faire 9 essais, attendre une heure, puis recommencer : il ne déclenche **jamais** l'alarme du 10e échec (environ 170 essais par jour, sans e-mail). Le risque par jour est faible, mais le but de R-1 était aussi de **prévenir** le titulaire.
 **À faire** : garder les compteurs `mfa-account:` pendant **24 h** (l'alarme part au 10e échec sur 24 h glissantes). Test : 9 échecs, 2 h d'attente, 1 échec → l'alarme part. Le redémarrage du serveur remet les compteurs à zéro : c'est accepté au J1, et l'audit `identity.tutor-login failed` reste la trace durable.

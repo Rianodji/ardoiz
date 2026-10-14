@@ -18,7 +18,7 @@ Tu travailles avec trois exigences, par ordre de priorité :
 
 Ardoiz est une plateforme web de **tutorat à distance**. Un **tuteur** publie un programme (cours en contenu riche), le **déverrouille** progressivement pour ses **élèves** (mineurs, ≈ 12 ans), **planifie** des séances de visio (lien externe Jitsi/Meet/Zoom), crée des **épreuves** (QCM, réponse numérique avec unité, réponse courte, devoir sur **cahier virtuel** de type tableau) et les **corrige**. Les **parents** suivent la progression de leurs enfants (notes et compétences) en lecture seule et peuvent envoyer des **suggestions**. Une **gamification éthique** (XP, niveaux, badges, séries hebdomadaires, sans classement) motive les élèves.
 
-Adresse : **https://ardoiz.teamnoble.fr** (serveur Hetzner partagé avec les autres projets du porteur). Premier usage réel : les neveux du porteur, en mathématiques (arithmétique, géométrie, grandeurs et mesures) et en initiation à l'informatique. Ouverture prévue plus tard à d'autres familles et d'autres tuteurs.
+Adresse : **https://ardoiz.teamnoble.fr** (serveur Hetzner partagé avec les autres projets du porteur). Premier usage réel : des collégiens de l'entourage du porteur, en mathématiques (arithmétique, géométrie, grandeurs et mesures) et en initiation à l'informatique. Ouverture prévue plus tard à d'autres familles et d'autres tuteurs.
 
 ## 2. Lis ces documents avant d'écrire une ligne de code (dans cet ordre)
 
@@ -41,14 +41,14 @@ Adresse : **https://ardoiz.teamnoble.fr** (serveur Hetzner partagé avec les aut
 
 **En cas de conflit** : verdict du lead le plus récent > ADR > catalogue des règles > jalons > big picture > ce prompt. Signale tout conflit dans ton rapport de lot.
 
-**Référence de style** : le livre du porteur, *Manuel de l'architecte* (`/home/rianodji-dicard/Documents/security_by_design/livre/chapitres/`), et son code compagnon testé (`/home/rianodji-dicard/Documents/security_by_design/livre/code/`). Ce code montre les patterns attendus : identifiants typés, Value Objects, agrégats, politiques `allow/deny/hide`, cas d'usage, outbox/inbox, RLS avec `set_config`, durcissement Fastify, RFC 9457, `Secret`/`loadConfig`, redaction des logs, CI épinglée par SHA. **Inspire-toi de ces patterns et adapte-les ; ne copie pas le domaine OptiPass.** Si ce chemin n'est pas accessible, les documents de `docs/` suffisent.
+**Référence de style** : le livre du porteur, *Manuel de l'architecte* (`~/Documents/security_by_design/livre/chapitres/`), et son code compagnon testé (`~/Documents/security_by_design/livre/code/`). Ce code montre les patterns attendus : identifiants typés, Value Objects, agrégats, politiques `allow/deny/hide`, cas d'usage, outbox/inbox, RLS avec `set_config`, durcissement Fastify, RFC 9457, `Secret`/`loadConfig`, redaction des logs, CI épinglée par SHA. **Inspire-toi de ces patterns et adapte-les ; ne copie pas le domaine OptiPass.** Si ce chemin n'est pas accessible, les documents de `docs/` suffisent.
 
 ## 3. Règles non négociables
 
 ### Sécurité
 1. **Refus par défaut** : une action non explicitement autorisée par une politique est refusée. Toute erreur de vérification vaut refus (ADR-0010).
 2. **L'acteur vient de la session**, jamais du corps de la requête, des paramètres ou du front.
-3. **Une ressource non autorisée répond 404**, comme une ressource inexistante (sauf quand la matrice indique 🚫/403).
+3. **Une ressource non autorisée répond 404**, comme une ressource inexistante (sauf quand la matrice indique 403).
 4. **Toute donnée métier porte `tutor_space_id`** et passe par `withTenantTransaction` ; la RLS est forcée (ADR-0002).
 5. **Toute entrée est validée** par un schéma TypeBox strict (`additionalProperties: false`) à la frontière HTTP, **puis** par les Value Objects du domaine.
 6. **Pas de HTML utilisateur rendu tel quel**, pas de `dangerouslySetInnerHTML` sauf dans l'unique composant de rendu KaTeX (ADR-0005).
@@ -89,7 +89,7 @@ Utilise les **dernières versions stables** au moment de l'installation et véri
 
 ## 6. Ce que tu ne fais jamais
 
-- Commencer le lot suivant sans verdict ✅ ou 🔁 du lead.
+- Commencer le lot suivant sans verdict « accepté » ou « accepté avec réserves » du lead.
 - Implémenter quelque chose de listé **hors périmètre** dans `cadrage.md` §3 (chat, paiement, classement, visio intégrée, téléchargement de PDF…), même si « ce serait facile ».
 - Modifier le dépôt `teamnoble-infra`, te connecter au VPS ou pousser une image en production. Tout besoin côté serveur s'exprime dans `HANDOFF_INFRA.md` (section « Session développement ») ; la session infra y répond et exécute.
 - Réécrire les textes de `docs/juridique/` : si un texte ne correspond plus au comportement de l'application, signale-le au lead.

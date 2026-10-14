@@ -5,7 +5,7 @@
 | **Relu par** | Lead (architecte, product owner, security engineer) |
 | **Date** | 2026-10-13 |
 | **Branche relue** | `lot/06-progression` @ `9a06389` (PR #9) |
-| **Verdict** | ✅ **Accepté** |
+| **Verdict** | **Accepté** |
 
 La PR #9 peut être fusionnée. Les suites du §3 se traitent **en tête du lot L7**, avant tout déploiement en production.
 
@@ -13,12 +13,12 @@ La PR #9 peut être fusionnée. Les suites du §3 se traitent **en tête du lot 
 
 | Vérification | Résultat |
 |---|---|
-| `npm run lint`, `npm run typecheck`, `npm test` | ✅ 486 tests verts |
-| `npm run test:integration` (Postgres 16.14 réel) | ✅ 427 tests verts |
-| `npm run depcruise`, `npm audit --audit-level=high` | ✅ 0 violation, 0 vulnérabilité |
-| CI GitHub de la PR #9 (avec E2E, gitleaks, audit) | ✅ verte |
-| Historique : signatures, `HANDOFF_INFRA.md`, stash | ✅ rien |
-| Suite S-1 du L5 (lien de visio revalidé à la relecture) | ✅ traitée, avec son test SQL direct |
+| `npm run lint`, `npm run typecheck`, `npm test` | OK, 486 tests verts |
+| `npm run test:integration` (Postgres 16.14 réel) | OK, 427 tests verts |
+| `npm run depcruise`, `npm audit --audit-level=high` | OK, 0 violation, 0 vulnérabilité |
+| CI GitHub de la PR #9 (avec E2E, gitleaks, audit) | OK, verte |
+| Historique : signatures, `HANDOFF_INFRA.md`, stash | OK, rien |
+| Suite S-1 du L5 (lien de visio revalidé à la relecture) | OK, traitée, avec son test SQL direct |
 | Lecture : migrations 008 à 010, `OutboxRelay`, `readEvent`, consommateurs de `progress`, `ProgressProjector`, domaine (`mastery`, `streak`, `experience`, `badges`), `ProgressService` et ses politiques, `SuggestionService`, `AlertMailSubscriber`, chemins d'alerte d'`AuthService`, route `assignmentsOf` | voir §2 et §3 |
 | **Essai à part** : niveaux calculés pour une seule copie de 4 questions sur la même compétence | deux anomalies de règle (§3, S-2) |
 
@@ -36,7 +36,7 @@ La PR #9 peut être fusionnée. Les suites du §3 se traitent **en tête du lot 
 
 ## 3. Suites à traiter en tête du lot L7
 
-### S-1 · 🟡 Les alertes de sécurité ne sont pas écrites dans la transaction de la connexion (R12, M8)
+### S-1 · Important · Les alertes de sécurité ne sont pas écrites dans la transaction de la connexion (R12, M8)
 Le rapport dit que l'alerte est écrite « dans la transaction de la connexion ». Le code ne fait pas cela :
 - `verifyMfa` : la session est authentifiée dans une première transaction, puis `#requestAlert` ouvre **une seconde** transaction. Si la seconde échoue, la connexion est faite et l'alerte n'existe pas ;
 - `#raiseMfaAlarm` : la révocation des sessions et l'audit sont dans une transaction, l'alerte dans une autre ;
@@ -45,7 +45,7 @@ Le rapport dit que l'alerte est écrite « dans la transaction de la connexion �
 Le risque est faible : il faut une panne de la base entre deux transactions. Mais c'est exactement le cas que R-2 du L1 voulait fermer : « pas d'alerte, pas de connexion ».
 **À faire** : écrire l'événement `identity.alert-requested` avec `store.publish` **dans le même `inSpace`** que l'ouverture ou l'élévation de la session (et que la révocation, pour l'alarme). Supprimer le dernier `background.run` d'alerte. Test d'intégration : une panne injectée sur l'écriture de l'outbox fait échouer la connexion, et aucune session authentifiée ne subsiste. Corriger la phrase du rapport.
 
-### S-2 · 🟡 Le niveau d'une compétence évolue au milieu d'une copie
+### S-2 · Important · Le niveau d'une compétence évolue au milieu d'une copie
 `levelHistory` calcule un niveau **après chaque question**, alors que toutes les preuves d'une copie arrivent ensemble. J'ai fait l'essai sur une seule copie de 4 questions liées à la même compétence :
 - **1 bonne réponse, puis 3 fausses** : le niveau affiché est « non acquis » (25 %), mais l'historique passe par « acquis » après la première question. L'élève reçoit **+30 points « compétence acquise »** pour une compétence qu'il voit « non acquise » ;
 - **1 fausse, puis 3 bonnes** : le badge **Persévérant** est donné sur une seule copie. Il doit récompenser une progression **dans le temps**.
@@ -53,14 +53,14 @@ Le risque est faible : il faut une panne de la base entre deux transactions. Mai
 L'ordre des questions décide donc du résultat. La règle était imprécise : je l'ai complétée dans `big-picture.md` §8 (« Évolution d'un niveau »). Le niveau ne change qu'à la publication d'une copie ou à une rectification, et les preuves d'une même copie entrent ensemble dans le calcul.
 **À faire** : `levelHistory` regroupe les preuves par copie (même `attemptId`, même instant) et donne un niveau par copie. Les tests unitaires reprennent mes deux cas : ni XP « compétence acquise » ni badge sur une seule copie. Un cas sur deux copies (« non acquis », puis « acquis ») donne bien le badge.
 
-### S-3 · 🟢 Points de « copie rendue à temps » une fois par attribution
+### S-3 · Mineur · Points de « copie rendue à temps » une fois par attribution
 Les 20 points sont accordés **par tentative**. Avec plusieurs tentatives, un élève gagne 20 points par copie vide rendue. Ce n'est pas une faille, mais la gamification ne doit pas récompenser une copie vide.
 **Décision du PO** (reportée au §8) : une fois par **attribution**. La source de l'XP devient `assignmentId`, qui est déjà dans l'événement. Test : 2 tentatives rendues à temps donnent 20 points.
 
-### S-4 · 🟢 La justification d'un ajustement est visible de l'enfant
+### S-4 · Mineur · La justification d'un ajustement est visible de l'enfant
 La justification est servie à l'élève et à ses parents : c'est voulu (transparence). Le formulaire du tuteur doit le dire : « Visible par l'élève et ses parents. » J'ai ajouté cette phrase au §8. Test de composant.
 
-### S-5 · 🟢 Le format des événements est désormais un contrat
+### S-5 · Mineur · Le format des événements est désormais un contrat
 Depuis ce lot, un consommateur lit les événements **strictement** : un champ ajouté par le producteur envoie l'événement en lettre morte. Et `rebuild-progress` **ignore en silence** un événement illisible : après une évolution de format, une reconstruction perdrait de l'historique sans rien dire.
 **À faire** :
 - dans l'ADR de l'outbox, une règle d'évolution : on ne modifie jamais en place le format d'un type d'événement en production. Soit le lecteur accepte le nouveau champ avant que le producteur l'écrive (deux déploiements), soit on crée un nouveau type versionné ;

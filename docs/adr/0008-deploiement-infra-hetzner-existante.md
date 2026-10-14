@@ -4,7 +4,7 @@
 Acceptée · cadrage du 2026-10-11 · **amendée le 2026-10-12** après les réponses de la session infra (`HANDOFF_INFRA.md`), validées par le porteur
 
 ## Contexte
-Domaine : `teamnoble.fr` (wildcard DNS `*.teamnoble.fr`). Serveur Hetzner partagé (Ubuntu 26.04, 3,7 Gi de RAM dont environ 1,9 Gi disponible, disque occupé à 79 %, Falkenstein), géré par le dépôt `teamnoble-infra` : Traefik v3 (ACME, labels, `exposedbydefault=false`, **aucun en-tête de sécurité global**), Postgres 16.14 et Redis sur le réseau `infra` non routé, Loki/Prometheus/Grafana/Alloy, sauvegardes `postgres-backup`. Les autres projets sont déployés par GitHub Actions, **sur tag**, depuis **Docker Hub**.
+Domaine : `teamnoble.fr` (wildcard DNS `*.teamnoble.fr`). Serveur Hetzner partagé (Union européenne, mémoire et disque limités), géré par le dépôt `teamnoble-infra` : Traefik v3 (ACME, labels, `exposedbydefault=false`, **aucun en-tête de sécurité global**), Postgres 16.14 et Redis sur le réseau `infra` non routé, Loki/Prometheus/Grafana/Alloy, sauvegardes `postgres-backup`. Les autres projets sont déployés par GitHub Actions, **sur tag**, depuis **Docker Hub**.
 
 ## Décision
 - **Prod seule, pas de staging** (décision du porteur : mémoire limitée). Après chaque déploiement, un **test de fumée** interroge `https://ardoiz.teamnoble.fr/healthz` puis `/readyz` (échec = job rouge). Le **retour arrière** redéploie le tag précédent (`workflow_dispatch` avec un champ `tag`).
@@ -20,7 +20,7 @@ Domaine : `teamnoble.fr` (wildcard DNS `*.teamnoble.fr`). Serveur Hetzner partag
   - job `deploy` derrière l'environnement GitHub `production` avec **approbation du porteur** : génération du `.env` par SSH (`chmod 600`), `docker compose pull` avec **reprise (5 × 10 s)** pour absorber le délai de propagation de Docker Hub au premier push, migrations dans un conteneur éphémère, `docker compose up -d`, test de fumée.
   - Répertoire sur le serveur : `~/ardoiz/`.
 - **Secrets** : secrets de l'environnement `production` du dépôt `Rianodji/ardoiz`, posés par la session infra (sauf `DEPLOY_SSH_KEY`, posé par la session de développement). La liste est dans `HANDOFF_INFRA.md`, Q10. `TOTP_ENCRYPTION_KEY` a une copie de secours hors du serveur.
-- **Proxys de confiance** : `TRUSTED_PROXIES=172.19.0.0/16` (réseau `web`), en variable GitHub. Risque accepté : un autre conteneur du réseau `web` pourrait forger `X-Forwarded-For`.
+- **Proxys de confiance** : `TRUSTED_PROXIES` = sous-réseau du réseau `web`, en variable GitHub. Risque accepté : un autre conteneur du réseau `web` pourrait forger `X-Forwarded-For`.
 - **Observabilité** : logs JSON sur stdout, découverts par Alloy (rétention Loki de 7 jours) ; `/healthz` et `/readyz`.
 - **Sauvegardes** : dump quotidien de la base par `postgres-backup` et sauvegarde du volume nommé `ardoiz_files`, avec une rétention de 7 jours, 4 semaines et 6 mois. **Elles sont sur le même disque que les données** : voir le risque ouvert Q8.
 

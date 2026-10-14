@@ -23,25 +23,25 @@ En tête de lot, le reliquat de la réserve R-1 du lot 01 est traité (§9).
 
 | Critère (copié de `plan/jalons.md`) | Statut | Preuve |
 |---|---|---|
-| Gherkin `features/deverrouillage.feature` vert | ✅ | `apps/api/test/integration/deverrouillage.int.test.ts` : les 4 scénarios, contre le vrai serveur et une vraie base (cours ET image vérifiés pour chaque élève) |
-| Archiver une compétence liée à une question la retire des choix sans effacer l'historique ; la supprimer est impossible (test) | ✅ | `curriculum.int.test.ts` › « archiver une compétence la retire des choix sans effacer l'historique », « supprimer une compétence est impossible : ni route, ni privilège, et même le propriétaire est refusé », « le code d'une compétence ne peut pas être modifié par le rôle d'exécution ». Les questions arrivent au L3 : le trigger `competencies_never_deleted` refuse toute suppression, liée ou non (§5) |
-| Un corpus d'au moins 30 charges XSS (balises, `javascript:`, `data:`, attributs `on*`, LaTeX `\href`/`\url`/`\htmlClass`, identifiants vidéo forgés) est refusé par le validateur ou rendu inoffensif (R4) | ✅ | `packages/content-schema/test/xss.test.ts` : **46 charges**, toutes refusées avec un code précis ; le texte contenant du HTML est accepté comme texte et rendu inoffensif (`apps/web/test/lessonView.test.tsx`) ; le HTML collé dans l'éditeur est réduit au schéma (`editor.test.ts`) ; refus aussi par HTTP (`curriculum.int.test.ts`) |
-| Une image avec données EXIF GPS ressort sans métadonnées ; un SVG et un polyglotte sont refusés ; une image de 50 mégapixels est refusée (R14) | ✅ | `curriculum.int.test.ts` › « une photo avec des coordonnées GPS ressort réencodée en WebP, sans aucune métadonnée », « refuse un SVG, même renommé », « refuse un polyglotte : signature d'image suivie de HTML », « rend inoffensive une image valide suivie d'un script », « refuse une image de 50 mégapixels avant de la décoder », « refuse un fichier de plus de 10 Mo » |
-| Le média d'un cours non déverrouillé répond 404 à l'élève (R3) | ✅ | Gherkin « Un cours publié mais verrouillé est invisible » ; `curriculum.int.test.ts` › « le média d'un cours non déverrouillé répond 404 à l'élève » ; matrice « Lire un média » |
-| La vidéo ne charge aucune ressource YouTube avant le clic (vérifié dans un test E2E ou de composant) (R13) | ✅ | `apps/web/test/lessonView.test.tsx` › « n'insère aucun iframe ni aucune ressource YouTube avant le clic ; après, le lecteur nocookie sans suggestions (R13) » (test de composant) |
+| Gherkin `features/deverrouillage.feature` vert | Fait | `apps/api/test/integration/deverrouillage.int.test.ts` : les 4 scénarios, contre le vrai serveur et une vraie base (cours ET image vérifiés pour chaque élève) |
+| Archiver une compétence liée à une question la retire des choix sans effacer l'historique ; la supprimer est impossible (test) | Fait | `curriculum.int.test.ts` › « archiver une compétence la retire des choix sans effacer l'historique », « supprimer une compétence est impossible : ni route, ni privilège, et même le propriétaire est refusé », « le code d'une compétence ne peut pas être modifié par le rôle d'exécution ». Les questions arrivent au L3 : le trigger `competencies_never_deleted` refuse toute suppression, liée ou non (§5) |
+| Un corpus d'au moins 30 charges XSS (balises, `javascript:`, `data:`, attributs `on*`, LaTeX `\href`/`\url`/`\htmlClass`, identifiants vidéo forgés) est refusé par le validateur ou rendu inoffensif (R4) | Fait | `packages/content-schema/test/xss.test.ts` : **46 charges**, toutes refusées avec un code précis ; le texte contenant du HTML est accepté comme texte et rendu inoffensif (`apps/web/test/lessonView.test.tsx`) ; le HTML collé dans l'éditeur est réduit au schéma (`editor.test.ts`) ; refus aussi par HTTP (`curriculum.int.test.ts`) |
+| Une image avec données EXIF GPS ressort sans métadonnées ; un SVG et un polyglotte sont refusés ; une image de 50 mégapixels est refusée (R14) | Fait | `curriculum.int.test.ts` › « une photo avec des coordonnées GPS ressort réencodée en WebP, sans aucune métadonnée », « refuse un SVG, même renommé », « refuse un polyglotte : signature d'image suivie de HTML », « rend inoffensive une image valide suivie d'un script », « refuse une image de 50 mégapixels avant de la décoder », « refuse un fichier de plus de 10 Mo » |
+| Le média d'un cours non déverrouillé répond 404 à l'élève (R3) | Fait | Gherkin « Un cours publié mais verrouillé est invisible » ; `curriculum.int.test.ts` › « le média d'un cours non déverrouillé répond 404 à l'élève » ; matrice « Lire un média » |
+| La vidéo ne charge aucune ressource YouTube avant le clic (vérifié dans un test E2E ou de composant) (R13) | Fait | `apps/web/test/lessonView.test.tsx` › « n'insère aucun iframe ni aucune ressource YouTube avant le clic ; après, le lecteur nocookie sans suggestions (R13) » (test de composant) |
 
 ## 3. Règles de sécurité traitées
 
 | Règle | Gardien dans le code | Test | État |
 |---|---|---|---|
-| R2 | `curriculum/application/policies.ts` (`canAuthor`, `canReadLesson`, `canViewLearnerProgramme`, `canCompleteLesson`) ; `support.ts › authorize` | `curriculumRightsMatrix.int.test.ts` : 5 lignes × 7 profils, 35 cellules, audit de chaque refus | 🛠️ identity + curriculum ✅ |
-| R3 | `domain/access.ts › learnerCanAccessLesson` ; `LearningService.readLesson, readMedia, completeLesson` ; `ProgrammeService.saveContent` (un contenu ne cite que les médias de son cours) | Gherkin ; `domain.test.ts` (R3, 5 cas) ; matrice ; `curriculum.int.test.ts` | ✅ |
-| R4 | `content-schema/src/validate.ts` (liste blanche, refus sans nettoyage, sortie reconstruite) ; `math.ts › checkLatex` ; `LessonContentView.tsx` ; `MathFormula.tsx` (seule exception) ; contenu relu en base revalidé (`PgCurriculumStore › storedContent`) et côté front (`api/curriculum.ts › fetchLesson`) | `xss.test.ts` (46) ; `validate.test.ts` ; `lessonView.test.tsx` ; `editor.test.ts` | ✅ |
-| R10 | `003_programme.sql` : 10 tables, RLS forcée, clés étrangères composites ; un groupe ou un déverrouillage ne peut viser qu'un élève de son espace (clé vers `identity.accounts`) | Garde-fous de schéma (toutes les tables) ; « un groupe ne peut contenir qu'un élève de l'espace » ; cellules « tuteur d'un autre espace » | 🛠️ |
-| R12 | Audit des déverrouillages et reverrouillages, des modifications du référentiel, des publications, des cours terminés et de chaque refus | « reverrouiller retire l'accès immédiatement ; le (dé)verrouillage est audité » ; matrice | 🛠️ |
-| R13 | `YouTubeEmbed.tsx` ; `content-schema/src/youtube.ts` (identifiant seul, lecteur `youtube-nocookie.com`, `rel=0`) | `lessonView.test.tsx` (R13) ; `validate.test.ts` (extraction d'identifiant) | ✅ |
-| R14 | `SharpImageIngestion.ts` ; `LocalFileStorage.ts` ; `/api/media/:id` (type fixé, `nosniff`, `inline`, nom généré, droits du cours) | `curriculum.int.test.ts` (7 tests R14) | 🛠️ L2 ✅ ; cahier L4 |
-| R15 | Contenu ≤ 1 Mio (limite globale), image ≤ 10 Mo (route dédiée), document ≤ 5 000 nœuds et 12 niveaux | « refuse un corps de plus de 1 Mio (R15) » ; `validate.test.ts` (bornes) | 🛠️ |
+| R2 | `curriculum/application/policies.ts` (`canAuthor`, `canReadLesson`, `canViewLearnerProgramme`, `canCompleteLesson`) ; `support.ts › authorize` | `curriculumRightsMatrix.int.test.ts` : 5 lignes × 7 profils, 35 cellules, audit de chaque refus | en cours : identity + curriculum fait |
+| R3 | `domain/access.ts › learnerCanAccessLesson` ; `LearningService.readLesson, readMedia, completeLesson` ; `ProgrammeService.saveContent` (un contenu ne cite que les médias de son cours) | Gherkin ; `domain.test.ts` (R3, 5 cas) ; matrice ; `curriculum.int.test.ts` | Fait |
+| R4 | `content-schema/src/validate.ts` (liste blanche, refus sans nettoyage, sortie reconstruite) ; `math.ts › checkLatex` ; `LessonContentView.tsx` ; `MathFormula.tsx` (seule exception) ; contenu relu en base revalidé (`PgCurriculumStore › storedContent`) et côté front (`api/curriculum.ts › fetchLesson`) | `xss.test.ts` (46) ; `validate.test.ts` ; `lessonView.test.tsx` ; `editor.test.ts` | Fait |
+| R10 | `003_programme.sql` : 10 tables, RLS forcée, clés étrangères composites ; un groupe ou un déverrouillage ne peut viser qu'un élève de son espace (clé vers `identity.accounts`) | Garde-fous de schéma (toutes les tables) ; « un groupe ne peut contenir qu'un élève de l'espace » ; cellules « tuteur d'un autre espace » | en cours : |
+| R12 | Audit des déverrouillages et reverrouillages, des modifications du référentiel, des publications, des cours terminés et de chaque refus | « reverrouiller retire l'accès immédiatement ; le (dé)verrouillage est audité » ; matrice | en cours : |
+| R13 | `YouTubeEmbed.tsx` ; `content-schema/src/youtube.ts` (identifiant seul, lecteur `youtube-nocookie.com`, `rel=0`) | `lessonView.test.tsx` (R13) ; `validate.test.ts` (extraction d'identifiant) | Fait |
+| R14 | `SharpImageIngestion.ts` ; `LocalFileStorage.ts` ; `/api/media/:id` (type fixé, `nosniff`, `inline`, nom généré, droits du cours) | `curriculum.int.test.ts` (7 tests R14) | en cours : L2 fait ; cahier L4 |
+| R15 | Contenu ≤ 1 Mio (limite globale), image ≤ 10 Mo (route dédiée), document ≤ 5 000 nœuds et 12 niveaux | « refuse un corps de plus de 1 Mio (R15) » ; `validate.test.ts` (bornes) | en cours : |
 
 ## 4. Sortie des vérifications
 
@@ -60,7 +60,7 @@ CI GitHub (PR #5)        → 3 jobs verts sur 1871b81
 
 **Parcours manuel sur la pile de développement** (Postgres 16.14, API derrière Vite ; script hors dépôt) :
 
-- migration 003 appliquée ; `npm run ardoiz -- seed-referential --space-code dicard` charge 33 compétences ;
+- migration 003 appliquée ; `npm run ardoiz -- seed-referential --space-code <code-espace>` charge 33 compétences ;
 - le tuteur se connecte (code de secours), crée un module et un cours, importe une image (201, WebP) ; un SVG est refusé (415), un contenu hostile aussi (422) ;
 - il enregistre le contenu (formule, image, vidéo) et publie ;
 - Lina reçoit 404 sur le cours et sur l'image tant qu'ils sont verrouillés, puis 200 après le déverrouillage ; l'image est servie en `image/webp`, `inline`, `nosniff` ;
@@ -84,7 +84,7 @@ CI GitHub (PR #5)        → 3 jobs verts sur 1871b81
 - **Seed du référentiel** : lu dans le document validé (`##` matière, `###` domaine, lignes `| CODE | libellé |`). Il est idempotent et ne modifie jamais une compétence existante, que le tuteur a pu renommer ou archiver. `init-space` le charge, `seed-referential` le recharge.
 - **Code d'une compétence** : préfixe du domaine et numéro suivant, archivées comprises ; un code n'est jamais réutilisé.
 - **Accès d'un parent à un cours** : autorisé si le cours est déverrouillé pour **un** de ses enfants (matrice).
-- **Tuteur d'un autre espace** : 👻 partout ; les faits d'accès sont lus sous RLS, donc un cours d'un autre espace « n'existe pas ».
+- **Tuteur d'un autre espace** : 404 partout ; les faits d'accès sont lus sous RLS, donc un cours d'un autre espace « n'existe pas ».
 - **`MEDIA_DIR`** : obligatoire en production (volume `ardoiz_files` monté sur `/data/files`, ADR-0008) ; `var/media` en développement, ignoré par Git.
 - **Dépendances ajoutées** :
   - `katex` (MIT), dans `content-schema` ;

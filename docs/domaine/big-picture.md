@@ -1,7 +1,7 @@
 # Event Storming — Big Picture et Design Level
 
 > **Phase 1 · Livrable** · Événements métier, commandes, acteurs, politiques et hotspots, par contexte.
-> Convention : 🟧 événement (passé), 🟦 commande, 🟨 acteur, 🟪 politique (« quand… alors… »), 🟥 hotspot.
+> Convention : chaque tableau se lit de gauche à droite : l'acteur, la commande qu'il donne, l'événement qui en résulte (au passé), puis les règles. Une règle de la forme « Quand… → … » est une politique ; les points de friction sont listés au §9.
 
 ## 1. Le récit en une ligne
 
@@ -9,7 +9,7 @@ Le tuteur **invite** une famille → le parent **consent** et **crée le compte*
 
 ## 2. Identité & Famille
 
-| 🟨 Acteur | 🟦 Commande | 🟧 Événement | Règles |
+| Acteur | Commande | Événement | Règles |
 |---|---|---|---|
 | Système (CLI d'installation) | Initialiser l'espace tuteur | EspaceTuteurCréé, TuteurInscrit | Une seule fois par espace ; 2FA obligatoire avant la première action (R7) |
 | Tuteur | Inviter un parent | InvitationParentÉmise | Jeton à usage unique, 72 h, stocké haché (R1) |
@@ -18,11 +18,11 @@ Le tuteur **invite** une famille → le parent **consent** et **crée le compte*
 | Parent | Inviter un second parent pour un enfant | InvitationCoParentÉmise → LienParentalÉtabli | Uniquement pour **ses** enfants ; le tuteur voit le lien (R1) |
 | Parent | Réinitialiser le mot de passe de son enfant | MotDePasseÉlèveRéinitialisé | Les sessions de l'élève sont révoquées |
 | Tous | Se connecter / se déconnecter | SessionOuverte, ConnexionRefusée, SessionFermée | Limitation de débit, message d'erreur générique (R8) |
-| Parent | Retirer son consentement | ConsentementRetiré | 🟪 Quand le consentement est retiré → compte élève désactivé, suppression planifiée |
+| Parent | Retirer son consentement | ConsentementRetiré | Quand le consentement est retiré → compte élève désactivé, suppression planifiée |
 
 ## 3. Programme
 
-| 🟨 | 🟦 | 🟧 | Règles |
+| Acteur | Commande | Événement | Règles |
 |---|---|---|---|
 | Tuteur | Créer une matière, un module, un cours | MatièreCréée, ModuleCréé, CoursRédigé | Contenu riche dans un **schéma fermé** (R4) |
 | Tuteur | Définir une compétence du référentiel | CompétenceDéfinie | Rattachée à une matière |
@@ -30,21 +30,21 @@ Le tuteur **invite** une famille → le parent **consent** et **crée le compte*
 | Tuteur | Créer un groupe, y ajouter des élèves | GroupeCréé, ÉlèveAjoutéAuGroupe | |
 | Tuteur | Déverrouiller un module ou un cours pour un élève ou un groupe | ContenuDéverrouillé | Refus par défaut (R3) |
 | Tuteur | Reverrouiller | ContenuReverrouillé | |
-| Élève | Ouvrir un cours / le marquer comme terminé | CoursConsulté, CoursTerminé | 🟪 Quand un cours est terminé → points d'expérience |
+| Élève | Ouvrir un cours / le marquer comme terminé | CoursConsulté, CoursTerminé | Quand un cours est terminé → points d'expérience |
 
 ## 4. Planification
 
-| 🟨 | 🟦 | 🟧 | Règles |
+| Acteur | Commande | Événement | Règles |
 |---|---|---|---|
 | Tuteur | Planifier une séance (ponctuelle ou hebdomadaire) | SéancePlanifiée | Heure stockée en UTC, affichée en Europe/Paris ; lien visio sur liste d'hôtes autorisés (R9) |
 | Tuteur | Inscrire des élèves ou un groupe | ParticipantsInscrits | |
 | Tuteur | Déplacer / annuler une séance | SéanceDéplacée, SéanceAnnulée | |
 | Élève, parent | Consulter l'agenda | — | Le lien n'est révélé qu'aux participants, de 15 min avant le début jusqu'à la fin (R9) |
-| Élève | Rejoindre la séance | SéanceRejointe | 🟪 Quand la séance est rejointe → présence notée (série hebdomadaire) |
+| Élève | Rejoindre la séance | SéanceRejointe | Quand la séance est rejointe → présence notée (série hebdomadaire) |
 
 ## 5. Évaluation
 
-| 🟨 | 🟦 | 🟧 | Règles |
+| Acteur | Commande | Événement | Règles |
 |---|---|---|---|
 | Tuteur | Créer une épreuve (questions, barème, compétences évaluées) | ÉpreuveCréée | Chaque question est liée à au moins une compétence |
 | Tuteur | Attribuer une épreuve (élèves/groupe, ouverture, échéance, tentatives) | ÉpreuveAttribuée | |
@@ -53,12 +53,12 @@ Le tuteur **invite** une famille → le parent **consent** et **crée le compte*
 | Élève | Rendre sa copie | CopieRendue | Copie **figée** et empreinte calculée (R6) ; après l'échéance → refusée, sauf si le tuteur autorise le retard |
 | Système | Corriger automatiquement (QCM, numérique) | CorrectionAutomatiqueEffectuée | **Côté serveur uniquement** ; les réponses attendues ne sont jamais envoyées avant la publication (R5) |
 | Tuteur | Corriger une question, annoter le cahier | QuestionCorrigée, CopieAnnotée | Annotations sur un **calque séparé**, la copie reste intacte (R6) |
-| Tuteur | Publier la correction | CorrectionPubliée | 🟪 Quand une correction est publiée → progression recalculée, points d'expérience, badges |
+| Tuteur | Publier la correction | CorrectionPubliée | Quand une correction est publiée → progression recalculée, points d'expérience, badges |
 | Tuteur | Modifier une note publiée | NoteRectifiée | Motif obligatoire, historisée et auditée (R6, R12) |
 
 ## 6. Progression & Récompenses
 
-| 🟨 | 🟦 | 🟧 | Règles |
+| Acteur | Commande | Événement | Règles |
 |---|---|---|---|
 | Système | Recalculer les niveaux de compétence | NiveauDeCompétenceÉvalué | Règle de calcul en §8 |
 | Tuteur | Ajuster un niveau de compétence | NiveauDeCompétenceAjusté | Justification obligatoire, auditée |
@@ -67,7 +67,7 @@ Le tuteur **invite** une famille → le parent **consent** et **crée le compte*
 
 ## 7. Retours
 
-| 🟨 | 🟦 | 🟧 | Règles |
+| Acteur | Commande | Événement | Règles |
 |---|---|---|---|
 | Parent | Envoyer une suggestion (catégorie, texte ≤ 2000 caractères) | SuggestionEnvoyée | Texte brut, débit limité (R15) |
 | Tuteur | Marquer lue / traitée, répondre brièvement | SuggestionTraitée | Le parent voit le statut et la réponse |
@@ -110,7 +110,7 @@ Le tuteur peut ajuster un niveau avec une justification ; l'ajustement prime jus
 - **Série hebdomadaire** : une semaine compte si l'élève a terminé au moins un cours, rendu une copie ou participé à une séance. Une semaine sans activité **met la série en pause, sans la remettre à zéro**, une fois par mois.
 - Badges du J1 : *Premier pas* (première copie rendue), *Géomètre* (5 compétences de géométrie acquises), *Maître des unités* (10 conversions réussies d'affilée), *Assidu* (série de 4 semaines), *Persévérant* (une compétence passée de non acquis à acquis).
 
-## 9. Hotspots 🟥
+## 9. Hotspots
 
 | ID | Question | Décision |
 |---|---|---|
