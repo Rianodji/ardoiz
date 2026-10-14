@@ -8,8 +8,9 @@
 | Jalon | Objectif | Lots |
 |---|---|---|
 | **J1 — MVP** | Les premiers élèves suivent cours, séances et devoirs (y compris le cahier virtuel) ; les parents suivent ; c'est en production | L0 → L7 |
-| **J2 — Confort** | Import de fichiers (HTML, Markdown, DOCX convertis ; PDF en aperçu intégré), outils de géométrie (règle, rapporteur, compas), notifications e-mail, rectifications avancées | L8 → L10 |
-| **J3 — Ouverture** | Initiation informatique par blocs (Blockly), droits RGPD en libre-service (export, suppression), purge automatique, PWA, préparation multi-tuteurs | L11 → L13 |
+| **J1.1 — Refonte graphique** | Nouvelle charte, écrans refaits d'après les maquettes validées, corrections d'ergonomie relevées en production | L8 |
+| **J2 — Confort** | Import de fichiers (HTML, Markdown, DOCX convertis ; PDF en aperçu intégré), outils de géométrie (règle, rapporteur, compas), notifications e-mail, rectifications avancées | L9 → L11 |
+| **J3 — Ouverture** | Initiation informatique par blocs (Blockly), droits RGPD en libre-service (export, suppression), purge automatique, PWA, préparation multi-tuteurs | L12 → L14 |
 
 Le détail des lots J2 et J3 sera écrit par le lead après le J1. **Ne pas les commencer.**
 
@@ -173,3 +174,58 @@ Critères d'acceptation :
 - [ ] Les critères de succès du J1 (`cadrage.md` §6) sont démontrés en production.
 - [ ] La question Q8 (sauvegarde hors serveur) est tranchée par le porteur **avant** l'ouverture aux élèves.
 - [ ] Plus aucun `[[…]]` dans `docs/juridique/` (test bloquant avant le déploiement en prod).
+
+## L8 — Refonte graphique et ergonomie (version 1.1)
+
+**But** : appliquer la charte graphique validée à tous les écrans, sans changer aucune règle métier ni de sécurité, et corriger les défauts d'ergonomie relevés lors des premiers usages réels.
+
+**Références** :
+- [`docs/design/charte-graphique.md`](../design/charte-graphique.md) fait foi ;
+- [`docs/design/maquettes/`](../design/maquettes/) montre le résultat attendu, écran par écran ;
+- logo dans [`docs/design/logo/`](../design/logo/).
+
+Les maquettes contiennent des données inventées et des styles en ligne : elles ne se recopient pas, elles se traduisent en composants et en classes CSS.
+
+Livrables :
+- **Fondations** :
+  - jetons de couleur, typographie et espacements dans `:root` ;
+  - polices Lexend et Atkinson Hyperlegible auto-hébergées (WOFF2, sous-ensemble latin, licences OFL dans `THIRD-PARTY-NOTICES`) ;
+  - icônes Lucide importées une à une ;
+  - logo en favicon (SVG et PNG) et dans les en-têtes ;
+  - composants partagés : bouton, pastille d'état, carte, champ avec erreur, onglets, tableau, barre de progression.
+- **Connexion** : choix « Je suis élève » / « Je suis un adulte » en deux grandes cartes, bouton « Afficher » le mot de passe, panneau d'accueil avec le logo.
+- **Espace élève** :
+  - accueil (« À faire maintenant », prochaine séance, mes cours, mes progrès) ;
+  - lecture d'un cours (sommaire, colonne de lecture, « J'ai fini ce cours ») ;
+  - épreuve en mode focus (pastilles de questions, « Enregistré », « Arrêter et reprendre plus tard », confirmation avant de rendre) ;
+  - copie corrigée (note en tampon, « Réussie / À revoir », mot du tuteur, corrigé verrouillé expliqué) ;
+  - mes progrès (série en semaines, badges obtenus et à gagner, compétences avec les mots pour l'enfant) ;
+  - menu en bas de l'écran sur tablette en portrait.
+- **Espace parent** : suivi par enfant (onglets, quatre chiffres clés, graphique et son tableau, gestion du compte de l'enfant), suggestions (sujet en boutons, compteur de caractères, historique avec réponses).
+- **Espace tuteur** :
+  - menu latéral groupé et nouvel écran **« Aujourd'hui »** (copies à corriger, séance du jour, échéances, compteurs) ;
+  - Programme (onglets par matière, cours avec état et public, ajout de module en bas de liste) ;
+  - Compétences (recherche, filtres, actions en boutons icônes) ;
+  - Épreuves (liste et panneau d'attribution) ;
+  - Corrections (file et espace de correction côte à côte) ;
+  - Séances (semaine et formulaire compact) ;
+  - **Élèves et familles** (onglets Élèves, Groupes, Invitations ; l'adresse e-mail d'un parent n'est affichée que sur demande) ;
+  - Progression, Suggestions (filtres par état), Journal d'audit (libellés en français, filtres) ;
+  - Mon compte (appareils lisibles, sécurité).
+- **Corrections d'ergonomie relevées en production** :
+  1. **Après « Me déconnecter », la page de connexion affiche encore le menu du tuteur.** Diagnostiquer, corriger, et couvrir par un E2E : après la déconnexion, aucun lien du tuteur n'est visible, et une page protégée renvoie vers la connexion.
+  2. **Une épreuve « bientôt » n'affiche pas sa date d'ouverture** chez l'élève : afficher « S'ouvre le … ». Dans le formulaire d'attribution, l'ouverture vaut « Maintenant » par défaut.
+  3. **Journal d'audit** : chaque code d'action et chaque rôle a un libellé français, et un code sans libellé fait échouer un test (même principe que le test des gabarits d'e-mail).
+  4. **Mon compte** : l'agent utilisateur brut devient « Firefox sur Linux », lu côté client, sans dépendance d'exécution lourde.
+  5. **`HEAD /`** répond 404 alors que `GET /` répond 200 : servir la SPA aussi en `HEAD`.
+
+Critères d'acceptation :
+- [ ] Chaque écran listé correspond à sa maquette (structure, hiérarchie, couleurs, textes), captures jointes au rapport. Tout écart est justifié.
+- [ ] Aucune règle métier ni aucun contrat d'API ne change, sauf les cinq corrections listées. Toute la suite existante reste verte, la matrice des droits comprise.
+- [ ] L'E2E sous la CSP de production passe sur tous les écrans refaits, **sans aucune ouverture nouvelle de la CSP** (polices et icônes servies par Ardoiz).
+- [ ] Les exigences du §8 de la charte sont testées en E2E : contrastes, cibles de 48 ou 56 px, tabulation avec focus visible, aucune barre de défilement horizontale à 360 px.
+- [ ] Le budget du paquet principal ne grossit pas de plus de 30 ko compressés (mesure avant et après, dans le rapport).
+- [ ] Les cinq corrections d'ergonomie ont chacune leur test.
+- [ ] Les textes de l'interface suivent le §7 de la charte (tutoiement de l'élève, vouvoiement du parent, aucun jargon pour l'enfant).
+- [ ] Livraison en version `v1.1.0` : déploiement par le porteur (tag et approbation), test de fumée vert.
+

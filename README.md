@@ -31,6 +31,7 @@ Le cadrage, l'architecture, les règles de sécurité et les décisions produit 
 | Architecture et stack | [`docs/architecture/contextes.md`](docs/architecture/contextes.md), [`docs/adr/`](docs/adr/) |
 | Sécurité | [`docs/securite/registre-menaces.md`](docs/securite/registre-menaces.md), [`docs/securite/catalogue-des-regles.md`](docs/securite/catalogue-des-regles.md), [`docs/securite/matrice-des-droits.md`](docs/securite/matrice-des-droits.md) |
 | Plan de livraison | [`docs/plan/jalons.md`](docs/plan/jalons.md) |
+| Charte graphique, maquettes et logo | [`docs/design/`](docs/design/charte-graphique.md) |
 | Revue des lots | [`docs/revue/`](docs/revue/) |
 | Référentiel de compétences | [`docs/domaine/referentiel-competences.md`](docs/domaine/referentiel-competences.md) |
 | Textes juridiques | [`docs/juridique/`](docs/juridique/) |
@@ -54,6 +55,7 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | L5 | Planification | Accepté (PR #8) |
 | L6 | Progression, gamification, tableau de bord parent, suggestions | Accepté (PR #9) |
 | L7 | Mise en production | Accepté (PR #10, version 1.0.1 en production) |
+| L8 | Refonte graphique et ergonomie (version 1.1) | À faire |
 
 États : à faire · en cours · en revue · accepté.
 
