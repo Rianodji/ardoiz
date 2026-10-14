@@ -5,7 +5,7 @@
 | **Relu par** | Lead (architecte, product owner, security engineer) |
 | **Date** | 2026-10-12 |
 | **Branche relue** | `lot/02-programme` @ `f6d01a8` (PR #5) |
-| **Verdict** | ✅ **Accepté** |
+| **Verdict** | **Accepté** |
 
 La PR #5 peut être fusionnée dès maintenant. Les quatre suites du §3 ne bloquent pas : elles se traitent **en tête du lot L3**, chacune avec son test.
 
@@ -13,11 +13,11 @@ La PR #5 peut être fusionnée dès maintenant. Les quatre suites du §3 ne bloq
 
 | Vérification | Résultat |
 |---|---|
-| `npm run lint`, `npm run typecheck`, `npm test` | ✅ 243 tests verts |
-| `npm run test:integration` (Postgres 16.14 réel) | ✅ 185 tests verts |
-| `npm run depcruise`, `npm audit --audit-level=high` | ✅ 0 violation, 0 vulnérabilité |
-| CI GitHub de la PR #5 | ✅ verte sur les deux dernières exécutions |
-| Historique : signatures, `HANDOFF_INFRA.md`, stash | ✅ rien |
+| `npm run lint`, `npm run typecheck`, `npm test` | OK, 243 tests verts |
+| `npm run test:integration` (Postgres 16.14 réel) | OK, 185 tests verts |
+| `npm run depcruise`, `npm audit --audit-level=high` | OK, 0 violation, 0 vulnérabilité |
+| CI GitHub de la PR #5 | OK, verte sur les deux dernières exécutions |
+| Historique : signatures, `HANDOFF_INFRA.md`, stash | OK, rien |
 | Lecture : validateur du schéma (en entier), `math.ts`, `youtube.ts`, `MathFormula`, `YouTubeEmbed`, `SharpImageIngestion`, `LocalFileStorage`, route des médias, règle d'accès, migration 003 (privilèges, triggers), CSP | voir §2 et §3 |
 | **Essai à part** : rendu MathML de KaTeX sur des commandes qui posent des styles (`\color`, `\colorbox`, `\fcolorbox`, `\rule`, `\raisebox`, `\kern`) et sur des accents | une seule commande produit un attribut `style` : `\fcolorbox` (§3, S-1) |
 
@@ -35,19 +35,19 @@ La PR #5 peut être fusionnée dès maintenant. Les quatre suites du §3 ne bloq
 
 ## 3. Suites à traiter en tête du lot L3
 
-### S-1 · 🟡 `\fcolorbox` produit un attribut `style`
+### S-1 · Important · `\fcolorbox` produit un attribut `style`
 En MathML, KaTeX rend `\fcolorbox{red}{blue}{a}` avec `style="border: 0.04em solid red"`. La CSP le bloque : ce n'est donc pas une faille. Mais c'est un trou dans la garantie de l'ADR-0011 (« aucun style en ligne »), et la bordure ne s'afficherait pas.
 **À faire** : ajouter `fcolorbox` aux commandes refusées. Le test « aucun attribut `style` » doit rendre **chaque** formule acceptée des corpus (tests de validation et XSS), et non quelques exemples.
 
-### S-2 · 🟡 Accents en mode mathématique
+### S-2 · Important · Accents en mode mathématique
 Avec `strict: "error"`, une formule comme `aire = 3` écrite avec un « é » hors de `\text{…}` est refusée. La règle est bonne, mais le tuteur doit comprendre pourquoi.
 **À faire** : dans l'éditeur, pour `latex-invalid`, un message clair en français : « Les mots avec accents se mettent dans \text{…}, par exemple \text{mètre} ». Test de composant.
 
-### S-3 · 🟡 Mémoire pendant l'import d'images
+### S-3 · Important · Mémoire pendant l'import d'images
 Une image de 40 mégapixels décodée occupe environ 160 Mo. Le conteneur est limité à **512 Mo** sur un serveur de 4 Go partagé. Deux imports simultanés, plus le cache de libvips, peuvent provoquer un arrêt pour manque de mémoire. Le risque est faible, car seul le tuteur importe.
 **À faire** : `sharp.concurrency(1)`, `sharp.cache(false)` et **un seul import à la fois** (file d'attente en mémoire) ; un import en attente au-delà de 30 s répond 503 avec `Retry-After`. Test unitaire de la file.
 
-### S-4 · 🟢 Mention de la LGPL de libvips
+### S-4 · Mineur · Mention de la LGPL de libvips
 Q14 est acceptée (voir §4). L'obligation correspondante est ajoutée au L7 dans `jalons.md` : un fichier `THIRD-PARTY-NOTICES` dans l'image Docker publiée, avec le texte de la LGPL et l'adresse des sources de libvips. Rien à faire avant le L7.
 
 ## 4. Réponses aux questions du rapport

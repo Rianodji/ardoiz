@@ -12,12 +12,12 @@ Trois à cinq lignes : ce qui a été livré.
 ## 2. Critères d'acceptation
 | Critère (copié de `plan/jalons.md`) | Statut | Preuve (test, commande, capture) |
 |---|---|---|
-| ... | ✅ / ❌ | `apps/api/test/...` › `nom du test` |
+| ... | Fait / Non fait | `apps/api/test/...` › `nom du test` |
 
 ## 3. Règles de sécurité traitées
 | Règle | Gardien dans le code | Test | État |
 |---|---|---|---|
-| R… | `chemin › symbole` | `fichier › nom du test (R…)` | ✅ |
+| R… | `chemin › symbole` | `fichier › nom du test (R…)` | Fait |
 
 ## 4. Sortie des vérifications
 ```

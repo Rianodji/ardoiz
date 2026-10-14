@@ -5,7 +5,7 @@
 | **Relu par** | Lead (architecte, product owner, security engineer) |
 | **Date** | 2026-10-12 |
 | **Branche relue** | `lot/03-evaluation` @ `9ed4b64` (PR #6) |
-| **Verdict** | 🔁 **Accepté avec réserves** |
+| **Verdict** | **Accepté avec réserves** |
 
 La PR #6 sera fusionnée **après** la réserve R-1, qui bloque la fusion. R-2 et R-3 sont petites : traite-les dans la même PR si possible, sinon en tête du L4.
 
@@ -13,12 +13,12 @@ La PR #6 sera fusionnée **après** la réserve R-1, qui bloque la fusion. R-2 e
 
 | Vérification | Résultat |
 |---|---|
-| `npm run lint`, `npm run typecheck`, `npm test` | ✅ 390 tests verts |
-| `npm run test:integration` (Postgres 16.14 réel) | ✅ 266 tests verts |
-| `npm run depcruise`, `npm audit --audit-level=high` | ✅ 0 violation, 0 vulnérabilité |
-| CI GitHub de la PR #6 | ✅ verte |
-| Historique : signatures, `HANDOFF_INFRA.md`, stash | ✅ rien |
-| Suites S-1 à S-3 du lot 02 | ✅ toutes traitées, chacune avec son test. S-1 va plus loin que demandé : **toute** formule dont le rendu porte un `style` est refusée, quelle que soit la commande |
+| `npm run lint`, `npm run typecheck`, `npm test` | OK, 390 tests verts |
+| `npm run test:integration` (Postgres 16.14 réel) | OK, 266 tests verts |
+| `npm run depcruise`, `npm audit --audit-level=high` | OK, 0 violation, 0 vulnérabilité |
+| CI GitHub de la PR #6 | OK, verte |
+| Historique : signatures, `HANDOFF_INFRA.md`, stash | OK, rien |
+| Suites S-1 à S-3 du lot 02 | OK, toutes traitées, chacune avec son test. S-1 va plus loin que demandé : **toute** formule dont le rendu porte un `style` est refusée, quelle que soit la commande |
 | Lecture : migration 004 (triggers, privilèges), projections, fenêtre de passage, publication, politiques, cycle de vie d'une tentative | voir §2 et §3 |
 
 ## 2. Points forts
@@ -34,7 +34,7 @@ La PR #6 sera fusionnée **après** la réserve R-1, qui bloque la fusion. R-2 e
 
 ## 3. Réserves
 
-### R-1 · 🔴 Le corrigé publié donne les réponses à la tentative suivante et aux autres élèves (R5, M6)
+### R-1 · Bloquant · Le corrigé publié donne les réponses à la tentative suivante et aux autres élèves (R5, M6)
 `attemptForLearner` renvoie le corrigé (réponses attendues, explications) **dès que la copie est publiée**. Rien ne tient compte des tentatives restantes ni des autres élèves de l'attribution. Deux scénarios réalistes pour le J1 :
 - **Tentative suivante** : épreuve à 2 tentatives en publication automatique. L'élève rend une première copie vide, lit le corrigé, puis rend 20/20 à la seconde.
 - **Entre élèves** : les deux élèves du J1 sont de la même famille. Le premier qui rend voit le corrigé (publication automatique, ou correction rapide du tuteur) et peut le transmettre à l'autre, qui n'a pas encore rendu.
@@ -57,11 +57,11 @@ Le test de contrat ne pouvait pas le voir : il vérifie justement que les répon
 - la ligne de la matrice des droits « Voir le corrigé » ajoutée au harnais ;
 - dans la vue élève, un message simple à la place du corrigé : « Le corrigé sera disponible après la date limite ».
 
-### R-2 · 🟡 Les questions d'une épreuve attribuée ne sont protégées que par le code (R6)
+### R-2 · Important · Les questions d'une épreuve attribuée ne sont protégées que par le code (R6)
 Le rôle applicatif a `DELETE` et `INSERT` sur `questions` et `question_competencies` : c'est nécessaire pour remplacer les questions d'un brouillon d'épreuve. Mais une fois l'épreuve attribuée, seul le contrôle applicatif `assessment.locked` empêche de la changer. Les clés étrangères de `question_results` protègent les questions déjà corrigées, mais pas celles d'une épreuve en cours de passage.
 **À faire** : un trigger qui refuse `INSERT`, `UPDATE` et `DELETE` sur `questions` et `question_competencies` dès qu'une attribution existe pour l'épreuve. Ajoute un test SQL direct, sur le modèle de ceux de R6.
 
-### R-3 · 🟡 Le drapeau `app.rectification` peut être posé par n'importe quel code
+### R-3 · Important · Le drapeau `app.rectification` peut être posé par n'importe quel code
 N'importe quelle requête du rôle applicatif peut poser `set_config('app.rectification', 'on', true)`. Un bug ou une injection SQL pourrait donc changer une note publiée sans laisser de trace dans `grade_rectifications`.
 **À faire** : remplacer le drapeau par une preuve. Un trigger de contrainte `DEFERRABLE INITIALLY DEFERRED` sur la modification de la note d'une copie publiée exige qu'une ligne de `grade_rectifications` pour cette copie, avec `new_grade = NEW.grade`, ait été insérée **dans la même transaction** (`xmin = pg_current_xact_id()::xid`). Même logique pour `question_results`. **Test** : une modification de note avec le drapeau mais sans ligne de rectification est refusée au `COMMIT`.
 
@@ -69,7 +69,7 @@ N'importe quelle requête du rôle applicatif peut poser `set_config('app.rectif
 
 1. **Q15 : tout ou rien, validé.** Cocher toutes les cases ne doit jamais rapporter de points. Si le tuteur veut récompenser une réponse partielle, il fait deux questions.
 2. **Q16 : aucune borne au retard, validé.** Avec R-1, une attribution qui autorise le retard ne révèle son corrigé que sur décision du tuteur.
-3. **Q17 : 👻 avant publication, validé.**
+3. **Q17 : 404 avant publication, validé.**
 4. **Glossaire** : j'ai ajouté « Correction publiée », « Révélation du corrigé » et « Rectification ».
 
 Écarts validés : questions `notebook` au L4, annuaires entre modules, groupe figé à l'attribution, épreuve verrouillée, liste vide pour `/api/my/assignments` côté adulte, file de correction vide pour le tuteur d'un autre espace.

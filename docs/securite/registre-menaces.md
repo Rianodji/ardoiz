@@ -7,9 +7,9 @@
 
 ```mermaid
 flowchart LR
-  T["🟨 Tuteur"] -- "F1 HTTPS" --> TR["Traefik (TLS)"]
-  P["🟨 Parent"] -- "F2 HTTPS" --> TR
-  E["🟨 Élève (mineur)"] -- "F3 HTTPS" --> TR
+  T["Tuteur"] -- "F1 HTTPS" --> TR["Traefik (TLS)"]
+  P["Parent"] -- "F2 HTTPS" --> TR
+  E["Élève (mineur)"] -- "F3 HTTPS" --> TR
   TR -- "F4 réseau web" --> API["Ardoiz (API + SPA)"]
   API -- "F5 réseau infra" --> DB[("PostgreSQL<br/>base ardoiz")]
   API -- "F6" --> FS[("Volume fichiers")]

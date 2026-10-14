@@ -13,7 +13,7 @@
 
 > Ardoiz est une plateforme web de **tutorat à distance**. Un tuteur y publie un programme, l'ouvre progressivement à ses élèves, planifie des séances en visio et les évalue directement dans l'application, notamment sur un **cahier virtuel**. Les parents suivent, à distance, la progression de leurs enfants par **note** et par **compétence**, et peuvent faire des suggestions au tuteur.
 
-**Premier usage réel** : le porteur du projet fait réviser ses neveux (12 ans, niveau collège) en **mathématiques** (arithmétique, géométrie, grandeurs et mesures / système métrique) et en **initiation à l'informatique**.
+**Premier usage réel** : le porteur du projet fait réviser des collégiens de son entourage en **mathématiques** (arithmétique, géométrie, grandeurs et mesures / système métrique) et en **initiation à l'informatique**.
 
 **Ambition** : ouvrir plus tard à d'autres familles, puis à d'autres tuteurs. Le projet est aussi une **vitrine professionnelle** : la rigueur d'architecture et de sécurité fait partie du produit.
 
@@ -64,7 +64,7 @@ Relations : un parent ↔ plusieurs élèves, un élève ↔ plusieurs parents (
 |---|---|
 | Utilisateurs **mineurs** (12 ans) | Consentement parental (art. 8 RGPD, majorité numérique à 15 ans en France), minimisation forte, pas de contact adulte–enfant hors cadre, conception adaptée à l'âge (recommandations CNIL sur les mineurs) |
 | Ouverture future | Isolation par espace tuteur dès J1 (ADR-0002) |
-| Serveur Hetzner existant (Ubuntu 26.04, 4 Go RAM, Falkenstein, UE) avec Traefik v3, Postgres et Redis partagés, Loki/Prometheus/Grafana | S'intégrer à l'existant : labels Traefik, base et utilisateur dédiés, empreinte mémoire sobre (ADR-0008) |
+| Serveur Hetzner existant et partagé (Union européenne) avec Traefik v3, Postgres et Redis partagés, Loki/Prometheus/Grafana | S'intégrer à l'existant : labels Traefik, base et utilisateur dédiés, empreinte mémoire sobre (ADR-0008) |
 | Web d'abord, ordinateur et tablette | Cahier virtuel utilisable à la souris, au doigt et au stylet |
 | Projet vitrine | Architecture hexagonale, traçabilité menace → règle → code → test, CI exigeante, ADR |
 | Développé par une IA, revu par le lead | Livraison par lots avec arrêt obligatoire pour revue (`revue/protocole-de-revue.md`) |
@@ -90,8 +90,8 @@ Relations : un parent ↔ plusieurs élèves, un élève ↔ plusieurs parents (
 
 ## 6. Critères de succès du J1
 
-1. Les neveux se connectent seuls, trouvent les cours déverrouillés, rejoignent la séance de la semaine depuis l'application et rendent un devoir sur le cahier virtuel.
+1. Les élèves se connectent seuls, trouvent les cours déverrouillés, rejoignent la séance de la semaine depuis l'application et rendent un devoir sur le cahier virtuel.
 2. Le tuteur corrige ce devoir en annotant directement la copie.
 3. Un parent voit, depuis chez lui, la note, les annotations et l'évolution des compétences de son enfant, et rien sur un enfant qui n'est pas le sien.
 4. Chaque push est testé par la CI ; chaque version étiquetée est déployée en production après l'approbation du porteur, avec un test de fumée et un retour arrière possible.
-5. Toutes les règles du catalogue concernées par le J1 sont à l'état ✅.
+5. Toutes les règles du catalogue concernées par le J1 sont à l'état « fait ».

@@ -5,7 +5,7 @@
 | **Relu par** | Lead (architecte, product owner, security engineer) |
 | **Date** | 2026-10-11 |
 | **Branche relue** | `lot/00-socle` @ `5bbdae7` |
-| **Verdict** | 🔁 **Accepté avec réserves** |
+| **Verdict** | **Accepté avec réserves** |
 
 Le lot peut être fusionné dans `main` en local, et le lot L1 peut commencer, **après traitement des réserves R-1 à R-6 en tête de L1**, dans cet ordre.
 
@@ -13,11 +13,11 @@ Le lot peut être fusionné dans `main` en local, et le lot L1 peut commencer, *
 
 | Vérification | Résultat |
 |---|---|
-| `npm run lint`, `npm run typecheck`, `npm test` | ✅ 86 tests verts |
-| `npm run test:integration` (Postgres 16.14 réel) | ✅ 29 tests verts |
-| `npm run depcruise`, `npm audit --audit-level=high` | ✅ 0 violation, 0 vulnérabilité |
-| Empreintes des 4 actions GitHub (`git ls-remote`) | ✅ toutes correspondent aux étiquettes publiées |
-| Historique : `Co-Authored-By`, `HANDOFF_INFRA.md` | ✅ absents de toutes les branches |
+| `npm run lint`, `npm run typecheck`, `npm test` | OK, 86 tests verts |
+| `npm run test:integration` (Postgres 16.14 réel) | OK, 29 tests verts |
+| `npm run depcruise`, `npm audit --audit-level=high` | OK, 0 violation, 0 vulnérabilité |
+| Empreintes des 4 actions GitHub (`git ls-remote`) | OK, toutes correspondent aux étiquettes publiées |
+| Historique : `Co-Authored-By`, `HANDOFF_INFRA.md` | OK, absents de toutes les branches |
 | Lecture : migration 001, `withTenantTransaction`, durcissement HTTP, gestionnaire d'erreurs, configuration, logs, relais de l'outbox, CI, test d'isolation RLS | voir §2 et §3 |
 
 ## 2. Points forts
@@ -29,12 +29,12 @@ Le lot peut être fusionné dans `main` en local, et le lot L1 peut commencer, *
 - **Logs** sans chaîne de requête ni adresse IP : bonne application de la minimisation.
 - **ESLint `noInlineConfig`** : aucune directive `eslint-disable` ne peut contourner les règles. Excellent garde-fou.
 - **Tests d'architecture** qui prouvent que la règle échoue sur des violations réelles, pas seulement qu'elle passe.
-- **Rapport honnête** : le critère « CI verte sur GitHub » est marqué ❌ et aucune règle n'est passée à ✅ sans CI. C'est la bonne lecture du catalogue.
+- **Rapport honnête** : le critère « CI verte sur GitHub » est marqué non et aucune règle n'est passée à fait sans CI. C'est la bonne lecture du catalogue.
 
 ## 3. Réserves à traiter en tête du lot L1
 
 ### R-1 · CI sur GitHub (critère d'acceptation restant)
-Dès que le porteur a créé le dépôt et configuré le remote : pousser `main` et `lot/00-socle` (ou la branche L1), ouvrir une PR, obtenir une CI verte, puis passer à ✅ les règles du L0 dont le test est vert en CI.
+Dès que le porteur a créé le dépôt et configuré le remote : pousser `main` et `lot/00-socle` (ou la branche L1), ouvrir une PR, obtenir une CI verte, puis passer à fait les règles du L0 dont le test est vert en CI.
 **Attention** : `gitleaks/gitleaks-action` exige une licence (`GITLEAKS_LICENSE`) pour les dépôts appartenant à une **organisation**. Si le dépôt est créé sous `teamnoble-fr`, remplace l'action par le binaire gitleaks téléchargé à une version épinglée et **vérifié par sa somme SHA-256**. Si le dépôt est personnel, l'action convient.
 
 ### R-2 · Les erreurs Postgres peuvent faire fuir des données dans les logs (R21)

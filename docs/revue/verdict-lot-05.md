@@ -5,7 +5,7 @@
 | **Relu par** | Lead (architecte, product owner, security engineer) |
 | **Date** | 2026-10-13 |
 | **Branche relue** | `lot/05-planification` @ `e5ac178` (PR #8) |
-| **Verdict** | ✅ **Accepté** |
+| **Verdict** | **Accepté** |
 
 La PR #8 peut être fusionnée. La suite S-1 se traite en tête du lot L6.
 
@@ -13,18 +13,18 @@ La PR #8 peut être fusionnée. La suite S-1 se traite en tête du lot L6.
 
 | Vérification | Résultat |
 |---|---|
-| `npm run lint`, `npm run typecheck`, `npm test` | ✅ 460 tests verts |
-| `npm run test:integration` (Postgres 16.14 réel) | ✅ 374 tests verts |
-| `npm run depcruise`, `npm audit --audit-level=high` | ✅ 0 violation, 0 vulnérabilité |
-| CI GitHub de la PR #8 (avec E2E) | ✅ verte |
-| Historique : signatures, `HANDOFF_INFRA.md`, stash | ✅ rien |
-| Suites du L4 (S-1 débit des imports, S-2 police CJK, README Excalidraw, émulation tactile) | ✅ toutes traitées. L'E2E échoue désormais aussi sur une ressource manquante : bon durcissement |
+| `npm run lint`, `npm run typecheck`, `npm test` | OK, 460 tests verts |
+| `npm run test:integration` (Postgres 16.14 réel) | OK, 374 tests verts |
+| `npm run depcruise`, `npm audit --audit-level=high` | OK, 0 violation, 0 vulnérabilité |
+| CI GitHub de la PR #8 (avec E2E) | OK, verte |
+| Historique : signatures, `HANDOFF_INFRA.md`, stash | OK, rien |
+| Suites du L4 (S-1 débit des imports, S-2 police CJK, README Excalidraw, émulation tactile) | OK, toutes traitées. L'E2E échoue désormais aussi sur une ressource manquante : bon durcissement |
 | Lecture : `MeetingLink`, `linkWindowOpen`, cas d'usage `join` (ordre politique → fenêtre → présence et événement dans la même transaction), stockage du lien, migration 007 | voir §2 et §3 |
 
 ## 2. Points forts
 
 - **`MeetingLink`** : analyseur d'URL conforme, `https:` seul, sans identifiants ni port, hôtes en liste fermée, comparaison exacte. Les pièges classiques (`meet.jit.si.evil.example`, `evilzoom.us`, `evil.example/zoom.us`) sont testés. C'est la leçon de la « regex anti-SSRF » du livre, bien appliquée.
-- **Le lien n'est jamais dans une vue** : il n'existe que dans la réponse de `join`, obtenue au clic, dans la fenêtre, et pour le seul participant. Le parent reçoit 🚫, conformément à la matrice.
+- **Le lien n'est jamais dans une vue** : il n'existe que dans la réponse de `join`, obtenue au clic, dans la fenêtre, et pour le seul participant. Le parent reçoit 403, conformément à la matrice.
 - **Test exhaustif des gabarits d'e-mail par le typage** : un nouveau gabarit absent du test fait échouer la compilation. H5 est garantie pour les lots suivants, y compris pour les futurs rappels.
 - **Heure locale traitée correctement** : règle en heure de Paris, chaque occurrence convertie **pour sa propre date**, nuits du changement d'heure définies et testées.
 - **Salle Jitsi générée de 144 bits** et régénération après une fuite.
@@ -32,7 +32,7 @@ La PR #8 peut être fusionnée. La suite S-1 se traite en tête du lot L6.
 
 ## 3. Suite à traiter en tête du lot L6
 
-### S-1 · 🟡 Le lien de visio relu en base n'est pas revalidé
+### S-1 · Important · Le lien de visio relu en base n'est pas revalidé
 Le lien est validé par `MeetingLink.parse` à l'écriture. Mais `PgSchedulingStore` le relit comme une simple chaîne, et la base ne vérifie que le préfixe `https://`. Les autres modules revalident ce qu'ils relisent (contenu de cours, scène, spécification des questions, règle de récurrence). Un lien altéré en base (par une injection ou une migration fautive) serait servi tel quel à un enfant.
 **À faire** : repasser le lien relu par `MeetingLink.parse` (avec le `MEETING_EXTRA_HOST` courant). Un lien devenu invalide n'est **pas servi** : `join` répond 409 `scheduling.invalid-link` et le tuteur voit « lien à remplacer ». Test d'intégration : un `UPDATE` direct en SQL avec `https://evil.example/` → `join` ne renvoie pas ce lien.
 

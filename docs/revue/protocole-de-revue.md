@@ -11,9 +11,9 @@
 5. Il met à jour `docs/securite/catalogue-des-regles.md` (gardien, état) et le tableau d'avancement du `README.md`.
 6. Il ouvre une PR vers `main` (ou, sans GitHub, s'arrête sur sa branche) et **S'ARRÊTE**. Il ne commence pas le lot suivant.
 7. Le lead relit le rapport, le diff et les tests, puis rend un verdict dans `docs/revue/verdict-lot-NN.md` :
-   - ✅ **Accepté** : merge, le lot suivant peut commencer ;
-   - 🔁 **Accepté avec réserves** : corrections listées, à faire en tête du lot suivant ;
-   - ❌ **Refusé** : corrections listées, à faire sur la même branche, puis nouveau rapport.
+   - **Accepté** : merge, le lot suivant peut commencer ;
+   - **Accepté avec réserves** : corrections listées, à faire en tête du lot suivant ;
+   - **Refusé** : corrections listées, à faire sur la même branche, puis nouveau rapport.
 8. Le développeur traite **toutes** les remarques du verdict avant toute autre chose.
 
 ## 2. Ce que le lead vérifie
