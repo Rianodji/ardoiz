@@ -1,6 +1,6 @@
 # Mentions légales
 
-*Dernière mise à jour : 13 octobre 2026*
+*Dernière mise à jour : 15 octobre 2026*
 
 ## Éditeur
 
@@ -14,9 +14,10 @@ Directeur de la publication : Dicard Rianodji.
 
 ## Hébergement
 
-Hetzner Online GmbH
-Industriestr. 25, 91710 Gunzenhausen, Allemagne
-Téléphone : +49 9831 505-0 — www.hetzner.com
+- Hetzner Online GmbH
+- Industriestr. 25, 91710 Gunzenhausen, Allemagne
+- Téléphone : +49 9831 505-0
+- Site : www.hetzner.com
 
 Les données sont hébergées dans l'Union européenne (centre de données de Falkenstein, Allemagne).
 
@@ -26,7 +27,11 @@ Les cours, exercices et épreuves publiés sur Ardoiz sont la propriété de leu
 
 Les travaux réalisés par les élèves (copies, dessins du cahier virtuel) restent les leurs.
 
-Ardoiz utilise des logiciels libres, notamment Excalidraw, MathLive, KaTeX et TipTap, distribués sous licence MIT. La liste complète des composants et de leurs licences est disponible sur demande.
+## Logiciel libre
+
+Ardoiz est un logiciel libre, publié sous licence GNU AGPL version 3. Son code source est disponible à tous : [github.com/Rianodji/ardoiz](https://github.com/Rianodji/ardoiz).
+
+Ardoiz s'appuie sur d'autres logiciels libres, notamment Excalidraw, MathLive, KaTeX et TipTap (licence MIT), les polices Lexend et Atkinson Hyperlegible (licence OFL) et les icônes Lucide (licence ISC). La liste complète des composants et de leurs licences figure dans le fichier `THIRD-PARTY-NOTICES` du code source.
 
 ## Données personnelles
 

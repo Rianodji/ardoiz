@@ -4,9 +4,9 @@
 
 | Fichier | Affiché où | Version |
 |---|---|---|
-| `mentions-legales.md` | Pied de page, page `/mentions-legales` | 1 |
+| `mentions-legales.md` | Pied de page, page `/mentions-legales` | 2 (2026-10-15 : licence AGPL et code source, hébergeur en liste) |
 | `politique-de-confidentialite.md` | Pied de page, page `/confidentialite`, lien dans l'invitation | 1 |
-| `confidentialite-version-eleve.md` | Espace élève, page « Mes données » | 1 |
+| `confidentialite-version-eleve.md` | Espace élève, page « Mes données » | 2 (2026-10-15 : durée de conservation, points et présence, tablette) |
 | `consentement-parental-v1.md` | Étape obligatoire de l'acceptation d'invitation et de la création d'un élève | `consentement-v1` |
 | `registre-des-traitements.md` | Interne (obligation de l'art. 30 RGPD, à tenir à jour) | 1 |
 

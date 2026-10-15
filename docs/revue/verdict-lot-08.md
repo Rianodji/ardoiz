@@ -69,9 +69,75 @@ Ordre décidé par le porteur le 2026-10-15, **pour `v1.1.0` seulement** :
 
 1. La session de développement traite S-1, S-2 et S-4 dans la PR #15, régénère toutes les captures, puis s'arrête.
 2. Le lead vérifie les suites et compare le rendu de chaque écran à sa maquette, sur l'application construite (`npm run build`, servie par l'API, sous la CSP de production), pas seulement sur les captures.
-3. Sur le feu vert écrit du lead (§8 de ce verdict), la session fusionne la PR, puis pousse le tag `v1.1.0` depuis `main`. Par exception, et pour cette version seulement, c'est elle qui pousse le tag, sur délégation du porteur.
+3. Sur le feu vert écrit du lead (§8.5 de ce verdict), la session fusionne la PR, puis pousse le tag `v1.1.0` depuis `main`. Par exception, et pour cette version seulement, c'est elle qui pousse le tag, sur délégation du porteur.
 4. Le workflow `release.yml` attend l'approbation de l'environnement `production` : elle reste au porteur. Test de fumée, puis un tour des trois espaces en production.
 
 ## 8. Contrôle avant le tag
 
-À remplir par le lead.
+| | |
+|---|---|
+| **Date** | 2026-10-15 |
+| **Branche relue** | `lot/08-refonte` @ `094453f` |
+| **Décision** | **Feu vert suspendu** à la demande du porteur : les remarques du §8.3 et les pages juridiques (§8.4) sont traitées dans la PR #15 avant le tag. Nouveau contrôle du lead au §8.5 |
+
+### 8.1 Suites
+
+| Suite | État | Vérification |
+|---|---|---|
+| S-1 · Heures insécables | Fait | `ui/format.ts` : espace insécable dans l'heure et après « à » ; test dans `format.test.ts`. Sur le rendu, « Jeudi 15 octobre / à 9 h 45 » passe à la ligne d'un bloc |
+| S-2 · Un seul format | Fait | Un seul formateur (`clockFr`). Le journal, les appareils, l'agenda du parent et la file de correction écrivent « 9 h 36 ». Aucun « hh:mm » vu sur les 19 écrans |
+| S-4 · Icône sur « Moi » | Fait | Icône `user` visible sur chaque écran de l'élève ; test dans `learnerMenu.test.tsx` |
+| Recompte | Fait | 697 tests unitaires chez moi, comme le rapport ; lint à 0 erreur |
+| S-3 | Reportée au J2, comme prévu | — |
+
+### 8.2 Rendu comparé aux maquettes
+
+Méthode : j'ai construit l'application (`npm run build -w @ardoiz/web`) et lancé moi-même l'E2E complet. Il sert la SPA par l'API, sous la CSP de production, et a donné **17 tests réussis**. Les captures sont les miennes, prises dans un dossier de travail hors du dépôt. J'ai mis chacune côte à côte avec sa maquette, pour les 19 écrans.
+
+| Espace | Écrans | Verdict |
+|---|---|---|
+| Connexion | Connexion | Fidèle |
+| Élève | Accueil, Cours, Épreuve (mode focus), Copie, Progrès | Fidèles. Les écarts sont ceux du §5 du rapport, déjà acceptés : pas de points par copie, ni d'historique de série, ni de durée d'épreuve |
+| Parent | Famille, Suggestion | Fidèles. La page Famille garde en plus les blocs de la v1.0 (devoirs, cours, agenda, badges, création d'un enfant), rangés avec les composants de la charte : c'est voulu |
+| Tuteur | Aujourd'hui, Programme, Compétences, Épreuves, Corrections, Séances, Élèves et familles, Progression, Suggestions, Journal | Fidèles. Menu latéral, compteurs, pastilles, boutons de 48 px, journal en phrases françaises |
+| Commun | Mon compte | Fidèle, agents lisibles. Pas de codes de secours, voir la question 2 du §5 |
+
+Partout : polices Lexend et Atkinson servies par Ardoiz, icônes Lucide, aucune violation de CSP, aucune donnée réelle.
+
+### 8.3 Remarques, à traiter avant le tag (décision du porteur)
+
+| Suite | Quoi |
+|---|---|
+| S-5 | **Formulaire d'attribution** : sous les champs, la phrase de la maquette « L'élève verra : « À rendre avant jeudi 16 octobre à 18 h ». Le corrigé lui sera montré après cette date. » Elle est calculée dans le navigateur, avec le formateur commun, et se met à jour quand les dates changent. « S'ouvre » dans le futur ajoute « S'ouvre le … ». Test unitaire. |
+| S-6 | **File de correction** : retirer « empreinte e55aefe5… » de l'écran. Le tuteur n'en a pas l'usage, et l'empreinte reste dans l'API et le journal. |
+| S-7 | **Menu latéral du tuteur** : « Mon compte » et « Me déconnecter » collés en bas de la colonne, comme sur la maquette, avec le filet au-dessus. Sur un écran de moins de 720 px de haut, ils suivent le menu au lieu de passer hors de vue. |
+
+### 8.4 Pages juridiques (oubliées de la première relecture)
+
+Je les ai rendues comme les autres écrans (application construite, CSP de production), à 1280 px et à 360 px : `/mentions-legales`, `/confidentialite` et `/mes-donnees` (élève connecté).
+
+| Suite | Constat | Correction attendue |
+|---|---|---|
+| S-8 | **Titre en double** sur les trois pages : le `<h1>` de la page (« Mentions légales », « Mes données ») puis le titre du document, rendu juste dessous. | Un seul titre : le premier titre du document devient le `<h1>` de la page, et le titre fixe disparaît. Les textes restent affichés sans modification. |
+| S-9 | **La politique de confidentialité déborde à 360 px** (largeur de page de 526 px). La refonte a perdu le style de `.table-wrapper` (aucune règle dans `styles.css`), et ses trois tableaux ne défilent plus. Charte §8 : pas de défilement horizontal à 360 px. | Rendre `.table-wrapper` du Markdown comme `TableBox` : défilement horizontal, focalisable, nommé. Mêmes en-têtes en petites capitales que les autres tableaux. |
+| S-10 | **Ces trois pages n'étaient pas dans l'E2E des écrans** : c'est pour cela que S-9 est passé. | Ajouter les trois pages à `ecrans.spec.ts` (axe, cibles, tabulation, 360 px) et leurs captures au rapport. |
+
+Textes modifiés par le lead (source `docs/juridique`, non commités sur la branche) :
+- `mentions-legales.md`, version 2 :
+  - l'adresse de l'hébergeur s'affichait sur une seule ligne ; elle est maintenant en liste ;
+  - nouvelle section « Logiciel libre » : la licence AGPL-3.0 et le lien vers le code source, qu'un service AGPL doit offrir à ses utilisateurs (art. 13) ;
+  - les polices (OFL) et les icônes (ISC) ajoutées par le L8 ;
+  - `THIRD-PARTY-NOTICES` au lieu de « sur demande ».
+- `confidentialite-version-eleve.md`, version 2 :
+  - les rubriques deviennent de vrais titres de section, pour la navigation au lecteur d'écran ;
+  - nouvelle rubrique « Combien de temps ? », alignée sur la politique (12 mois sans connexion, parents prévenus, puis effacement) ;
+  - les points, la série et la présence aux séances ajoutés à « Ce qu'Ardoiz sait de toi » ;
+  - « ordinateur ou tablette ».
+- `README.md` des textes juridiques : versions mises à jour.
+- Le texte de consentement (`consentement-v1`) n'est **pas** touché : aucun nouveau consentement n'est demandé.
+
+Ces modifications ne changent ni les traitements ni les droits : la politique (version 1) reste valable et les parents n'ont pas à être prévenus (§8 de la politique).
+
+### 8.5 Second contrôle avant le tag
+
+À remplir par le lead, après S-5 à S-10.
