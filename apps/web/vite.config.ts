@@ -26,5 +26,14 @@ export default defineConfig({
     // Pas de module en ligne dans index.html : la CSP interdit les scripts en ligne (R11).
     modulePreload: { polyfill: false },
     assetsInlineLimit: 0,
+    // Polices servies par Ardoiz sous /assets/fonts/ (charte §3 : font-src 'self', aucune ressource tierce).
+    rolldownOptions: {
+      output: {
+        assetFileNames: (asset) =>
+          asset.names.some((name) => name.endsWith(".woff2"))
+            ? "assets/fonts/[name]-[hash][extname]"
+            : "assets/[name]-[hash][extname]",
+      },
+    },
   },
 });

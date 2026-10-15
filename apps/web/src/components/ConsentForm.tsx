@@ -41,6 +41,7 @@ export function ConsentForm({
 
   return (
     <form
+      className="form-stack"
       onSubmit={(event) => {
         event.preventDefault();
         if (checked) onSubmit({ accepted: true, version, sha256: consent.data.sha256 });

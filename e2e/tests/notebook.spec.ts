@@ -11,6 +11,7 @@ const PNG_1PX =
 test("dessiner, recharger, retrouver le dessin, rendre, voir la copie verrouillée", async ({ page }) => {
   const state = e2eState();
   await loginLearner(page, state);
+  await page.goto("/eleve/devoirs");
   await page
     .getByRole("listitem")
     .filter({ hasText: "Géométrie : tracer un triangle" })
@@ -58,7 +59,7 @@ test("dessiner, recharger, retrouver le dessin, rendre, voir la copie verrouill�
     .toBe(true);
 
   // Sauvegarde automatique, avec son indicateur.
-  await expect(page.getByText("Enregistré.")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Enregistré", { exact: true })).toBeVisible({ timeout: 20_000 });
   const attemptId = page.url().split("/copie/")[1] ?? "";
   const scene = async () =>
     page.evaluate(async (id) => {
@@ -90,13 +91,13 @@ test("dessiner, recharger, retrouver le dessin, rendre, voir la copie verrouill�
   expect(await page.evaluate(() => (window as { __xss?: number }).__xss)).toBeUndefined();
 
   // Rendre : la copie est verrouillée (lecture seule, plus d'outil d'import).
-  page.once("dialog", (dialog) => void dialog.accept());
-  await page.getByRole("button", { name: "Rendre ma copie" }).click();
-  await expect(page.getByText("Copie rendue.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Rendre ma copie" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Rendre mon devoir" }).click();
+  await page.getByRole("button", { name: "Oui, rendre mon devoir" }).click();
+  await expect(page.getByText(/Ton devoir est rendu\. Ton tuteur va le corriger/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Rendre mon devoir/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Ajouter une photo" })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByText(/Copie rendue : ton tuteur la corrige/)).toBeVisible();
+  await expect(page.getByText(/Ton devoir est rendu\. Ton tuteur va le corriger/)).toBeVisible();
   expect((await scene()).status).toBe("submitted");
 });
 

@@ -15,14 +15,26 @@ describe("Page de connexion", () => {
     renderAt("/connexion");
     expect(await screen.findByLabelText("Code de ton espace")).toBeDefined();
     expect(screen.getByLabelText("Ton pseudo")).toBeDefined();
-    expect(screen.getByLabelText("Mot de passe")).toBeDefined();
+    expect(screen.getByLabelText("Ton mot de passe")).toBeDefined();
     expect(screen.queryByLabelText("Adresse e-mail")).toBeNull();
+    expect(screen.getByRole("button", { name: "Je suis élève" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("« Afficher » montre le mot de passe tapé, puis « Masquer » le cache (L8)", async () => {
+    stubServer(anonymous);
+    renderAt("/connexion");
+    const field = await screen.findByLabelText("Ton mot de passe");
+    expect(field.getAttribute("type")).toBe("password");
+    fireEvent.click(screen.getByRole("button", { name: "Afficher le mot de passe" }));
+    expect(field.getAttribute("type")).toBe("text");
+    fireEvent.click(screen.getByRole("button", { name: "Masquer le mot de passe" }));
+    expect(field.getAttribute("type")).toBe("password");
   });
 
   it("bascule vers le mode adulte avec l'adresse e-mail", async () => {
     stubServer(anonymous);
     renderAt("/connexion");
-    fireEvent.click(await screen.findByRole("button", { name: "Je suis parent ou tuteur" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Je suis un adulte" }));
     expect(screen.getByLabelText("Adresse e-mail")).toBeDefined();
   });
 
@@ -35,8 +47,8 @@ describe("Page de connexion", () => {
     renderAt("/connexion");
     fireEvent.change(await screen.findByLabelText("Code de ton espace"), { target: { value: "dicard" } });
     fireEvent.change(screen.getByLabelText("Ton pseudo"), { target: { value: "lina" } });
-    fireEvent.change(screen.getByLabelText("Mot de passe"), { target: { value: "faux" } });
-    fireEvent.click(screen.getByRole("button", { name: "Me connecter" }));
+    fireEvent.change(screen.getByLabelText("Ton mot de passe"), { target: { value: "faux" } });
+    fireEvent.click(screen.getByRole("button", { name: "Entrer dans Ardoiz" }));
     expect((await screen.findByRole("alert")).textContent).toBe(
       "Identifiant ou mot de passe incorrect. Vérifie et réessaie.",
     );
@@ -57,10 +69,10 @@ describe("Page de connexion", () => {
       return undefined;
     });
     const router = renderAt("/connexion");
-    fireEvent.click(await screen.findByRole("button", { name: "Je suis parent ou tuteur" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Je suis un adulte" }));
     fireEvent.change(screen.getByLabelText("Adresse e-mail"), { target: { value: "tuteur@example.org" } });
     fireEvent.change(screen.getByLabelText("Mot de passe"), { target: { value: "mot-de-passe-de-test" } });
-    fireEvent.click(screen.getByRole("button", { name: "Me connecter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Entrer dans Ardoiz" }));
     await waitFor(() => {
       expect(router.state.location.pathname).toBe("/double-authentification/activer");
     });

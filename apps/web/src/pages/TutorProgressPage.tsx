@@ -1,91 +1,158 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
+import { useSearchParams } from "react-router";
 import { fetchFamilies } from "../api/identity";
 import { adjustLevel, fetchOverview, fetchProgress, type AdjustableLevel } from "../api/progress";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { CompetencyList, LEVEL_LABELS, ProgressSummary } from "../components/ProgressViews";
+import { Button, Card, PageHeader, TableBox } from "../ui";
+import { plural } from "../ui/format";
 
 const ADJUSTABLE: readonly AdjustableLevel[] = ["not_acquired", "in_progress", "acquired", "exceeded"];
 const gradeFr = (grade: number | null) =>
   grade === null ? "—" : grade.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
 
+/** Barre en deux parts (acquises, en cours), en SVG : des attributs, aucun style en ligne (charte §9). */
+function SkillSplit({
+  acquired,
+  inProgress,
+  total,
+}: {
+  readonly acquired: number;
+  readonly inProgress: number;
+  readonly total: number;
+}) {
+  const width = (count: number) => (total === 0 ? 0 : (count / total) * 100);
+  return (
+    <span className="skill-split">
+      <svg viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true" className="split-bar">
+        <rect x="0" y="0" width="100" height="8" rx="4" className="split-rest" />
+        <rect
+          x="0"
+          y="0"
+          width={width(acquired) + width(inProgress)}
+          height="8"
+          rx="4"
+          className="split-progress"
+        />
+        <rect x="0" y="0" width={width(acquired)} height="8" rx="4" className="split-acquired" />
+      </svg>
+      <span className="row-meta">
+        {plural(acquired, "acquise")}
+        {inProgress > 0 ? ` · ${String(inProgress)} en cours` : ""}
+      </span>
+    </span>
+  );
+}
+
 /**
- * Synthèse du tuteur (L6), par élève et par groupe. Elle n'existe que dans l'espace tuteur : aucune
- * donnée agrégée de plusieurs élèves n'est servie à un parent ou à un élève (R17).
+ * Synthèse du tuteur (L6, maquette Tuteur-Progression), par élève et par groupe. Elle n'existe que
+ * dans l'espace tuteur : aucune donnée agrégée de plusieurs élèves n'est servie à un parent ou à un
+ * élève (R17).
  */
 export function TutorProgressPage() {
   const overview = useQuery({ queryKey: ["progress-overview"], queryFn: fetchOverview });
   const families = useQuery({ queryKey: ["families"], queryFn: fetchFamilies });
-  const [selected, setSelected] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const selected = params.get("eleve");
   const nameOf = (id: string) =>
     families.data?.learners.find((learner) => learner.id === id)?.firstName ?? "Élève";
   return (
-    <div className="stack">
-      <section className="card">
-        <h1>Progression des élèves</h1>
+    <div className="page">
+      <PageHeader
+        title="Progression des élèves"
+        lead="Vue réservée au tuteur. Les élèves et les parents ne voient jamais de comparaison."
+      />
+      <div className="stack">
         {overview.isPending && <p role="status">Chargement…</p>}
         <ErrorMessage error={overview.error} />
         {overview.data !== undefined && (
-          <table className="grades-table">
-            <thead>
-              <tr>
-                <th scope="col">Élève</th>
-                <th scope="col">Niveau</th>
-                <th scope="col">Série</th>
-                <th scope="col">Compétences acquises</th>
-                <th scope="col">Moyennes</th>
-                <th scope="col">
-                  <span className="visually-hidden">Détail</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {overview.data.learners.map((entry) => (
-                <tr key={entry.learnerId}>
-                  <td>{nameOf(entry.learnerId)}</td>
-                  <td>
-                    {entry.level} ({entry.xp} pts)
-                  </td>
-                  <td>{entry.streak.current}</td>
-                  <td>{entry.levelCounts.acquired + entry.levelCounts.exceeded}</td>
-                  <td>
-                    {entry.averages
-                      .map((average) => `${average.name} : ${gradeFr(average.average)}`)
-                      .join(" · ") || "—"}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="link-button"
-                      onClick={() => {
-                        setSelected(entry.learnerId);
-                      }}
-                    >
-                      Voir et ajuster
-                    </button>
-                  </td>
+          <Card>
+            <TableBox label="Progression par élève">
+              <thead>
+                <tr>
+                  <th scope="col">Élève</th>
+                  <th scope="col">Niveau</th>
+                  <th scope="col">Série</th>
+                  <th scope="col">Compétences</th>
+                  <th scope="col">Moyennes</th>
+                  <th scope="col">
+                    <span className="visually-hidden">Détail</span>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {overview.data.learners.map((entry) => {
+                  const counts = entry.levelCounts;
+                  const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+                  return (
+                    <tr key={entry.learnerId}>
+                      <th scope="row">{nameOf(entry.learnerId)}</th>
+                      <td className="num">
+                        {entry.level} · {entry.xp} pts
+                      </td>
+                      <td className="num">
+                        {entry.streak.paused ? "en pause" : plural(entry.streak.current, "semaine")}
+                      </td>
+                      <td>
+                        <SkillSplit
+                          acquired={counts.acquired + counts.exceeded}
+                          inProgress={counts.in_progress + counts.not_acquired}
+                          total={total}
+                        />
+                      </td>
+                      <td>
+                        {entry.averages
+                          .filter((average) => average.average !== null)
+                          .map((average) => `${average.name} : ${gradeFr(average.average)}`)
+                          .join(" · ") || "—"}
+                      </td>
+                      <td>
+                        <Button
+                          variant="secondary"
+                          aria-label={`Voir et ajuster : ${nameOf(entry.learnerId)}`}
+                          aria-expanded={selected === entry.learnerId}
+                          onClick={() => {
+                            setParams({ eleve: entry.learnerId }, { replace: true });
+                          }}
+                        >
+                          Voir et ajuster
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </TableBox>
+          </Card>
         )}
-      </section>
-      {overview.data !== undefined && overview.data.groups.length > 0 && (
-        <section className="card">
-          <h2>Par groupe</h2>
-          <ul>
-            {overview.data.groups.map((group) => (
-              <li key={group.groupId}>
-                <strong>{group.name}</strong> ({group.learnerIds.length} élève
-                {group.learnerIds.length > 1 ? "s" : ""}) :{" "}
-                {group.levelCounts.acquired + group.levelCounts.exceeded} compétences acquises,{" "}
-                {group.levelCounts.in_progress} en cours, {group.levelCounts.not_acquired} non acquises
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {selected !== null && <LearnerDetail learnerId={selected} name={nameOf(selected)} />}
+        {overview.data !== undefined && overview.data.groups.length > 0 && (
+          <Card aria-labelledby="par-groupe">
+            <h2 id="par-groupe">Par groupe</h2>
+            <p className="hint">
+              Pour préparer la séance : où en est chaque groupe, toutes compétences confondues.
+            </p>
+            <ul className="rows">
+              {overview.data.groups.map((group) => (
+                <li key={group.groupId}>
+                  <div className="row-main">
+                    <p className="row-title">
+                      Groupe {group.name} · {plural(group.learnerIds.length, "élève")}
+                    </p>
+                    <p className="row-meta">{group.learnerIds.map(nameOf).join(", ")}</p>
+                  </div>
+                  <p>
+                    {plural(group.levelCounts.acquired + group.levelCounts.exceeded, "acquise")},{" "}
+                    <strong>{group.levelCounts.in_progress} en cours</strong>,{" "}
+                    {group.levelCounts.not_acquired} non acquises
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
+        {selected !== null && <LearnerDetail key={selected} learnerId={selected} name={nameOf(selected)} />}
+      </div>
     </div>
   );
 }
@@ -93,18 +160,20 @@ export function TutorProgressPage() {
 function LearnerDetail({ learnerId, name }: { readonly learnerId: string; readonly name: string }) {
   const progress = useQuery({ queryKey: ["progress", learnerId], queryFn: () => fetchProgress(learnerId) });
   return (
-    <section className="card">
-      <h2>{name}</h2>
+    <Card aria-labelledby="detail-eleve">
+      <h2 id="detail-eleve">{name}</h2>
       <ErrorMessage error={progress.error} />
       {progress.data !== undefined && (
-        <>
-          <ProgressSummary progress={progress.data} you={false} />
-          <h3>Compétences</h3>
-          <CompetencyList progress={progress.data} />
+        <div className="grid-two">
+          <div className="stack-sm">
+            <ProgressSummary progress={progress.data} />
+            <h3>Compétences</h3>
+            <CompetencyList progress={progress.data} />
+          </div>
           <AdjustForm learnerId={learnerId} competencies={progress.data.competencies} />
-        </>
+        </div>
       )}
-    </section>
+    </Card>
   );
 }
 
@@ -131,6 +200,7 @@ function AdjustForm({
   });
   return (
     <form
+      className="form-stack card dashed"
       onSubmit={(event) => {
         event.preventDefault();
         adjust.mutate();
@@ -183,10 +253,16 @@ function AdjustForm({
           setJustification(event.target.value);
         }}
       />
-      <button type="submit" className="button" disabled={adjust.isPending}>
-        Enregistrer l'ajustement
-      </button>
-      {adjust.isSuccess && <p role="status">Niveau ajusté.</p>}
+      <div>
+        <button type="submit" className="btn btn-primary" disabled={adjust.isPending}>
+          Enregistrer l'ajustement
+        </button>
+      </div>
+      {adjust.isSuccess && (
+        <p role="status" className="status-line">
+          Niveau ajusté.
+        </p>
+      )}
       <ErrorMessage error={adjust.error} />
     </form>
   );

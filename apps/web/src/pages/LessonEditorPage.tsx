@@ -252,7 +252,7 @@ function LessonEditor({
   };
 
   return (
-    <div className="stack wide">
+    <div className="page stack">
       <section className="card wide">
         <p>
           <Link to="/tuteur/programme">← Programme</Link> ·{" "}

@@ -3,79 +3,146 @@ import { Link, Navigate } from "react-router";
 import { fetchLegal, fetchSessions, revokeSession, type LegalDocument } from "../api/identity";
 import { homePathFor, useMe } from "../auth/session";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { useLogout } from "../layout/AppLayout";
 import { Markdown } from "../markdown/Markdown";
-import { Agenda } from "./AgendaPages";
-import { MyAssignments } from "./AssessmentPages";
-import { LearnerProgrammeView } from "./LessonPages";
-import { LearnerDashboard } from "../components/ProgressViews";
-
-const dateTime = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "short",
-  timeStyle: "short",
-  timeZone: "Europe/Paris",
-});
+import { Button, ButtonLink, Card, PageHeader, Pill } from "../ui";
+import { shortDateTime } from "../ui/format";
+import { Check, LogOut, Monitor, Smartphone } from "../ui/icons";
+import { describeUserAgent } from "../ui/userAgent";
 
 /** Accueil : chacun est envoyé vers son espace ; un visiteur, vers la connexion. */
 export function HomePage() {
   const me = useMe();
   if (me.isPending) return <p role="status">Chargement…</p>;
-  if (me.data === null || me.data === undefined) {
-    return (
-      <section className="card">
-        <h1>Bienvenue sur Ardoiz</h1>
-        <p>Ici, tu retrouves tes cours, tes séances et tes devoirs.</p>
-        <p>
-          <Link className="button" to="/connexion">
-            Se connecter
-          </Link>
-        </p>
-      </section>
-    );
-  }
+  if (me.data === null || me.data === undefined) return <Navigate to="/connexion" replace />;
   return <Navigate to={homePathFor(me.data)} replace />;
 }
 
-/** Mon compte : sessions ouvertes, révocation (R8). */
+const MOBILE = /Android|iPhone|iPad|Mobile/;
+
+/**
+ * Mon compte : sécurité du compte et appareils connectés, chacun nommé lisiblement (« Firefox sur
+ * Linux », L8 correction 4), avec la déconnexion d'un appareil (R8). L'élève est tutoyé, l'adulte
+ * vouvoyé (charte §7).
+ */
 export function AccountPage() {
   const me = useMe();
   const queryClient = useQueryClient();
+  const logout = useLogout();
   const sessions = useQuery({ queryKey: ["sessions"], queryFn: fetchSessions });
   const revoke = useMutation({
-    mutationFn: revokeSession,
+    mutationFn: async (ids: readonly string[]) => {
+      for (const id of ids) await revokeSession(id);
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["sessions"] }),
   });
+  const learner = me.data?.kind === "learner";
+  const others = (sessions.data?.sessions ?? []).filter((session) => !session.current);
+
   return (
-    <section className="card">
-      <h1>Mon compte</h1>
-      {me.data !== null && me.data !== undefined && me.data.kind !== "learner" && !me.data.mfaEnrolled && (
-        <p>
-          <Link to="/double-authentification/activer">Activer la double authentification</Link> (recommandé).
-        </p>
-      )}
-      <h2>Mes sessions ouvertes</h2>
-      <ErrorMessage error={sessions.error ?? revoke.error} />
-      <ul className="plain">
-        {sessions.data?.sessions.map((session) => (
-          <li key={session.id}>
-            Ouverte le {dateTime.format(new Date(session.createdAt))}
-            {session.userAgent === null ? "" : ` · ${session.userAgent.slice(0, 60)}`}
-            {session.current ? (
-              <strong> · cette session</strong>
-            ) : (
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => {
-                  revoke.mutate(session.id);
-                }}
-              >
-                Fermer cette session
-              </button>
+    <div className="page narrow">
+      <PageHeader title="Mon compte" />
+      <div className="stack">
+        <Card aria-labelledby="securite">
+          <h2 id="securite">Sécurité</h2>
+          <ul className="rows">
+            <li>
+              <div className="row-main">
+                <p className="row-title">Mot de passe</p>
+                <p className="row-meta">
+                  {learner
+                    ? "Pour en changer, demande à ton parent ou à ton tuteur."
+                    : "Pour en changer, recevez un lien par e-mail."}
+                </p>
+              </div>
+              {!learner && (
+                <ButtonLink to="/mot-de-passe-oublie" variant="secondary">
+                  Changer
+                </ButtonLink>
+              )}
+            </li>
+            {!learner && me.data !== null && me.data !== undefined && (
+              <li>
+                <div className="row-main">
+                  <p className="row-title">Double authentification</p>
+                  <p className="row-meta">Code à 6 chiffres de votre application d'authentification.</p>
+                </div>
+                {me.data.mfaEnrolled ? (
+                  <Pill tone="done" icon={Check}>
+                    Activée
+                  </Pill>
+                ) : (
+                  <ButtonLink to="/double-authentification/activer" variant="secondary">
+                    Activer (recommandé)
+                  </ButtonLink>
+                )}
+              </li>
             )}
-          </li>
-        ))}
-      </ul>
-    </section>
+          </ul>
+        </Card>
+
+        <Card aria-labelledby="appareils">
+          <h2 id="appareils">{learner ? "Où tu es connecté" : "Appareils connectés"}</h2>
+          <ErrorMessage error={sessions.error ?? revoke.error} />
+          {sessions.isPending && <p role="status">Chargement…</p>}
+          <ul className="rows">
+            {sessions.data?.sessions.map((session) => {
+              const name = describeUserAgent(session.userAgent);
+              return (
+                <li key={session.id}>
+                  <div className="row-main">
+                    <p className="row-title">{name}</p>
+                    <p className="row-meta">Connecté le {shortDateTime(session.createdAt)}</p>
+                  </div>
+                  {session.current ? (
+                    <Pill tone="info" icon={MOBILE.test(session.userAgent ?? "") ? Smartphone : Monitor}>
+                      Cet appareil
+                    </Pill>
+                  ) : (
+                    <Button
+                      variant="danger"
+                      disabled={revoke.isPending}
+                      aria-label={`Déconnecter ${name}, connecté le ${shortDateTime(session.createdAt)}`}
+                      onClick={() => {
+                        revoke.mutate([session.id]);
+                      }}
+                    >
+                      Déconnecter
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {others.length > 1 && (
+            <Button
+              variant="quiet"
+              disabled={revoke.isPending}
+              onClick={() => {
+                revoke.mutate(others.map((session) => session.id));
+              }}
+            >
+              Déconnecter tous les autres appareils
+            </Button>
+          )}
+        </Card>
+
+        {learner && (
+          <Card aria-labelledby="mes-donnees">
+            <h2 id="mes-donnees">Mes données</h2>
+            <p>
+              <Link to="/mes-donnees">Ce qu'Ardoiz sait de toi</Link>
+            </p>
+          </Card>
+        )}
+        <div>
+          <Button variant="secondary" icon={LogOut} onClick={logout.run}>
+            Me déconnecter
+          </Button>
+          <ErrorMessage error={logout.error} />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -90,40 +157,17 @@ const TITLES: Readonly<Record<LegalDocument, string>> = {
 export function LegalPage({ document }: { readonly document: LegalDocument }) {
   const text = useQuery({ queryKey: ["legal", document], queryFn: () => fetchLegal(document) });
   return (
-    <section className="card legal">
-      <h1>{TITLES[document]}</h1>
-      {text.isPending && <p role="status">Chargement…</p>}
-      <ErrorMessage error={text.error} />
-      {text.data !== undefined && <Markdown source={text.data.markdown} />}
-    </section>
-  );
-}
-
-/**
- * Tableau de bord de l'élève (L6) : sa progression (points, niveau, série, badges, compétences, notes),
- * ses cours, ses prochaines séances et ses épreuves à faire. Jamais de classement (R17).
- */
-export function LearnerHomePage() {
-  const me = useMe();
-  return (
-    <section className="card">
-      <h1>Bonjour {me.data?.name ?? ""} !</h1>
-      <h2>Ma progression</h2>
-      {me.data !== null && me.data !== undefined && <LearnerDashboard learnerId={me.data.id} you />}
-      <h2>Mes cours</h2>
-      {me.data !== null && me.data !== undefined && (
-        <LearnerProgrammeView
-          learnerId={me.data.id}
-          emptyText="Ton tuteur n'a pas encore ouvert de cours pour toi. Ils apparaîtront ici."
-        />
-      )}
-      <h2>Mes séances</h2>
-      <Agenda canJoin />
-      <h2>Mes épreuves</h2>
-      <MyAssignments />
-      <p>
-        <Link to="/mes-donnees">Ce qu'Ardoiz sait de toi</Link>
-      </p>
-    </section>
+    <div className="page narrow">
+      <Card as="article" className="legal">
+        {/* Un seul titre (verdict L8, S-8) : celui du document une fois chargé, le nom de la page avant. */}
+        {text.data === undefined ? (
+          <h1>{TITLES[document]}</h1>
+        ) : (
+          <Markdown source={text.data.markdown} pageTitle={TITLES[document]} />
+        )}
+        {text.isPending && <p role="status">Chargement…</p>}
+        <ErrorMessage error={text.error} />
+      </Card>
+    </div>
   );
 }

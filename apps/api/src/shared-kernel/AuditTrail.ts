@@ -1,3 +1,4 @@
+import type { AuditAction } from "./auditActions.js";
 import type { AuditEntryId, TutorSpaceId } from "./ids.js";
 
 export type AuditOutcome = "success" | "denied" | "failed";
@@ -13,7 +14,7 @@ export type AuditActor =
 export interface AuditEntry {
   readonly id: AuditEntryId;
   readonly tutorSpaceId: TutorSpaceId;
-  readonly action: string;
+  readonly action: AuditAction;
   readonly actor: AuditActor;
   readonly targetId?: string;
   readonly outcome: AuditOutcome;

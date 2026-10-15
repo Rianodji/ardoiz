@@ -33,7 +33,7 @@ export function useReauth(withTotp: boolean): {
   const prompt =
     pending === null ? null : (
       <form
-        className="reauth"
+        className="reauth form-stack"
         onSubmit={(event) => {
           event.preventDefault();
           void (async () => {
@@ -50,7 +50,7 @@ export function useReauth(withTotp: boolean): {
           })();
         }}
       >
-        <p>Pour cette action importante, confirme d'abord ton mot de passe.</p>
+        <p>Pour cette action importante, confirmez d'abord votre mot de passe.</p>
         <label htmlFor={passwordId}>Mot de passe</label>
         <input
           id={passwordId}

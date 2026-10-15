@@ -1,4 +1,5 @@
 import type { AuditActor, AuditEntry, AuditOutcome } from "../../shared-kernel/AuditTrail.js";
+import type { AuditAction } from "../../shared-kernel/auditActions.js";
 import type { Clock } from "../../shared-kernel/Clock.js";
 import { enforce, type Decision } from "../../shared-kernel/Decision.js";
 import type { IdGenerator, TutorSpaceId } from "../../shared-kernel/ids.js";
@@ -42,7 +43,7 @@ export function auditEntry(
   deps: Pick<IdentityDependencies, "ids" | "clock">,
   tutorSpaceId: TutorSpaceId,
   actor: AuditActor,
-  action: string,
+  action: AuditAction,
   outcome: AuditOutcome,
   details: { targetId?: string; reasonCode?: string } = {},
 ): AuditEntry {
@@ -66,7 +67,7 @@ export async function authorize(
   deps: Pick<IdentityDependencies, "gateway" | "ids" | "clock">,
   actor: Actor,
   decision: Decision,
-  action: string,
+  action: AuditAction,
   targetId?: string,
 ): Promise<void> {
   if (decision.kind !== "allow") {

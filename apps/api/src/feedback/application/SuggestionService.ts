@@ -1,5 +1,6 @@
 import type { Actor } from "../../identity/index.js";
 import type { AuditEntry } from "../../shared-kernel/AuditTrail.js";
+import type { AuditAction } from "../../shared-kernel/auditActions.js";
 import type { Clock } from "../../shared-kernel/Clock.js";
 import { allow, assertNever, deny, enforce, hide, type Decision } from "../../shared-kernel/Decision.js";
 import { NotFoundError } from "../../shared-kernel/DomainError.js";
@@ -156,7 +157,7 @@ export class SuggestionService {
 
   #entry(
     actor: Actor,
-    action: string,
+    action: AuditAction,
     outcome: AuditEntry["outcome"],
     targetId?: string,
     reasonCode?: string,
@@ -173,7 +174,7 @@ export class SuggestionService {
     };
   }
 
-  async #authorize(actor: Actor, decision: Decision, action: string, targetId?: string): Promise<void> {
+  async #authorize(actor: Actor, decision: Decision, action: AuditAction, targetId?: string): Promise<void> {
     if (decision.kind !== "allow") {
       const entry = this.#entry(
         actor,

@@ -96,6 +96,51 @@ describe("Rendu d'un cours (R4)", () => {
   });
 });
 
+const heading = (level: number, text: string) => ({
+  type: "heading",
+  attrs: { level },
+  content: [{ type: "text", text }],
+});
+const table = (...cells: string[]) => ({
+  type: "table",
+  content: [
+    { type: "tableRow", content: cells.map((cell) => ({ type: "tableCell", content: [paragraph(cell)] })) },
+  ],
+});
+
+describe("Tableaux d'un cours (verdict L8, S-11)", () => {
+  it("chaque tableau défile dans la boîte commune, focalisable et nommée par sa partie", () => {
+    render(
+      <LessonContentView
+        content={doc(
+          heading(1, "Les unités de longueur"),
+          table("km", "hm", "dam", "m", "dm", "cm", "mm"),
+          heading(2, "Exemples"),
+          table("1 m", "100 cm"),
+          table("1 km", "1 000 m"),
+          {
+            type: "callout",
+            attrs: { kind: "astuce" },
+            content: [table("× 10", "÷ 10")],
+          },
+        )}
+      />,
+    );
+    const boxes = screen.getAllByRole("region");
+    expect(boxes.map((box) => box.getAttribute("aria-label"))).toEqual([
+      "Tableau : Les unités de longueur",
+      "Tableau : Exemples",
+      "Tableau : Exemples (2)",
+      "Tableau",
+    ]);
+    for (const box of boxes) {
+      expect(box.className).toBe("table-box");
+      expect(box.tabIndex).toBe(0);
+      expect(box.querySelector("table")?.className).toBe("data-table");
+    }
+  });
+});
+
 describe("Vidéo YouTube après un clic (R13, M12)", () => {
   it("n'insère aucun iframe ni aucune ressource YouTube avant le clic ; après, le lecteur nocookie sans suggestions (R13)", () => {
     const { container } = render(
@@ -107,7 +152,7 @@ describe("Vidéo YouTube après un clic (R13, M12)", () => {
       ["src", "href", "srcset"].map((name) => element.getAttribute(name) ?? ""),
     );
     expect(sources.filter((source) => /youtube|ytimg|google/i.test(source))).toEqual([]);
-    fireEvent.click(screen.getByRole("button", { name: /Lancer la vidéo/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Voir la vidéo/ }));
     const iframe = container.querySelector("iframe");
     expect(iframe?.getAttribute("src")).toBe(
       "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&autoplay=1",

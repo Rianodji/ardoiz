@@ -24,6 +24,7 @@ async function fingerStroke(page: Page, points: ReadonlyArray<readonly [number, 
 test("sur tablette, l'élève trace au doigt et retrouve son tracé", async ({ page }) => {
   const state = e2eState();
   await loginLearner(page, state);
+  await page.goto("/eleve/devoirs");
   await page
     .getByRole("listitem")
     .filter({ hasText: "Croquis sur tablette" })
@@ -43,7 +44,7 @@ test("sur tablette, l'élève trace au doigt et retrouve son tracé", async ({ p
     page,
     Array.from({ length: 12 }, (_, i) => [x - 120 + i * 20, y + Math.round(30 * Math.sin(i / 2))] as const),
   );
-  await expect(page.getByText("Enregistré.")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Enregistré", { exact: true })).toBeVisible({ timeout: 20_000 });
   const types = await page.evaluate(async (id) => {
     const body = (await (await fetch(`/api/attempts/${id}`)).json()) as {
       answers: Record<string, { elements?: Array<{ type: string }> }>;

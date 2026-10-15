@@ -1,6 +1,6 @@
 import { test as base, expect, type Page } from "@playwright/test";
 import { createHmac } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 
 export interface E2eState {
   readonly baseURL: string;
@@ -76,8 +76,8 @@ export async function loginLearner(page: Page, state: E2eState): Promise<void> {
   await page.goto("/connexion");
   await page.getByLabel("Code de ton espace").fill(state.spaceCode);
   await page.getByLabel("Ton pseudo").fill(state.learner.username);
-  await page.getByLabel("Mot de passe").fill(state.learner.password);
-  await page.getByRole("button", { name: "Me connecter" }).click();
+  await page.getByLabel("Ton mot de passe", { exact: true }).fill(state.learner.password);
+  await page.getByRole("button", { name: "Entrer dans Ardoiz" }).click();
   await expect(page.getByRole("heading", { name: /Bonjour/ })).toBeVisible();
 }
 
@@ -114,17 +114,28 @@ export async function loginGuardian(page: Page, state: E2eState): Promise<void> 
   expect(login.status(), await login.text()).toBe(200);
 }
 
-let lastTutorStep = 0;
+/**
+ * Dernier pas TOTP consommé, gardé dans un fichier à côté de l'état : un worker relancé après un échec
+ * ne doit pas rejouer le code d'un worker précédent (anti-rejeu, R7).
+ */
+const stepFile = () => `${process.env["E2E_STATE_FILE"] ?? ""}.totp`;
+function lastTutorStep(): number {
+  try {
+    return Number(readFileSync(stepFile(), "utf8")) || 0;
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * Connexion du tuteur avec son second facteur (R7), par l'API du navigateur : la session est posée
  * dans le contexte de la page. Un code TOTP ne sert qu'une fois : on attend un pas neuf si besoin.
  */
 export async function loginTutor(page: Page, state: E2eState): Promise<void> {
-  const used = Math.max(state.tutor.usedStep, lastTutorStep);
+  const used = Math.max(state.tutor.usedStep, lastTutorStep());
   while (Math.floor(Date.now() / 30_000) <= used) await page.waitForTimeout(1_000);
   const step = Math.floor(Date.now() / 30_000);
-  lastTutorStep = step;
+  writeFileSync(stepFile(), String(step));
   const headers = { origin: state.baseURL };
   const login = await page.request.post("/api/auth/login/adult", {
     headers,

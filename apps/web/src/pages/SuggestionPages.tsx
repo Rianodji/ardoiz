@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
+import { fetchFamilies } from "../api/identity";
 import { fetchSuggestions, handleSuggestion, sendSuggestion, type Suggestion } from "../api/progress";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { Button, Card, Field, Notice, PageHeader, Pill, type PillTone } from "../ui";
+import { shortDate } from "../ui/format";
+import { MessageSquare } from "../ui/icons";
 
 /**
  * Suggestions des parents (R15). Le texte est affiché comme du TEXTE (nœud React), jamais comme du
@@ -9,30 +13,31 @@ import { ErrorMessage } from "../components/ErrorMessage";
  */
 const SUGGESTIONS_QUERY = ["suggestions"] as const;
 const MAX_LENGTH = 2000;
+const REPLY_MAX_LENGTH = 500;
 
 export const CATEGORY_LABELS: Readonly<Record<Suggestion["category"], string>> = {
   lessons: "Les cours",
   sessions: "Les séances",
-  assessments: "Les épreuves",
-  other: "Autre",
+  assessments: "Les devoirs",
+  other: "Autre chose",
 };
-const STATUS_LABELS: Readonly<Record<Suggestion["status"], string>> = {
-  new: "Envoyée",
-  read: "Lue par le tuteur",
-  done: "Traitée",
+const CATEGORIES = Object.keys(CATEGORY_LABELS) as Array<Suggestion["category"]>;
+
+const STATUS: Readonly<Record<Suggestion["status"], { label: string; tone: PillTone }>> = {
+  new: { label: "Envoyée", tone: "todo" },
+  read: { label: "Lue par le tuteur", tone: "info" },
+  done: { label: "Traitée", tone: "done" },
 };
 
-const dateFr = (iso: string) =>
-  new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", dateStyle: "medium" }).format(new Date(iso));
+const count = (value: number) => value.toLocaleString("fr-FR");
 
-/** Le parent : écrire une suggestion, voir le statut et la réponse des siennes. */
-export function GuardianSuggestions() {
+/** Le parent : écrire au tuteur, voir le statut et la réponse de ses messages (maquette Parent-Suggestion). */
+export function GuardianSuggestionsPage() {
   const queryClient = useQueryClient();
   const list = useQuery({ queryKey: SUGGESTIONS_QUERY, queryFn: fetchSuggestions });
   const [category, setCategory] = useState<Suggestion["category"]>("lessons");
   const [body, setBody] = useState("");
-  const categoryId = useId();
-  const bodyId = useId();
+  const groupId = useId();
   const send = useMutation({
     mutationFn: () => sendSuggestion(category, body),
     onSuccess: async () => {
@@ -41,140 +46,233 @@ export function GuardianSuggestions() {
     },
   });
   return (
-    <section className="card">
-      <h2>Une suggestion pour le tuteur</h2>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          send.mutate();
-        }}
-      >
-        <label htmlFor={categoryId}>Thème</label>
-        <select
-          id={categoryId}
-          value={category}
-          onChange={(event) => {
-            const chosen = (Object.keys(CATEGORY_LABELS) as Array<Suggestion["category"]>).find(
-              (key) => key === event.target.value,
-            );
-            if (chosen !== undefined) setCategory(chosen);
-          }}
-        >
-          {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <label htmlFor={bodyId}>Ta suggestion (texte simple, {MAX_LENGTH} caractères au plus)</label>
-        <textarea
-          id={bodyId}
-          value={body}
-          maxLength={MAX_LENGTH}
-          rows={5}
-          required
-          onChange={(event) => {
-            setBody(event.target.value);
-          }}
-        />
-        <p className="hint" aria-live="polite">
-          {body.length} / {MAX_LENGTH}
-        </p>
-        <button type="submit" className="button" disabled={send.isPending}>
-          Envoyer
-        </button>
-        {send.isSuccess && <p role="status">Suggestion envoyée. Merci !</p>}
-        <ErrorMessage error={send.error} />
-      </form>
-      <h3>Mes suggestions</h3>
-      <ErrorMessage error={list.error} />
-      {list.data?.suggestions.length === 0 && <p className="hint">Tu n'as encore rien envoyé.</p>}
-      <ul className="suggestions">
-        {list.data?.suggestions.map((suggestion) => (
-          <li key={suggestion.id}>
-            <p>
-              <strong>{CATEGORY_LABELS[suggestion.category]}</strong> · {dateFr(suggestion.createdAt)} ·{" "}
-              {STATUS_LABELS[suggestion.status]}
-            </p>
-            <p className="suggestion-body">{suggestion.body}</p>
-            {suggestion.reply !== null && (
-              <p className="suggestion-body">
-                <strong>Réponse du tuteur :</strong> {suggestion.reply}
+    <div className="page">
+      <div className="grid-two">
+        <Card aria-labelledby="ecrire">
+          <h1 id="ecrire">Écrire au tuteur</h1>
+          <p>Une idée, une remarque, un souci ? Le tuteur lit chaque message et vous répond ici.</p>
+          <form
+            className="form-stack"
+            onSubmit={(event) => {
+              event.preventDefault();
+              send.mutate();
+            }}
+          >
+            <fieldset>
+              <legend id={groupId}>Le sujet</legend>
+              <div className="choice-group">
+                {CATEGORIES.map((key) => (
+                  <label key={key}>
+                    <input
+                      type="radio"
+                      name="sujet"
+                      value={key}
+                      checked={category === key}
+                      onChange={() => {
+                        setCategory(key);
+                      }}
+                    />
+                    {CATEGORY_LABELS[key]}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <Field
+              label="Votre message"
+              hint={
+                <span className="char-count">
+                  <span>Texte simple, sans mise en forme.</span>
+                  <span aria-live="polite">
+                    {count(body.length)} / {count(MAX_LENGTH)}
+                  </span>
+                </span>
+              }
+            >
+              {(control) => (
+                <textarea
+                  {...control}
+                  value={body}
+                  maxLength={MAX_LENGTH}
+                  rows={5}
+                  required
+                  onChange={(event) => {
+                    setBody(event.target.value);
+                  }}
+                />
+              )}
+            </Field>
+            <div>
+              <Button type="submit" disabled={send.isPending}>
+                Envoyer au tuteur
+              </Button>
+            </div>
+            {send.isSuccess && (
+              <p role="status" className="status-line">
+                Message envoyé. Merci !
               </p>
             )}
-          </li>
-        ))}
-      </ul>
-    </section>
+            <ErrorMessage error={send.error} />
+            <p className="hint">Jusqu'à 5 messages par jour.</p>
+          </form>
+        </Card>
+        <section aria-labelledby="vos-messages" className="stack-sm">
+          <h2 id="vos-messages">Vos messages</h2>
+          <ErrorMessage error={list.error} />
+          {list.data?.suggestions.length === 0 && <p className="hint">Vous n'avez encore rien envoyé.</p>}
+          <ul className="stack-sm plain">
+            {list.data?.suggestions.map((suggestion) => (
+              <li key={suggestion.id} className="card">
+                <p className="row-side">
+                  <Pill tone={STATUS[suggestion.status].tone}>{STATUS[suggestion.status].label}</Pill>
+                  <span className="hint">
+                    {CATEGORY_LABELS[suggestion.category]} · {shortDate(suggestion.createdAt)}
+                  </span>
+                </p>
+                <p className="suggestion-body">{suggestion.body}</p>
+                {suggestion.reply !== null && (
+                  <div className="reply">
+                    <p className="reply-label">Réponse du tuteur</p>
+                    <p className="suggestion-body">{suggestion.reply}</p>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </div>
   );
 }
 
-/** Le tuteur : la boîte de réception des suggestions, avec statut et réponse courte. */
+const FILTERS = [
+  { key: "new", label: "À traiter" },
+  { key: "read", label: "Lues" },
+  { key: "done", label: "Traitées" },
+] as const;
+
+/** Le tuteur : la boîte de réception des suggestions, filtrée par état (maquette Tuteur-Suggestions). */
 export function SuggestionsInboxPage() {
   const list = useQuery({ queryKey: SUGGESTIONS_QUERY, queryFn: fetchSuggestions });
+  const families = useQuery({ queryKey: ["families"], queryFn: fetchFamilies });
+  const [filter, setFilter] = useState<Suggestion["status"]>("new");
+  const all = list.data?.suggestions ?? [];
+  const shown = all.filter((suggestion) => suggestion.status === filter);
+  // L'auteur, retrouvé dans les familles de l'espace : « Awa Mbaye · parent de Lina et Adam ».
+  const authorOf = (guardianId: string) => {
+    const guardian = families.data?.guardians.find((entry) => entry.id === guardianId);
+    const children = (families.data?.learners ?? [])
+      .filter((learner) => learner.guardians.some((link) => link.guardianId === guardianId))
+      .map((learner) => learner.firstName);
+    return {
+      name: guardian?.displayName ?? "Un parent",
+      children: children.length === 0 ? "" : `parent de ${children.join(" et ")}`,
+    };
+  };
   return (
-    <section className="card">
-      <h1>Suggestions des parents</h1>
-      {list.isPending && <p role="status">Chargement…</p>}
-      <ErrorMessage error={list.error} />
-      {list.data?.suggestions.length === 0 && <p className="hint">Aucune suggestion pour l'instant.</p>}
-      <ul className="suggestions">
-        {list.data?.suggestions.map((suggestion) => (
-          <li key={suggestion.id}>
-            <InboxEntry suggestion={suggestion} />
-          </li>
+    <div className="page">
+      <PageHeader title="Suggestions des parents" />
+      <div className="choice-group green" role="radiogroup" aria-label="Afficher les suggestions">
+        {FILTERS.map((entry) => (
+          <label key={entry.key}>
+            <input
+              type="radio"
+              name="filtre"
+              checked={filter === entry.key}
+              onChange={() => {
+                setFilter(entry.key);
+              }}
+            />
+            {entry.label} ({all.filter((suggestion) => suggestion.status === entry.key).length})
+          </label>
         ))}
-      </ul>
-    </section>
+      </div>
+      <div className="stack" aria-live="polite">
+        {list.isPending && <p role="status">Chargement…</p>}
+        <ErrorMessage error={list.error} />
+        {list.data !== undefined && shown.length === 0 && (
+          <Notice icon={MessageSquare}>Aucune suggestion dans cette liste.</Notice>
+        )}
+        <ul className="stack plain">
+          {shown.map((suggestion) => (
+            <li key={suggestion.id}>
+              <InboxEntry suggestion={suggestion} author={authorOf(suggestion.guardianId)} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 
-function InboxEntry({ suggestion }: { readonly suggestion: Suggestion }) {
+function InboxEntry({
+  suggestion,
+  author,
+}: {
+  readonly suggestion: Suggestion;
+  readonly author: { readonly name: string; readonly children: string };
+}) {
   const queryClient = useQueryClient();
   const [reply, setReply] = useState(suggestion.reply ?? "");
-  const replyId = useId();
   const update = useMutation({
     mutationFn: (status: "read" | "done") => handleSuggestion(suggestion.id, status, reply),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SUGGESTIONS_QUERY }),
   });
   return (
-    <article>
-      <p>
-        <strong>{CATEGORY_LABELS[suggestion.category]}</strong> · {dateFr(suggestion.createdAt)} ·{" "}
-        {STATUS_LABELS[suggestion.status]}
+    <Card as="article" className={suggestion.status === "new" ? "highlight" : undefined}>
+      <p className="row-side">
+        {suggestion.status === "new" ? (
+          <Pill tone="todo">Nouvelle</Pill>
+        ) : (
+          <Pill tone={STATUS[suggestion.status].tone}>
+            {suggestion.status === "read" ? "Lue" : "Traitée"}
+          </Pill>
+        )}
+        <strong>{author.name}</strong>
+        <span className="hint">
+          {author.children === "" ? "" : `${author.children} · `}
+          {CATEGORY_LABELS[suggestion.category]} · {shortDate(suggestion.createdAt)}
+        </span>
       </p>
       <p className="suggestion-body">{suggestion.body}</p>
-      <label htmlFor={replyId}>Réponse courte (500 caractères au plus, facultative)</label>
-      <textarea
-        id={replyId}
-        value={reply}
-        maxLength={500}
-        rows={2}
-        onChange={(event) => {
-          setReply(event.target.value);
+      <form
+        className="form-stack"
+        onSubmit={(event) => {
+          event.preventDefault();
+          update.mutate("done");
         }}
-      />
-      <div className="actions">
-        <button
-          type="button"
-          className="button secondary"
-          onClick={() => {
-            update.mutate("read");
-          }}
-        >
-          Marquer comme lue
-        </button>
-        <button
-          type="button"
-          className="button"
-          onClick={() => {
-            update.mutate("done");
-          }}
-        >
-          Marquer comme traitée
-        </button>
-      </div>
-      <ErrorMessage error={update.error} />
-    </article>
+      >
+        <Field label={`Répondre (facultatif, ${String(REPLY_MAX_LENGTH)} caractères au plus)`}>
+          {(control) => (
+            <textarea
+              {...control}
+              value={reply}
+              maxLength={REPLY_MAX_LENGTH}
+              rows={2}
+              placeholder="Votre réponse au parent"
+              onChange={(event) => {
+                setReply(event.target.value);
+              }}
+            />
+          )}
+        </Field>
+        <div className="actions">
+          <Button type="submit" disabled={update.isPending}>
+            {reply.trim() === "" ? "Marquer comme traitée" : "Répondre et marquer comme traitée"}
+          </Button>
+          {suggestion.status === "new" && (
+            <Button
+              variant="secondary"
+              disabled={update.isPending}
+              onClick={() => {
+                update.mutate("read");
+              }}
+            >
+              Marquer comme lue
+            </Button>
+          )}
+        </div>
+        <ErrorMessage error={update.error} />
+      </form>
+    </Card>
   );
 }

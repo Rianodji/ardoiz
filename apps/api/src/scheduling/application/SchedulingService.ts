@@ -1,5 +1,6 @@
 import type { Actor } from "../../identity/index.js";
 import type { AuditEntry } from "../../shared-kernel/AuditTrail.js";
+import type { AuditAction } from "../../shared-kernel/auditActions.js";
 import type { Clock, RandomSource } from "../../shared-kernel/Clock.js";
 import { enforce, type Decision } from "../../shared-kernel/Decision.js";
 import { NotFoundError } from "../../shared-kernel/DomainError.js";
@@ -384,7 +385,7 @@ export class SchedulingService {
 
   #entry(
     actor: Actor,
-    action: string,
+    action: AuditAction,
     outcome: AuditEntry["outcome"],
     targetId?: string,
     reasonCode?: string,
@@ -402,7 +403,7 @@ export class SchedulingService {
   }
 
   /** Un refus est journalisé dans sa propre transaction (R12), puis levé (R2, R18). */
-  async #authorize(actor: Actor, decision: Decision, action: string, targetId?: string): Promise<void> {
+  async #authorize(actor: Actor, decision: Decision, action: AuditAction, targetId?: string): Promise<void> {
     if (decision.kind !== "allow") {
       const entry = this.#entry(
         actor,

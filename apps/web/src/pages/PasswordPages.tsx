@@ -20,6 +20,7 @@ export function ForgotPasswordPage() {
         </p>
       ) : (
         <form
+          className="form-stack"
           onSubmit={(event) => {
             event.preventDefault();
             request.mutate();
@@ -59,10 +60,11 @@ export function NewPasswordPage() {
       <h1>Nouveau mot de passe</h1>
       {complete.isSuccess ? (
         <p role="status">
-          C'est fait. Toutes tes sessions ont été fermées. <Link to="/connexion">Se connecter</Link>
+          C'est fait. Toutes vos sessions ont été fermées. <Link to="/connexion">Se connecter</Link>
         </p>
       ) : (
         <form
+          className="form-stack"
           onSubmit={(event) => {
             event.preventDefault();
             complete.mutate();

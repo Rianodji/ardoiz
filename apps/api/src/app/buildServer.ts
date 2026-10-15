@@ -92,7 +92,9 @@ export async function buildServer(deps: ServerDependencies): Promise<FastifyInst
   app.setNotFoundHandler(async (request, reply) => {
     // Navigation de la SPA : toute URL hors API renvoie index.html, le routeur du front décide.
     const path = request.url.split("?")[0] ?? "";
-    const isNavigation = request.method === "GET" && !path.startsWith("/api/") && !TECHNICAL_PATHS.has(path);
+    // HEAD suit GET (RFC 9110 §9.3.2) : une sonde de disponibilité reçoit 200, sans corps (L8, correction 5).
+    const isRead = request.method === "GET" || request.method === "HEAD";
+    const isNavigation = isRead && !path.startsWith("/api/") && !TECHNICAL_PATHS.has(path);
     if (webDistDir !== undefined && isNavigation) return reply.type("text/html").sendFile("index.html");
     return sendProblem(request, reply, 404, "application.not-found");
   });

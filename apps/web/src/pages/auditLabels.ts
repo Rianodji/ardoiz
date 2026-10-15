@@ -1,0 +1,150 @@
+import { AUDIT_ACTIONS, AUDIT_ACTOR_KINDS, type AuditAction, type AuditActorKind } from "@ardoiz/contracts";
+
+/**
+ * Libellés français du journal d'audit (charte §7, L8 correction 3) : jamais un code interne à l'écran.
+ * Le type `Record<AuditAction, string>` oblige à donner un libellé à chaque code de la liste fermée,
+ * et un test le vérifie aussi à l'exécution. Une entrée refusée se lit avec sa colonne « Résultat » :
+ * « Ouverture d'une copie · Refusé ».
+ */
+export const AUDIT_ACTION_LABELS: Readonly<Record<AuditAction, string>> = {
+  "assessment.annotate": "Annotation d'une copie",
+  "assessment.annotated": "Copie annotée",
+  "assessment.answers-revealed": "Corrigé révélé",
+  "assessment.assign": "Attribution d'une épreuve",
+  "assessment.assigned": "Épreuve attribuée",
+  "assessment.create": "Création d'une épreuve",
+  "assessment.edit": "Modification des questions d'une épreuve",
+  "assessment.grade": "Correction d'une copie",
+  "assessment.graded": "Copie corrigée",
+  "assessment.grading-queue": "Consultation de la file de correction",
+  "assessment.list": "Consultation des épreuves",
+  "assessment.list-assignments": "Consultation des attributions",
+  "assessment.publish": "Publication d'une note",
+  "assessment.published": "Note publiée",
+  "assessment.read": "Consultation d'une épreuve",
+  "assessment.read-attempt": "Ouverture d'une copie",
+  "assessment.read-notebook-image": "Ouverture d'une image du cahier",
+  "assessment.rectified": "Note rectifiée",
+  "assessment.rectify": "Rectification d'une note",
+  "assessment.reveal": "Révélation du corrigé",
+  "assessment.start": "Début d'un devoir",
+  "assessment.submitted": "Copie rendue",
+  "assessment.view-assignments": "Consultation des devoirs d'un élève",
+  "assessment.view-attempt": "Ouverture d'une copie",
+  "assessment.view-results": "Consultation des résultats d'un élève",
+  "assessment.work-on-attempt": "Travail sur une copie",
+  "curriculum.add-competency": "Ajout d'une compétence",
+  "curriculum.archive-competency": "Archivage d'une compétence",
+  "curriculum.competency-added": "Compétence ajoutée",
+  "curriculum.competency-archived": "Compétence archivée",
+  "curriculum.competency-renamed": "Compétence renommée",
+  "curriculum.competency-reordered": "Compétence déplacée dans la liste",
+  "curriculum.complete-lesson": "Cours marqué comme fini",
+  "curriculum.create-group": "Création d'un groupe",
+  "curriculum.create-lesson": "Création d'un cours",
+  "curriculum.create-module": "Création d'un module",
+  "curriculum.edit-lesson": "Modification d'un cours",
+  "curriculum.group-members-set": "Membres d'un groupe modifiés",
+  "curriculum.lesson-completed": "Cours fini par l'élève",
+  "curriculum.lesson-published": "Cours publié",
+  "curriculum.lesson-unpublished": "Cours repassé en brouillon",
+  "curriculum.publish-lesson": "Publication d'un cours",
+  "curriculum.read-groups": "Consultation des groupes",
+  "curriculum.read-learner-programme": "Consultation des cours d'un élève",
+  "curriculum.read-lesson": "Ouverture d'un cours",
+  "curriculum.read-media": "Ouverture d'une image de cours",
+  "curriculum.read-programme": "Consultation du programme",
+  "curriculum.read-referential": "Consultation du référentiel",
+  "curriculum.read-unlocks": "Consultation des ouvertures de cours",
+  "curriculum.relock": "Fermeture d'un cours",
+  "curriculum.relocked": "Cours refermé",
+  "curriculum.set-group-members": "Modification des membres d'un groupe",
+  "curriculum.unlock": "Ouverture d'un cours à un élève",
+  "curriculum.unlocked": "Cours ouvert à un élève ou un groupe",
+  "curriculum.update-competency": "Modification d'une compétence",
+  "curriculum.update-module": "Modification d'un module",
+  "curriculum.upload-media": "Import d'une image",
+  "feedback.handle": "Traitement d'une suggestion",
+  "feedback.handled": "Suggestion traitée",
+  "feedback.list": "Consultation des suggestions",
+  "feedback.read": "Lecture d'une suggestion",
+  "feedback.send": "Envoi d'une suggestion",
+  "feedback.sent": "Suggestion envoyée",
+  "identity.consent-given": "Accord parental donné",
+  "identity.consent-withdrawn": "Accord parental retiré",
+  "identity.create-learner": "Création d'un compte élève",
+  "identity.guardianship-established": "Lien parental établi",
+  "identity.guardianship-revoked": "Lien parental révoqué",
+  "identity.invitation-issued": "Invitation envoyée",
+  "identity.invite-co-guardian": "Invitation de l'autre parent",
+  "identity.invite-guardian": "Invitation d'un parent",
+  "identity.learner-password-reset": "Mot de passe d'un élève changé",
+  "identity.list-families": "Consultation des familles",
+  "identity.mfa-enabled": "Double authentification activée",
+  "identity.mfa-failed": "Codes de double authentification erronés",
+  "identity.password-reset": "Mot de passe réinitialisé",
+  "identity.read-audit": "Consultation du journal d'audit",
+  "identity.recovery-codes-renewed": "Codes de secours renouvelés",
+  "identity.reset-learner-password": "Changement du mot de passe d'un élève",
+  "identity.revoke-guardianship": "Révocation d'un lien parental",
+  "identity.space-initialized": "Espace créé",
+  "identity.tutor-login": "Connexion du tuteur",
+  "identity.view-learner": "Consultation de la fiche d'un élève",
+  "identity.withdrawal-cancelled": "Retrait de l'accord annulé",
+  "identity.withdraw-consent": "Retrait de l'accord parental",
+  "privacy.learner-purged": "Données d'un élève supprimées",
+  "progress.adjust": "Ajustement d'un niveau de compétence",
+  "progress.competency-adjusted": "Niveau de compétence ajusté",
+  "progress.overview": "Consultation de la progression des élèves",
+  "progress.view": "Consultation de la progression d'un élève",
+  "scheduling.cancel": "Annulation d'une séance",
+  "scheduling.cancelled": "Séance annulée",
+  "scheduling.change-link": "Changement du lien de visio",
+  "scheduling.join": "Entrée dans une séance",
+  "scheduling.link-changed": "Lien de visio changé",
+  "scheduling.list": "Consultation des séances",
+  "scheduling.move": "Déplacement d'une séance",
+  "scheduling.moved": "Séance déplacée",
+  "scheduling.plan": "Planification d'une séance",
+  "scheduling.planned": "Séance planifiée",
+  "scheduling.series-cancelled": "Séances suivantes annulées",
+  "scheduling.view": "Consultation de l'agenda",
+};
+
+export const AUDIT_ACTOR_LABELS: Readonly<Record<AuditActorKind, string>> = {
+  tutor: "Tuteur",
+  guardian: "Parent",
+  learner: "Élève",
+  system: "Système",
+};
+
+/** Précisions d'une entrée : moyen de connexion, raison d'un refus. Un motif inconnu n'est pas affiché. */
+export const AUDIT_REASON_LABELS: Readonly<Record<string, string>> = {
+  totp: "code de double authentification",
+  "recovery-code": "code de secours",
+  "invalid-totp": "code erroné",
+  password: "mot de passe",
+  "invalid-credentials": "identifiants erronés",
+  "too-many-invalid-codes": "trop de codes erronés",
+  late: "en retard",
+  hidden: "ressource d'un autre compte",
+  "adult-only": "réservé aux adultes",
+  "tutor-only": "réservé au tuteur",
+  "guardian-only": "réservé aux parents",
+  "guardian-no-link": "pas de lien avec cet élève",
+  "learner-only": "réservé aux élèves",
+  "not-for-learners": "interdit aux élèves",
+};
+
+const isAction = (code: string): code is AuditAction => (AUDIT_ACTIONS as readonly string[]).includes(code);
+const isActorKind = (code: string): code is AuditActorKind =>
+  (AUDIT_ACTOR_KINDS as readonly string[]).includes(code);
+
+/** Une entrée plus ancienne que la liste (code retiré depuis) reste lisible, sans montrer son code. */
+export function auditActionLabel(action: string): string {
+  return isAction(action) ? AUDIT_ACTION_LABELS[action] : "Action non répertoriée";
+}
+
+export function auditActorLabel(kind: string): string {
+  return isActorKind(kind) ? AUDIT_ACTOR_LABELS[kind] : "Inconnu";
+}

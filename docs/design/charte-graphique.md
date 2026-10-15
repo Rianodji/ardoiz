@@ -73,7 +73,7 @@ Contrastes : tout couple texte et fond atteint au moins 4,5:1 (WCAG 2.2 AA), 3:1
 
 | Composant | Règles |
 |---|---|
-| Bouton principal | Fond `--vert`, texte blanc, hauteur 56 px (élève) ou 44 à 48 px (adulte) |
+| Bouton principal | Fond `--vert`, texte blanc, hauteur 56 px (élève) ou 48 px (adulte) |
 | Bouton secondaire | Fond `--papier`, bordure et texte `--vert` |
 | Bouton discret | Texte `--vert` souligné, sans fond |
 | Bouton destructif | Bordure et texte `--brique` ; toujours une confirmation |

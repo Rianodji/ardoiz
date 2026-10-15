@@ -23,10 +23,11 @@ export function TotpVerifyPage() {
     <section className="card narrow">
       <h1>Double authentification</h1>
       <p>
-        Ouvre ton application d'authentification et saisis le code à 6 chiffres. Tu peux aussi utiliser un
-        code de secours.
+        Ouvrez votre application d'authentification et saisissez le code à 6 chiffres. Vous pouvez aussi
+        utiliser un code de secours.
       </p>
       <form
+        className="form-stack"
         onSubmit={(event) => {
           event.preventDefault();
           verify.mutate();
@@ -69,8 +70,8 @@ export function TotpEnrollPage() {
       <section className="card narrow">
         <h1>Double authentification activée</h1>
         <p>
-          Voici tes <strong>codes de secours</strong>. Chacun ne sert qu'une fois, si tu n'as plus ton
-          téléphone. Note-les et range-les en lieu sûr : ils ne seront plus jamais affichés.
+          Voici vos <strong>codes de secours</strong>. Chacun ne sert qu'une fois, si vous n'avez plus votre
+          téléphone. Notez-les et rangez-les en lieu sûr : ils ne seront plus jamais affichés.
         </p>
         <ul className="recovery-codes">
           {activate.data.recoveryCodes.map((recovery) => (
@@ -97,7 +98,7 @@ export function TotpEnrollPage() {
       <h1>Activer la double authentification</h1>
       <p>
         Pour protéger les données des élèves, le compte tuteur demande un second code à chaque connexion.
-        Installe une application d'authentification (par exemple FreeOTP, Aegis ou Google Authenticator).
+        Installez une application d'authentification (par exemple FreeOTP, Aegis ou Google Authenticator).
       </p>
       {start.data === undefined ? (
         <>
@@ -115,18 +116,20 @@ export function TotpEnrollPage() {
         </>
       ) : (
         <form
+          className="form-stack"
           onSubmit={(event) => {
             event.preventDefault();
             activate.mutate();
           }}
         >
-          <p>Avec l'application, scanne ce QR code :</p>
+          <p>Avec l'application, scannez ce QR code :</p>
           <QrCode
             value={start.data.otpauthUri}
             label="QR code à scanner avec l'application d'authentification"
           />
           <p>
-            Sans appareil photo, ajoute un compte avec cette clé (ou touche le lien depuis ton téléphone) :
+            Sans appareil photo, ajoutez un compte avec cette clé (ou touchez le lien depuis votre téléphone)
+            :
           </p>
           <p className="secret">
             <code>{start.data.secret.replace(/(.{4})/g, "$1 ").trim()}</code>

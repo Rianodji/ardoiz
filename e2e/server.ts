@@ -231,6 +231,22 @@ await call("tutor", "PUT", `/api/lessons/${lessonId}/content`, {
         attrs: { kind: "astuce" },
         content: [{ type: "paragraph", content: [{ type: "text", text: "Retiens le tableau." }] }],
       },
+      // Un tableau large (verdict L8, S-11) : à 360 px, il défile dans sa boîte, la page ne déborde pas.
+      { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Le tableau de conversion" }] },
+      {
+        type: "table",
+        content: [
+          ["kilomètre", "hectomètre", "décamètre", "mètre", "décimètre", "centimètre", "millimètre"],
+          ["km", "hm", "dam", "m", "dm", "cm", "mm"],
+          ["0,001", "0,01", "0,1", "1", "10", "100", "1 000"],
+        ].map((row) => ({
+          type: "tableRow",
+          content: row.map((text) => ({
+            type: "tableCell",
+            content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+          })),
+        })),
+      },
       { type: "youtube", attrs: { videoId: "dQw4w9WgXcQ" } },
     ],
   },

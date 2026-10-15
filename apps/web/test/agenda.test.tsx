@@ -62,9 +62,12 @@ describe("Agenda de l'élève (R9)", () => {
       return undefined;
     });
     renderAgenda();
-    const [now, later] = await screen.findAllByRole("button", { name: "Rejoindre" });
+    const [now, later] = await screen.findAllByRole("button", { name: /^Rejoindre/ });
+    expect(now?.textContent).toBe("Rejoindre");
+    expect(now?.hasAttribute("disabled")).toBe(false);
     expect(later?.hasAttribute("disabled")).toBe(true);
-    expect(screen.getByText(/Le bouton s'active à 17:45/)).toBeDefined();
+    // L'heure d'ouverture est écrite en clair, en heure de Paris (charte §7, H8).
+    expect(later?.textContent).toBe("Rejoindre · possible dès\u00a017\u00a0h\u00a045");
     expect(document.body.textContent).not.toContain("meet.jit.si");
     expect(
       [...document.querySelectorAll("[href]")].map((element) => element.getAttribute("href")),

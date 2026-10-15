@@ -313,6 +313,32 @@ describe("Service de la SPA sur la même origine (ADR-0006)", () => {
     expect(res.headers["cache-control"]).toBe("no-store");
   });
 
+  it("répond aussi à HEAD sur une navigation, comme à GET, avec les mêmes en-têtes (L8, correction 5)", async () => {
+    for (const url of ["/", "/eleve/cours"]) {
+      const get = await app.inject({ method: "GET", url });
+      const head = await app.inject({ method: "HEAD", url });
+      expect(head.statusCode, url).toBe(200);
+      expect(head.body, url).toBe("");
+      expect(head.headers["content-type"], url).toBe(get.headers["content-type"]);
+      expect(head.headers["content-security-policy"], url).toBe(get.headers["content-security-policy"]);
+      expect(head.headers["cache-control"], url).toBe("no-store");
+    }
+  });
+
+  it("garde un 404 RFC 9457 pour HEAD sur une route d'API inconnue (L8, correction 5)", async () => {
+    const res = await app.inject({ method: "HEAD", url: "/api/inconnue" });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("refuse toujours les autres méthodes hors API sur une navigation (L8, correction 5)", async () => {
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/eleve",
+      headers: { origin: config.publicOrigin },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
   it("met en cache les fichiers à empreinte, jamais la page", async () => {
     const res = await app.inject({ method: "GET", url: "/assets/app.js" });
     expect(res.statusCode).toBe(200);

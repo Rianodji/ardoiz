@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
+import { Button, ButtonLink, Card, Field, Notice, PageHeader, Pill } from "../ui";
+import { numberFr, plural, shortDateTime } from "../ui/format";
+import { Check, ClipboardList, Minus, Pencil, Plus } from "../ui/icons";
 import {
   assignAssessment,
   createAssessment,
   fetchAssessments,
+  fetchAssignments,
   fetchGradingQueue,
   fetchTutorAttempt,
   gradeAttempt,
@@ -21,6 +25,7 @@ import { fetchCompetencyChoices, fetchGroups, fetchProgramme } from "../api/curr
 import { fetchFamilies } from "../api/identity";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { formulasOf, NotebookField } from "../notebook/NotebookField";
+import { assignmentPreview } from "./assignmentPreview";
 
 /** Unités proposées pour une question numérique : le serveur valide contre le même catalogue fermé. */
 const UNIT_CHOICES = [
@@ -197,22 +202,23 @@ function QuestionEditor({ assessment }: { readonly assessment: AuthorAssessment 
   const choices = competencies.data?.competencies ?? [];
   if (draft === null)
     return (
-      <button
-        type="button"
-        className="button secondary"
+      <Button
+        variant="secondary"
+        icon={Plus}
         onClick={() => {
           setDraft(blankQuestion(choices[0]?.id ?? ""));
         }}
       >
         Ajouter une question
-      </button>
+      </Button>
     );
   const set = (changes: Partial<QuestionDraft>) => {
     setDraft({ ...draft, ...changes });
   };
   return (
     <form
-      className="stack"
+      className="form-stack card dashed"
+      aria-label="Nouvelle question"
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate(toInput(draft));
@@ -355,258 +361,473 @@ function QuestionEditor({ assessment }: { readonly assessment: AuthorAssessment 
       />
       <ErrorMessage error={save.error} />
       <div className="actions">
-        <button type="submit" className="button">
-          Enregistrer la question
-        </button>
-        <button
-          type="button"
-          className="button secondary"
+        <Button type="submit">Enregistrer la question</Button>
+        <Button
+          variant="quiet"
           onClick={() => {
             setDraft(null);
           }}
         >
           Annuler
-        </button>
+        </Button>
       </div>
     </form>
   );
 }
 
-function AssignForm({ assessment }: { readonly assessment: AuthorAssessment }) {
+/** Valeur d'un champ datetime-local, en heure de l'appareil (le tuteur est à Paris). */
+function localInput(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/**
+ * Attribution d'une épreuve (maquette Tuteur-Epreuves). L8, correction 2 : l'ouverture vaut
+ * « Maintenant » par défaut ; une ouverture plus tard reste possible, et l'élève voit alors « S'ouvre le … ».
+ */
+function AssignForm({
+  assessment,
+  onDone,
+}: {
+  readonly assessment: AuthorAssessment;
+  readonly onDone: () => void;
+}) {
   const families = useQuery({ queryKey: ["families"], queryFn: fetchFamilies });
   const groups = useQuery({ queryKey: ["groups"], queryFn: fetchGroups });
   const queryClient = useQueryClient();
-  const id = useId();
   const [audience, setAudience] = useState("");
+  const [opening, setOpening] = useState<"now" | "later">("now");
   const [opensAt, setOpensAt] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [maxAttempts, setMaxAttempts] = useState("1");
   const [lateAllowed, setLateAllowed] = useState(false);
-  const [publication, setPublication] = useState<"auto" | "manual">("manual");
-  const [done, setDone] = useState(false);
+  const [autoPublish, setAutoPublish] = useState(false);
+  // Instant d'ouverture du formulaire : une ouverture choisie après lui est « à venir » (S-5).
+  const [now] = useState(() => Date.now());
   const assign = useMutation({
     mutationFn: () => {
       const [kind, targetId = ""] = audience.split(":");
       return assignAssessment({
         assessmentId: assessment.id,
         audience: { kind: kind === "group" ? "group" : "learner", id: targetId },
-        opensAt: new Date(opensAt).toISOString(),
+        // « Maintenant » : l'instant du clic. Le serveur accepte une ouverture passée (fenêtre inchangée).
+        opensAt: (opening === "now" ? new Date() : new Date(opensAt)).toISOString(),
         dueAt: new Date(dueAt).toISOString(),
         maxAttempts: Number(maxAttempts),
         lateAllowed,
-        publication,
+        publication: autoPublish ? "auto" : "manual",
       });
     },
     onSuccess: async () => {
-      setDone(true);
       await queryClient.invalidateQueries({ queryKey: ASSESSMENTS });
+      await queryClient.invalidateQueries({ queryKey: ["assignments"] });
+      onDone();
     },
   });
+  // Recalculée à chaque changement d'un champ (verdict L8, S-5).
+  const preview = assignmentPreview(
+    opening === "later" && opensAt !== "" ? new Date(opensAt) : null,
+    dueAt === "" ? null : new Date(dueAt),
+    now,
+  );
   return (
-    <form
-      className="stack"
-      onSubmit={(event) => {
-        event.preventDefault();
-        assign.mutate();
-      }}
-    >
-      <label htmlFor={`${id}-audience`}>Pour</label>
-      <select
-        id={`${id}-audience`}
-        required
-        value={audience}
-        onChange={(event) => {
-          setAudience(event.target.value);
+    <Card aria-labelledby={`attribuer-${assessment.id}`}>
+      <div className="card-head">
+        <h2 id={`attribuer-${assessment.id}`}>Attribuer « {assessment.title} »</h2>
+        <p className="hint">Une fois attribuée, l'épreuve ne peut plus être modifiée.</p>
+      </div>
+      <form
+        className="form-stack"
+        onSubmit={(event) => {
+          event.preventDefault();
+          assign.mutate();
         }}
       >
-        <option value="">Choisir…</option>
-        {(groups.data?.groups ?? []).map((group) => (
-          <option key={group.id} value={`group:${group.id}`}>
-            Groupe {group.name}
-          </option>
-        ))}
-        {(families.data?.learners ?? []).map((learner) => (
-          <option key={learner.id} value={`learner:${learner.id}`}>
-            {learner.firstName}
-          </option>
-        ))}
-      </select>
-      <label htmlFor={`${id}-opens`}>Ouverture</label>
-      <input
-        id={`${id}-opens`}
-        type="datetime-local"
-        required
-        value={opensAt}
-        onChange={(event) => {
-          setOpensAt(event.target.value);
-        }}
-      />
-      <label htmlFor={`${id}-due`}>Date limite</label>
-      <input
-        id={`${id}-due`}
-        type="datetime-local"
-        required
-        value={dueAt}
-        onChange={(event) => {
-          setDueAt(event.target.value);
-        }}
-      />
-      <label htmlFor={`${id}-attempts`}>Nombre de tentatives</label>
-      <input
-        id={`${id}-attempts`}
-        type="number"
-        min={1}
-        max={10}
-        value={maxAttempts}
-        onChange={(event) => {
-          setMaxAttempts(event.target.value);
-        }}
-      />
-      <label className="choice">
-        <input
-          type="checkbox"
-          checked={lateAllowed}
-          onChange={(event) => {
-            setLateAllowed(event.target.checked);
-          }}
-        />
-        Accepter un rendu en retard (la copie sera marquée « en retard »)
-      </label>
-      <label htmlFor={`${id}-publication`}>Publication de la correction</label>
-      <select
-        id={`${id}-publication`}
-        value={publication}
-        onChange={(event) => {
-          setPublication(event.target.value as "auto" | "manual");
-        }}
-      >
-        <option value="manual">quand je la publie</option>
-        <option value="auto">dès que tout est corrigé automatiquement</option>
-      </select>
-      <ErrorMessage error={assign.error} />
-      {done && <p role="status">Épreuve attribuée.</p>}
-      <button type="submit" className="button">
-        Attribuer
-      </button>
-    </form>
+        <div className="field-row">
+          <Field label="Pour">
+            {(control) => (
+              <select
+                {...control}
+                required
+                value={audience}
+                onChange={(event) => {
+                  setAudience(event.target.value);
+                }}
+              >
+                <option value="">Choisir…</option>
+                {(groups.data?.groups ?? []).map((group) => (
+                  <option key={group.id} value={`group:${group.id}`}>
+                    Groupe {group.name}
+                    {group.learnerIds.length > 0
+                      ? ` (${group.learnerIds
+                          .map(
+                            (id) =>
+                              families.data?.learners.find((learner) => learner.id === id)?.firstName ?? "",
+                          )
+                          .filter((name) => name !== "")
+                          .join(", ")})`
+                      : ""}
+                  </option>
+                ))}
+                {(families.data?.learners ?? []).map((learner) => (
+                  <option key={learner.id} value={`learner:${learner.id}`}>
+                    {learner.firstName}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <Field label="S'ouvre">
+            {(control) => (
+              <select
+                {...control}
+                value={opening}
+                onChange={(event) => {
+                  setOpening(event.target.value === "later" ? "later" : "now");
+                }}
+              >
+                <option value="now">Maintenant</option>
+                <option value="later">À une date choisie</option>
+              </select>
+            )}
+          </Field>
+          {opening === "later" && (
+            <Field label="Date d'ouverture">
+              {(control) => (
+                <input
+                  {...control}
+                  type="datetime-local"
+                  required
+                  min={localInput(new Date())}
+                  value={opensAt}
+                  onChange={(event) => {
+                    setOpensAt(event.target.value);
+                  }}
+                />
+              )}
+            </Field>
+          )}
+          <Field label="À rendre avant">
+            {(control) => (
+              <input
+                {...control}
+                type="datetime-local"
+                required
+                value={dueAt}
+                onChange={(event) => {
+                  setDueAt(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Field label="Tentatives">
+            {(control) => (
+              <select
+                {...control}
+                value={maxAttempts}
+                onChange={(event) => {
+                  setMaxAttempts(event.target.value);
+                }}
+              >
+                {[1, 2, 3, 4, 5, 10].map((count) => (
+                  <option key={count} value={String(count)}>
+                    {count === 1 ? "1 seule" : String(count)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        </div>
+        <div className="actions">
+          <label className="check-line">
+            <input
+              type="checkbox"
+              checked={lateAllowed}
+              onChange={(event) => {
+                setLateAllowed(event.target.checked);
+              }}
+            />
+            Accepter les copies en retard (marquées « en retard »)
+          </label>
+          <label className="check-line">
+            <input
+              type="checkbox"
+              checked={autoPublish}
+              onChange={(event) => {
+                setAutoPublish(event.target.checked);
+              }}
+            />
+            Publier la note dès que tout est corrigé automatiquement
+          </label>
+        </div>
+        {preview !== null && (
+          <Notice>
+            <p aria-live="polite">{preview}</p>
+          </Notice>
+        )}
+        <ErrorMessage error={assign.error} />
+        <div className="actions">
+          <Button type="submit" disabled={assign.isPending}>
+            Attribuer l'épreuve
+          </Button>
+          <Button variant="secondary" onClick={onDone}>
+            Annuler
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }
 
-/** Épreuves du tuteur : création, questions (tant qu'elle n'est pas attribuée), attribution. */
+/** Épreuves du tuteur (maquette Tuteur-Epreuves) : la liste, les questions tant qu'elle n'est pas attribuée, l'attribution. */
 export function TutorAssessmentsPage() {
   const queryClient = useQueryClient();
   const assessments = useQuery({ queryKey: ASSESSMENTS, queryFn: fetchAssessments });
+  const assignments = useQuery({ queryKey: ["assignments"], queryFn: fetchAssignments });
   const programme = useQuery({ queryKey: ["programme"], queryFn: fetchProgramme });
+  const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [subjectId, setSubjectId] = useState("");
-  const id = useId();
+  const [open, setOpen] = useState<{ id: string; panel: "questions" | "assign" } | null>(null);
+  const [assigned, setAssigned] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: () => createAssessment(subjectId || (programme.data?.subjects[0]?.id ?? ""), title),
-    onSuccess: async () => {
+    onSuccess: async (created) => {
       setTitle("");
+      setCreating(false);
       await queryClient.invalidateQueries({ queryKey: ASSESSMENTS });
+      setOpen({ id: created.id, panel: "questions" });
     },
   });
   if (assessments.isPending) return <p role="status">Chargement…</p>;
   if (assessments.isError) return <ErrorMessage error={assessments.error} />;
+  const subjectName = (id: string) =>
+    programme.data?.subjects.find((subject) => subject.id === id)?.name ?? "";
+  const assignmentCount = (id: string) =>
+    (assignments.data?.assignments ?? []).filter((assignment) => assignment.assessmentId === id).length;
+
   return (
-    <div className="stack wide">
-      <section className="card wide">
-        <h1>Épreuves</h1>
-        <p>
-          <Link to="/tuteur/corrections">File de correction</Link>
-        </p>
-        <form
-          className="inline"
-          onSubmit={(event) => {
-            event.preventDefault();
-            create.mutate();
-          }}
-        >
-          <label htmlFor={`${id}-subject`}>Matière</label>
-          <select
-            id={`${id}-subject`}
-            value={subjectId}
-            onChange={(event) => {
-              setSubjectId(event.target.value);
+    <div className="page">
+      <PageHeader
+        title="Épreuves"
+        actions={
+          <Button
+            icon={Plus}
+            aria-expanded={creating}
+            onClick={() => {
+              setCreating(!creating);
             }}
           >
-            {(programme.data?.subjects ?? []).map((subject) => (
-              <option key={subject.id} value={subject.id}>
-                {subject.name}
-              </option>
-            ))}
-          </select>
-          <label htmlFor={`${id}-title`}>Titre</label>
-          <input
-            id={`${id}-title`}
-            required
-            maxLength={120}
-            value={title}
-            onChange={(event) => {
-              setTitle(event.target.value);
-            }}
-          />
-          <button type="submit" className="button">
-            Créer l'épreuve
-          </button>
-        </form>
-        <ErrorMessage error={create.error} />
-      </section>
-      {assessments.data.assessments.map((assessment) => (
-        <section key={assessment.id} className="card wide">
-          <h2>
-            {assessment.title}{" "}
-            <span className={`badge ${assessment.assigned ? "done" : "todo"}`}>
-              {assessment.assigned ? "attribuée" : "en préparation"}
-            </span>
-          </h2>
-          <ol>
-            {assessment.questions.map((question) => (
-              <li key={question.id}>
-                [{KIND_LABELS[question.kind]}] {question.prompt} ({question.points} pt)
+            Nouvelle épreuve
+          </Button>
+        }
+      />
+      <div className="stack">
+        {creating && (
+          <Card className="dashed" aria-label="Nouvelle épreuve">
+            <form
+              className="inline"
+              onSubmit={(event) => {
+                event.preventDefault();
+                create.mutate();
+              }}
+            >
+              <Field label="Matière">
+                {(control) => (
+                  <select
+                    {...control}
+                    value={subjectId}
+                    onChange={(event) => {
+                      setSubjectId(event.target.value);
+                    }}
+                  >
+                    {(programme.data?.subjects ?? []).map((subject) => (
+                      <option key={subject.id} value={subject.id}>
+                        {subject.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </Field>
+              <Field label="Titre" className="grow">
+                {(control) => (
+                  <input
+                    {...control}
+                    required
+                    maxLength={120}
+                    value={title}
+                    onChange={(event) => {
+                      setTitle(event.target.value);
+                    }}
+                  />
+                )}
+              </Field>
+              <Button type="submit" disabled={create.isPending}>
+                Créer l'épreuve
+              </Button>
+            </form>
+            <ErrorMessage error={create.error} />
+          </Card>
+        )}
+        {assigned !== null && (
+          <p role="status" className="status-line">
+            Épreuve attribuée.
+          </p>
+        )}
+        {assessments.data.assessments.length === 0 && (
+          <Notice icon={ClipboardList}>Aucune épreuve pour l'instant : créez la première.</Notice>
+        )}
+        <ul className="boxed-rows">
+          {assessments.data.assessments.map((assessment) => {
+            const total = assessment.questions.reduce((sum, question) => sum + question.points, 0);
+            const count = assignmentCount(assessment.id);
+            const selected = open?.id === assessment.id;
+            return (
+              <li key={assessment.id} className={selected ? "selected" : ""}>
+                <div className="row-main">
+                  <p className="row-title">{assessment.title}</p>
+                  <p className="row-meta">
+                    {subjectName(assessment.subjectId)} · {plural(assessment.questions.length, "question")} ·{" "}
+                    {numberFr(total)} point{total > 1 ? "s" : ""}
+                  </p>
+                </div>
+                <div className="row-side">
+                  {assessment.assigned ? (
+                    <Pill tone="done" icon={Check}>
+                      Attribuée{count > 1 ? ` ${String(count)} fois` : ""}
+                    </Pill>
+                  ) : assessment.questions.length === 0 ? (
+                    <Pill tone="neutral" icon={Pencil}>
+                      En préparation
+                    </Pill>
+                  ) : (
+                    <Pill tone="todo">Prête, pas encore attribuée</Pill>
+                  )}
+                  {assessment.assigned ? (
+                    <ButtonLink
+                      to="/tuteur/corrections"
+                      variant="secondary"
+                      aria-label={`Suivre les copies : ${assessment.title}`}
+                    >
+                      Suivre
+                    </ButtonLink>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      aria-expanded={selected && open.panel === "questions"}
+                      aria-label={`Questions : ${assessment.title}`}
+                      onClick={() => {
+                        setOpen(
+                          selected && open.panel === "questions"
+                            ? null
+                            : { id: assessment.id, panel: "questions" },
+                        );
+                      }}
+                    >
+                      Questions
+                    </Button>
+                  )}
+                  {assessment.questions.length > 0 && (
+                    <Button
+                      aria-expanded={selected && open.panel === "assign"}
+                      aria-label={`Attribuer : ${assessment.title}`}
+                      onClick={() => {
+                        setAssigned(null);
+                        setOpen(
+                          selected && open.panel === "assign" ? null : { id: assessment.id, panel: "assign" },
+                        );
+                      }}
+                    >
+                      Attribuer
+                    </Button>
+                  )}
+                </div>
+                {selected && open.panel === "questions" && (
+                  <div className="stack-sm full-row">
+                    <ol className="question-list">
+                      {assessment.questions.map((question) => (
+                        <li key={question.id}>
+                          <Pill tone="neutral">{KIND_LABELS[question.kind]}</Pill> {question.prompt}{" "}
+                          <span className="hint">({numberFr(question.points)} pt)</span>
+                        </li>
+                      ))}
+                    </ol>
+                    {!assessment.assigned && <QuestionEditor assessment={assessment} />}
+                  </div>
+                )}
               </li>
+            );
+          })}
+        </ul>
+        {open?.panel === "assign" &&
+          assessments.data.assessments
+            .filter((assessment) => assessment.id === open.id)
+            .map((assessment) => (
+              <AssignForm
+                key={assessment.id}
+                assessment={assessment}
+                onDone={() => {
+                  setAssigned(assessment.id);
+                  setOpen(null);
+                }}
+              />
             ))}
-          </ol>
-          {!assessment.assigned && <QuestionEditor assessment={assessment} />}
-          {assessment.questions.length > 0 && (
-            <details>
-              <summary>Attribuer</summary>
-              <AssignForm assessment={assessment} />
-            </details>
-          )}
-        </section>
-      ))}
+      </div>
     </div>
   );
 }
 
-/** File de correction : copies rendues non publiées, les plus anciennes d'abord. */
-export function GradingQueuePage() {
+/** File de correction, à gauche de l'espace de correction (maquette Tuteur-Corrections). */
+function GradingLayout({ current, children }: { readonly current?: string; readonly children: ReactNode }) {
   const queue = useQuery({ queryKey: ["grading-queue"], queryFn: fetchGradingQueue });
   const families = useQuery({ queryKey: ["families"], queryFn: fetchFamilies });
-  if (queue.isPending) return <p role="status">Chargement…</p>;
-  if (queue.isError) return <ErrorMessage error={queue.error} />;
   const nameOf = (learnerId: string) =>
     families.data?.learners.find((learner) => learner.id === learnerId)?.firstName ?? "Élève";
+  const attempts = [...(queue.data?.attempts ?? [])].sort(
+    (a, b) => Date.parse(a.submittedAt ?? "") - Date.parse(b.submittedAt ?? ""),
+  );
   return (
-    <section className="card wide">
-      <h1>File de correction</h1>
-      {queue.data.attempts.length === 0 && <p>Aucune copie à corriger.</p>}
-      <ul className="lesson-list">
-        {queue.data.attempts.map((attempt) => (
-          <li key={attempt.attemptId} className="lesson-row">
-            <Link to={`/tuteur/corrections/${attempt.attemptId}`}>
-              {attempt.title} — {nameOf(attempt.learnerId)}
-            </Link>
-            <span className={`badge ${attempt.status === "graded" ? "done" : "todo"}`}>
-              {attempt.status === "graded" ? "corrigée, à publier" : "à corriger"}
-            </span>
-            {attempt.late && <span className="badge todo">en retard</span>}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <div className="page">
+      <PageHeader title="Corrections" />
+      <div className="grading-layout">
+        <nav aria-labelledby="file-de-correction" className="queue">
+          <p className="caps" id="file-de-correction">
+            {plural(attempts.length, "copie en attente", "copies en attente")}
+          </p>
+          <ErrorMessage error={queue.error} />
+          {queue.data !== undefined && attempts.length === 0 && <p>Aucune copie à corriger.</p>}
+          <ul className="plain">
+            {attempts.map((attempt) => (
+              <li key={attempt.attemptId}>
+                <Link
+                  to={`/tuteur/corrections/${attempt.attemptId}`}
+                  aria-current={attempt.attemptId === current ? "page" : undefined}
+                >
+                  <strong>{nameOf(attempt.learnerId)}</strong>
+                  <span>
+                    {attempt.title}
+                    {attempt.submittedAt === null ? "" : ` · ${shortDateTime(attempt.submittedAt)}`}
+                  </span>
+                  <span>
+                    {attempt.status === "graded" ? "corrigée, à publier" : "à corriger"}
+                    {attempt.late ? " · en retard" : ""}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="min-w-0">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+export function GradingQueuePage() {
+  return (
+    <GradingLayout>
+      <Notice icon={ClipboardList}>Choisissez une copie dans la file pour la corriger.</Notice>
+    </GradingLayout>
   );
 }
 
@@ -655,7 +876,7 @@ function NotebookAnnotation({
   if (answer?.kind !== "notebook") return null;
   const editable = attempt.status === "submitted" || attempt.status === "graded";
   return (
-    <div className="stack">
+    <div className="stack-sm">
       <NotebookField
         mode={editable ? "annotate" : "view"}
         label="Cahier de l'élève et calque d'annotation"
@@ -671,24 +892,35 @@ function NotebookAnnotation({
           : {})}
       />
       {editable && (
-        <button
-          type="button"
-          className="button secondary"
-          disabled={layer === null || save.isPending}
-          onClick={() => {
-            if (layer !== null) save.mutate(layer);
-          }}
-        >
-          Enregistrer le calque
-        </button>
+        <div>
+          <Button
+            variant="secondary"
+            disabled={layer === null || save.isPending}
+            onClick={() => {
+              if (layer !== null) save.mutate(layer);
+            }}
+          >
+            Enregistrer le calque
+          </Button>
+        </div>
       )}
-      {done && <p role="status">Calque enregistré.</p>}
+      {done && (
+        <p role="status" className="status-line">
+          Calque enregistré.
+        </p>
+      )}
       <ErrorMessage error={save.error} />
     </div>
   );
 }
 
-/** Détail d'une copie pour le tuteur : correction manuelle, publication, rectification motivée (R6, R12). */
+const half = (value: string, delta: number, max: number) => {
+  const current = Number(value.replace(",", "."));
+  const next = Math.min(max, Math.max(0, (Number.isNaN(current) ? 0 : current) + delta));
+  return String(next).replace(".", ",");
+};
+
+/** Espace de correction (R6, R12) : points au demi-point, mot pour l'élève, publication ; rectification motivée. */
 export function GradingAttemptPage() {
   const { attemptId = "" } = useParams();
   const queryClient = useQueryClient();
@@ -696,8 +928,10 @@ export function GradingAttemptPage() {
     queryKey: ["tutor-attempt", attemptId],
     queryFn: () => fetchTutorAttempt(attemptId),
   });
+  const families = useQuery({ queryKey: ["families"], queryFn: fetchFamilies });
   const [marks, setMarks] = useState<Record<string, { earned: string; comment: string }>>({});
   const [reason, setReason] = useState("");
+  const [published, setPublished] = useState(false);
   const id = useId();
   const refresh = async () => {
     setMarks({});
@@ -705,19 +939,27 @@ export function GradingAttemptPage() {
     await queryClient.invalidateQueries({ queryKey: ["tutor-attempt", attemptId] });
     await queryClient.invalidateQueries({ queryKey: ["grading-queue"] });
   };
-  const grade = useMutation({
-    mutationFn: () =>
-      gradeAttempt(
-        attemptId,
-        Object.entries(marks).map(([questionId, mark]) => ({
-          questionId,
-          earned: Number(mark.earned.replace(",", ".")),
-          ...(mark.comment.trim() === "" ? {} : { comment: mark.comment }),
-        })),
-      ),
-    onSuccess: refresh,
+  const gradesOf = () =>
+    Object.entries(marks)
+      .filter(([, mark]) => mark.earned !== "")
+      .map(([questionId, mark]) => ({
+        questionId,
+        earned: Number(mark.earned.replace(",", ".")),
+        ...(mark.comment.trim() === "" ? {} : { comment: mark.comment }),
+      }));
+  const grade = useMutation({ mutationFn: () => gradeAttempt(attemptId, gradesOf()), onSuccess: refresh });
+  // « Publier la note » enregistre d'abord la correction en cours : le serveur exige toujours une copie
+  // entièrement corrigée avant de publier (R6), rien ne change de ce côté.
+  const publish = useMutation({
+    mutationFn: async () => {
+      if (gradesOf().length > 0) await gradeAttempt(attemptId, gradesOf());
+      await publishAttempt(attemptId);
+    },
+    onSuccess: async () => {
+      setPublished(true);
+      await refresh();
+    },
   });
-  const publish = useMutation({ mutationFn: () => publishAttempt(attemptId), onSuccess: refresh });
   const [revealed, setRevealed] = useState(false);
   const reveal = useMutation({
     mutationFn: (assignmentId: string) => revealAnswers(assignmentId),
@@ -730,153 +972,231 @@ export function GradingAttemptPage() {
       rectifyGrade(attemptId, { questionId, earned: Number(earned.replace(",", ".")), reason }),
     onSuccess: refresh,
   });
-  if (attempt.isPending) return <p role="status">Chargement…</p>;
-  if (attempt.isError) return <ErrorMessage error={attempt.error} />;
+  if (attempt.isPending)
+    return (
+      <GradingLayout current={attemptId}>
+        <p role="status">Chargement…</p>
+      </GradingLayout>
+    );
+  if (attempt.isError)
+    return (
+      <GradingLayout current={attemptId}>
+        <ErrorMessage error={attempt.error} />
+      </GradingLayout>
+    );
   const data = attempt.data;
-  const published = data.status === "published";
+  const isPublished = data.status === "published";
+  const learnerName =
+    families.data?.learners.find((learner) => learner.id === data.learnerId)?.firstName ?? "Élève";
+  const auto = data.results.filter((result) => result.gradedBy === "auto");
+  const autoEarned = auto.reduce((sum, result) => sum + (result.earned ?? 0), 0);
+  const autoMax = auto.reduce(
+    (sum, result) =>
+      sum + (data.questions.find((question) => question.id === result.questionId)?.points ?? 0),
+    0,
+  );
+
   return (
-    <section className="card wide">
-      <p>
-        <Link to="/tuteur/corrections">← File de correction</Link>
-      </p>
-      <h1>{data.title}</h1>
-      <p>
-        Tentative {data.number} · {data.late ? "rendue en retard" : "rendue à temps"} · note :{" "}
-        {data.grade === null ? "en attente" : `${String(data.grade)} / 20`}
-      </p>
-      <p className="hint">Empreinte de la copie : {data.answersSha256}</p>
-      <ol className="questions">
-        {data.questions.map((question) => {
-          const result = data.results.find((candidate) => candidate.questionId === question.id);
-          const mark = marks[question.id] ?? { earned: "", comment: "" };
-          const setMark = (changes: Partial<typeof mark>) => {
-            setMarks({ ...marks, [question.id]: { ...mark, ...changes } });
-          };
-          return (
-            <li key={question.id}>
-              <p>
-                {question.prompt} ({question.points} pt)
-              </p>
-              <p>Réponse : {answerText(data, question.id)}</p>
-              <NotebookAnnotation attempt={data} questionId={question.id} />
-              <p>
-                Points : {result?.earned ?? "à corriger"}{" "}
-                {result?.gradedBy === "auto" && <span className="hint">(corrigé automatiquement)</span>}
-              </p>
-              <div className="inline">
-                <label htmlFor={`${id}-${question.id}-earned`}>
-                  {published ? "Nouvelle note" : "Points obtenus"}
-                </label>
+    <GradingLayout current={attemptId}>
+      <Card aria-labelledby="copie">
+        <div className="card-head">
+          <h2 id="copie">
+            {learnerName} · {data.title}
+          </h2>
+          {auto.length > 0 && (
+            <p className="hint">
+              {plural(auto.length, "question corrigée", "questions corrigées")} automatiquement :{" "}
+              {numberFr(autoEarned)} / {numberFr(autoMax)}
+            </p>
+          )}
+        </div>
+        <p className="hint">
+          Essai {data.number} · {data.late ? "rendu en retard" : "rendu à temps"}
+        </p>
+        <ol className="stack plain">
+          {data.questions.map((question, position) => {
+            const result = data.results.find((candidate) => candidate.questionId === question.id);
+            const mark = marks[question.id] ?? { earned: "", comment: "" };
+            const setMark = (changes: Partial<typeof mark>) => {
+              setMarks({ ...marks, [question.id]: { ...mark, ...changes } });
+            };
+            const shown =
+              mark.earned !== ""
+                ? mark.earned
+                : result?.earned === null || result?.earned === undefined
+                  ? ""
+                  : String(result.earned).replace(".", ",");
+            return (
+              <li key={question.id} className="grading-question">
+                <p className="row-title">
+                  Question {position + 1} · {KIND_LABELS[question.kind].toLowerCase()} ·{" "}
+                  {numberFr(question.points)} point{question.points > 1 ? "s" : ""}
+                  {result?.gradedBy === "auto" && <span className="hint"> · corrigée automatiquement</span>}
+                </p>
+                <p>{question.prompt}</p>
+                <p>
+                  <strong>Réponse :</strong> {answerText(data, question.id)}
+                </p>
+                <NotebookAnnotation attempt={data} questionId={question.id} />
+                <div className="inline">
+                  <div className="field">
+                    <label htmlFor={`${id}-${question.id}-earned`}>
+                      {isPublished ? "Nouvelle note" : "Points"}
+                    </label>
+                    <div className="points-stepper">
+                      <Button
+                        variant="secondary"
+                        className="btn-icon"
+                        icon={Minus}
+                        aria-label="Retirer un demi-point"
+                        onClick={() => {
+                          setMark({ earned: half(shown, -0.5, question.points) });
+                        }}
+                      />
+                      <input
+                        id={`${id}-${question.id}-earned`}
+                        inputMode="decimal"
+                        value={shown}
+                        placeholder="—"
+                        onChange={(event) => {
+                          setMark({ earned: event.target.value });
+                        }}
+                      />
+                      <span aria-hidden="true">/ {numberFr(question.points)}</span>
+                      <Button
+                        variant="secondary"
+                        className="btn-icon"
+                        icon={Plus}
+                        aria-label="Ajouter un demi-point"
+                        onClick={() => {
+                          setMark({ earned: half(shown, 0.5, question.points) });
+                        }}
+                      />
+                    </div>
+                  </div>
+                  {!isPublished && (
+                    <Field label="Mot pour l'élève" className="grow">
+                      {(control) => (
+                        <input
+                          {...control}
+                          maxLength={1000}
+                          value={mark.comment}
+                          placeholder={result?.comment ?? ""}
+                          onChange={(event) => {
+                            setMark({ comment: event.target.value });
+                          }}
+                        />
+                      )}
+                    </Field>
+                  )}
+                  {isPublished && (
+                    <Button
+                      variant="secondary"
+                      disabled={mark.earned === "" || reason.trim() === ""}
+                      onClick={() => {
+                        rectify.mutate([question.id, mark.earned]);
+                      }}
+                    >
+                      Rectifier
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        {isPublished ? (
+          <div className="stack-sm section-gap">
+            <Field
+              label="Motif de la rectification"
+              hint="Obligatoire, conservé dans l'historique et le journal d'audit."
+            >
+              {(control) => (
                 <input
-                  id={`${id}-${question.id}-earned`}
-                  inputMode="decimal"
-                  value={mark.earned}
+                  {...control}
+                  maxLength={500}
+                  value={reason}
                   onChange={(event) => {
-                    setMark({ earned: event.target.value });
+                    setReason(event.target.value);
                   }}
                 />
-                {!published && (
-                  <>
-                    <label htmlFor={`${id}-${question.id}-comment`}>Commentaire</label>
-                    <input
-                      id={`${id}-${question.id}-comment`}
-                      maxLength={1000}
-                      value={mark.comment}
-                      onChange={(event) => {
-                        setMark({ comment: event.target.value });
-                      }}
-                    />
-                  </>
-                )}
-                {published && (
-                  <button
-                    type="button"
-                    className="button secondary"
-                    disabled={mark.earned === ""}
-                    onClick={() => {
-                      rectify.mutate([question.id, mark.earned]);
-                    }}
-                  >
-                    Rectifier
-                  </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-      {published ? (
-        <>
-          <label htmlFor={`${id}-reason`}>
-            Motif de la rectification (obligatoire, conservé dans l'historique)
-          </label>
-          <input
-            id={`${id}-reason`}
-            maxLength={500}
-            value={reason}
-            onChange={(event) => {
-              setReason(event.target.value);
-            }}
-          />
-          {data.rectifications.length > 0 && (
-            <>
-              <h2>Historique des rectifications</h2>
-              <ul>
-                {data.rectifications.map((entry) => (
-                  <li key={entry.id}>
-                    {new Date(entry.rectifiedAt).toLocaleString("fr-FR")} : {entry.previousGrade} →{" "}
-                    {entry.newGrade} / 20 — {entry.reason}
-                  </li>
-                ))}
-              </ul>
-            </>
+              )}
+            </Field>
+            {data.rectifications.length > 0 && (
+              <>
+                <h3>Historique des rectifications</h3>
+                <ul className="rows">
+                  {data.rectifications.map((entry) => (
+                    <li key={entry.id}>
+                      {shortDateTime(entry.rectifiedAt)} : {numberFr(entry.previousGrade)} →{" "}
+                      {numberFr(entry.newGrade)} / 20 — {entry.reason}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        ) : null}
+        <div className="grading-footer">
+          <p className="row-title">
+            Note finale : {data.grade === null ? "en attente" : `${numberFr(data.grade)} / 20`}
+            {isPublished && " · publiée"}
+          </p>
+          {!isPublished && (
+            <div className="actions">
+              <Button
+                variant="secondary"
+                disabled={gradesOf().length === 0 || grade.isPending}
+                onClick={() => {
+                  grade.mutate();
+                }}
+              >
+                Enregistrer sans publier
+              </Button>
+              <Button
+                disabled={publish.isPending || (data.status !== "graded" && gradesOf().length === 0)}
+                onClick={() => {
+                  publish.mutate();
+                }}
+              >
+                Publier la note
+              </Button>
+            </div>
           )}
-        </>
-      ) : (
-        <div className="actions">
-          <button
-            type="button"
-            className="button secondary"
-            disabled={Object.keys(marks).length === 0}
-            onClick={() => {
-              grade.mutate();
-            }}
-          >
-            Enregistrer la correction
-          </button>
-          <button
-            type="button"
-            className="button"
-            disabled={data.status !== "graded"}
-            onClick={() => {
-              publish.mutate();
-            }}
-          >
-            Publier la correction
-          </button>
         </div>
-      )}
-      <h2>Corrigé</h2>
-      <p className="hint">
-        Le corrigé (réponses attendues, explications) est montré à tous les élèves de l'attribution en même
-        temps : automatiquement à la date limite si le retard n'est pas autorisé, sinon quand vous le révélez.
-      </p>
-      <button
-        type="button"
-        className="button secondary"
-        disabled={revealed}
-        onClick={() => {
-          if (
-            window.confirm("Révéler le corrigé à tous les élèves de cette attribution ? C'est définitif.")
-          ) {
-            reveal.mutate(data.assignmentId);
-          }
-        }}
-      >
-        Révéler le corrigé
-      </button>
-      {revealed && <p role="status">Corrigé révélé.</p>}
-      <ErrorMessage error={grade.error ?? publish.error ?? rectify.error ?? reveal.error} />
-    </section>
+        {published && (
+          <p role="status" className="status-line">
+            Note publiée.
+          </p>
+        )}
+        <ErrorMessage error={grade.error ?? publish.error ?? rectify.error ?? reveal.error} />
+      </Card>
+      <Card className="section-gap" aria-labelledby="corrige">
+        <h2 id="corrige">Corrigé</h2>
+        <p className="hint">
+          Le corrigé (réponses attendues, explications) est montré à tous les élèves de l'attribution en même
+          temps : automatiquement à la date limite si le retard n'est pas autorisé, sinon quand vous le
+          révélez.
+        </p>
+        {revealed ? (
+          <p role="status" className="status-line">
+            Corrigé révélé.
+          </p>
+        ) : (
+          <Button
+            variant="secondary"
+            onClick={() => {
+              if (
+                window.confirm("Révéler le corrigé à tous les élèves de cette attribution ? C'est définitif.")
+              ) {
+                reveal.mutate(data.assignmentId);
+              }
+            }}
+          >
+            Révéler le corrigé
+          </Button>
+        )}
+      </Card>
+    </GradingLayout>
   );
 }

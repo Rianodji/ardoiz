@@ -44,15 +44,15 @@ export function InvitationPage() {
       <section className="card narrow">
         <h1>Invitation introuvable</h1>
         <p>
-          Ce lien n'est plus valable : il a déjà servi, ou il a dépassé 72 heures. Demande une nouvelle
-          invitation.
+          Ce lien n'est plus valable : il a déjà servi, ou il a dépassé 72 heures. Demandez une nouvelle
+          invitation au tuteur.
         </p>
       </section>
     );
   }
   const view = invitation.data;
   return (
-    <section className="card">
+    <section className="card narrow wide">
       <h1>Rejoindre Ardoiz</h1>
       <p>
         Invitation pour <strong>{view.email}</strong>
@@ -64,11 +64,11 @@ export function InvitationPage() {
           accept.mutate(consent);
         }}
       >
-        <fieldset>
-          <legend>{view.accountExists ? "Confirme ton compte" : "Crée ton compte"}</legend>
+        <fieldset className="form-stack">
+          <legend>{view.accountExists ? "Confirmez votre compte" : "Créez votre compte"}</legend>
           {!view.accountExists && (
             <>
-              <label htmlFor={nameId}>Ton nom (affiché au tuteur et à l'autre parent)</label>
+              <label htmlFor={nameId}>Votre nom (affiché au tuteur et à l'autre parent)</label>
               <input
                 id={nameId}
                 autoComplete="name"
@@ -81,7 +81,9 @@ export function InvitationPage() {
             </>
           )}
           <label htmlFor={passwordId}>
-            {view.accountExists ? "Ton mot de passe" : "Choisis un mot de passe (12 caractères au moins)"}
+            {view.accountExists
+              ? "Votre mot de passe"
+              : "Choisissez un mot de passe (12 caractères au moins)"}
           </label>
           <input
             id={passwordId}

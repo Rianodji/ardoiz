@@ -55,7 +55,7 @@ Traçabilité : **menace `M…` → règle `R…` → gardien dans le code → t
 | L5 | Planification | Accepté (PR #8) |
 | L6 | Progression, gamification, tableau de bord parent, suggestions | Accepté (PR #9) |
 | L7 | Mise en production | Accepté (PR #10, version 1.0.1 en production) |
-| L8 | Refonte graphique et ergonomie (version 1.1) | À faire |
+| L8 | Refonte graphique et ergonomie (version 1.1) | Accepté (PR #15) |
 
 États : à faire · en cours · en revue · accepté.
 

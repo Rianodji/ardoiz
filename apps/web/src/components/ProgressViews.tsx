@@ -1,12 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { fetchLearnerAssignments, fetchProgress, type LearnerProgress } from "../api/progress";
-import { ErrorMessage } from "./ErrorMessage";
+import type { LearnerProgress } from "../api/progress";
+import { Pill, ProgressBar, TableBox } from "../ui";
+import { longDate, numberFr, plural, shortDate } from "../ui/format";
+import { Award } from "../ui/icons";
 
 /**
  * Vues de la progression d'UN élève (R17) : ses points, sa série, ses badges, ses compétences, ses notes.
  * Jamais de classement ni de comparaison avec un autre élève, jamais de pénalité affichée.
  */
+
+/** Niveaux officiels (big picture §8), pour l'adulte. */
 export const LEVEL_LABELS: Readonly<Record<string, string>> = {
   not_assessed: "Pas encore évaluée",
   not_acquired: "Non acquise",
@@ -15,65 +18,77 @@ export const LEVEL_LABELS: Readonly<Record<string, string>> = {
   exceeded: "Dépassée",
 };
 
-export const BADGE_LABELS: Readonly<Record<string, { title: string; hint: string }>> = {
-  "first-step": { title: "Premier pas", hint: "Première copie rendue" },
-  geometer: { title: "Géomètre", hint: "5 compétences de géométrie acquises" },
-  "units-master": { title: "Maître des unités", hint: "10 conversions réussies d'affilée" },
-  assiduous: { title: "Assidu", hint: "Série de 4 semaines" },
-  persevering: { title: "Persévérant", hint: "Une compétence passée de non acquise à acquise" },
+/** Les mêmes niveaux, reformulés pour l'enfant (charte §6). */
+export const LEARNER_LEVEL_LABELS: Readonly<Record<string, string>> = {
+  not_assessed: "Pas encore vu",
+  not_acquired: "On commence",
+  in_progress: "En bonne voie",
+  acquired: "Acquise",
+  exceeded: "Au-delà",
 };
 
-const dateFr = (iso: string) =>
-  new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "short" }).format(
-    new Date(iso),
-  );
-const gradeFr = (grade: number) => grade.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+/** Segments allumés sur la jauge de 4 : la jauge double toujours le mot, jamais seule (charte §1). */
+export const LEVEL_STEPS: Readonly<Record<string, number>> = {
+  not_assessed: 0,
+  not_acquired: 1,
+  in_progress: 2,
+  acquired: 3,
+  exceeded: 4,
+};
 
-/** Points, niveau, série et badges. */
-export function ProgressSummary({
-  progress,
-  you,
-}: {
-  readonly progress: LearnerProgress;
-  readonly you: boolean;
-}) {
+export const BADGE_LABELS: Readonly<Record<string, { title: string; hint: string }>> = {
+  "first-step": { title: "Premier pas", hint: "Rendre sa première copie" },
+  geometer: { title: "Géomètre", hint: "Acquérir 5 compétences de géométrie" },
+  "units-master": { title: "Maître des unités", hint: "10 conversions réussies de suite" },
+  assiduous: { title: "Assidu", hint: "Une série de 4 semaines" },
+  persevering: { title: "Persévérant", hint: "Faire passer une compétence de « non acquise » à « acquise »" },
+};
+
+/** Points, niveau, série et badges, pour un adulte (tuteur, parent). */
+export function ProgressSummary({ progress }: { readonly progress: LearnerProgress }) {
   const span = progress.nextLevelXp - progress.currentLevelXp;
   const done = progress.xp - progress.currentLevelXp;
   return (
-    <div className="progress-summary">
+    <div className="stack-sm">
       <p>
         <strong>Niveau {progress.level}</strong> · {progress.xp} points
       </p>
-      <label className="xp-bar">
-        <span className="visually-hidden">Vers le niveau {progress.level + 1}</span>
-        <progress max={span} value={done} />
-        <span className="hint">
-          {progress.nextLevelXp - progress.xp} points avant le niveau {progress.level + 1}
-        </span>
-      </label>
+      <ProgressBar
+        value={done}
+        max={span}
+        label={`Vers le niveau ${String(progress.level + 1)}`}
+        tone="green"
+      />
+      <p className="hint">
+        {progress.nextLevelXp - progress.xp} points avant le niveau {progress.level + 1}
+      </p>
       <p>
-        Série : {progress.streak.current} semaine{progress.streak.current > 1 ? "s" : ""} d'activité
+        Série : {plural(progress.streak.current, "semaine")} d'activité
         {progress.streak.paused && " (semaine en pause, la série continue)"} · meilleure série :{" "}
         {progress.streak.best}
       </p>
-      <h3>{you ? "Mes badges" : "Ses badges"}</h3>
-      {progress.badges.length === 0 ? (
-        <p className="hint">Aucun badge pour l'instant.</p>
-      ) : (
-        <ul className="badges">
-          {progress.badges.map((entry) => (
-            <li key={entry.badge} title={BADGE_LABELS[entry.badge]?.hint}>
-              <span aria-hidden="true">🏅</span> {BADGE_LABELS[entry.badge]?.title ?? entry.badge}{" "}
-              <span className="hint">({dateFr(entry.awardedAt)})</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <Badges progress={progress} />
     </div>
   );
 }
 
-/** Compétences, groupées par matière, avec l'ajustement éventuel du tuteur et sa justification. */
+export function Badges({ progress }: { readonly progress: LearnerProgress }) {
+  if (progress.badges.length === 0) return <p className="hint">Aucun badge pour l'instant.</p>;
+  return (
+    <ul className="actions plain" aria-label="Badges obtenus">
+      {progress.badges.map((entry) => (
+        <li key={entry.badge}>
+          <Pill tone="points" icon={Award}>
+            {BADGE_LABELS[entry.badge]?.title ?? entry.badge}
+          </Pill>{" "}
+          <span className="hint">le {longDate(entry.awardedAt)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Compétences évaluées, groupées par matière, avec l'ajustement éventuel du tuteur et sa justification. */
 export function CompetencyList({ progress }: { readonly progress: LearnerProgress }) {
   const assessed = progress.competencies.filter(
     (competency) => competency.level !== "not_assessed" || competency.adjustment !== null,
@@ -85,19 +100,18 @@ export function CompetencyList({ progress }: { readonly progress: LearnerProgres
       {subjects.map((subject) => (
         <div key={subject}>
           <h4>{subject}</h4>
-          <ul className="competencies">
+          <ul className="skill-rows">
             {assessed
               .filter((competency) => competency.subjectName === subject)
               .map((competency) => (
                 <li key={competency.competencyId} data-level={competency.level}>
-                  <span>
-                    {competency.code} — {competency.label}
-                  </span>{" "}
-                  <strong>{LEVEL_LABELS[competency.level]}</strong>
+                  <span className="skill-label">
+                    <code>{competency.code}</code> {competency.label}
+                  </span>
+                  <span className="skill-level">{LEVEL_LABELS[competency.level]}</span>
                   {competency.adjustment !== null && (
                     <span className="hint">
-                      {" "}
-                      · ajusté par le tuteur : « {competency.adjustment.justification} »
+                      Ajusté par le tuteur : « {competency.adjustment.justification} »
                     </span>
                   )}
                 </li>
@@ -109,19 +123,39 @@ export function CompetencyList({ progress }: { readonly progress: LearnerProgres
   );
 }
 
-const WIDTH = 320;
-const HEIGHT = 140;
-const PAD = 24;
+/** Nombre de compétences par niveau, pour une matière (synthèse du parent). */
+export function competencyCounts(progress: LearnerProgress, subjectName?: string) {
+  const items = progress.competencies.filter(
+    (competency) => subjectName === undefined || competency.subjectName === subjectName,
+  );
+  const count = (...levels: string[]) =>
+    items.filter((competency) => levels.includes(competency.level)).length;
+  return {
+    acquired: count("acquired", "exceeded"),
+    inProgress: count("in_progress", "not_acquired"),
+    notAssessed: count("not_assessed"),
+  };
+}
+
+const WIDTH = 640;
+const HEIGHT = 220;
+const LEFT = 40;
+const RIGHT = 24;
+const TOP = 16;
+const BOTTOM = 36;
 
 /**
  * Évolution des notes d'une matière, en SVG construit par React (aucune bibliothèque, aucun HTML
- * injecté, compatible avec la CSP). Le tableau qui suit donne les mêmes valeurs, avec le lien vers chaque copie corrigée.
+ * injecté, compatible avec la CSP). Le tableau qui suit donne les mêmes valeurs, avec le lien vers
+ * chaque copie corrigée (charte §6 : graphique suivi de son tableau accessible).
  */
 export function GradeChart({ subject }: { readonly subject: LearnerProgress["subjects"][number] }) {
   const grades = subject.grades;
   const x = (index: number) =>
-    grades.length === 1 ? WIDTH / 2 : PAD + (index * (WIDTH - 2 * PAD)) / (grades.length - 1);
-  const y = (grade: number) => HEIGHT - PAD - (grade / 20) * (HEIGHT - 2 * PAD);
+    grades.length === 1
+      ? (LEFT + WIDTH - RIGHT) / 2
+      : LEFT + (index * (WIDTH - LEFT - RIGHT)) / (grades.length - 1);
+  const y = (grade: number) => TOP + (1 - grade / 20) * (HEIGHT - TOP - BOTTOM);
   const points = grades.map((entry, index) => `${String(x(index))},${String(y(entry.grade))}`).join(" ");
   return (
     <figure className="grade-chart">
@@ -132,118 +166,54 @@ export function GradeChart({ subject }: { readonly subject: LearnerProgress["sub
       >
         {[0, 10, 20].map((tick) => (
           <g key={tick}>
-            <line x1={PAD} x2={WIDTH - PAD} y1={y(tick)} y2={y(tick)} className="grid" />
-            <text x={4} y={y(tick) + 4} className="axis">
+            <line x1={LEFT} x2={WIDTH - RIGHT} y1={y(tick)} y2={y(tick)} className="grid" />
+            <text x={8} y={y(tick) + 4} className="axis">
               {tick}
             </text>
           </g>
         ))}
         {grades.length > 1 && <polyline points={points} className="line" />}
         {grades.map((entry, index) => (
-          <circle key={entry.attemptId} cx={x(index)} cy={y(entry.grade)} r={4} className="dot" />
+          <g key={entry.attemptId}>
+            <circle cx={x(index)} cy={y(entry.grade)} r={6} className="dot" />
+            <text x={x(index)} y={HEIGHT - 10} textAnchor="middle" className="axis">
+              {shortDate(entry.publishedAt)}
+            </text>
+          </g>
         ))}
       </svg>
-      <figcaption>
-        {subject.name} — moyenne : {subject.average === null ? "—" : `${gradeFr(subject.average)} / 20`}
+      <figcaption className="hint">
+        {subject.name} — moyenne : {subject.average === null ? "—" : `${numberFr(subject.average)} / 20`}
       </figcaption>
-      <table className="grades-table">
-        <caption>Notes de {subject.name}</caption>
+      <TableBox label={`Notes de ${subject.name}, en tableau`}>
+        <caption className="visually-hidden">Notes de {subject.name}</caption>
         <thead>
           <tr>
-            <th scope="col">Épreuve</th>
+            <th scope="col">Copie</th>
             <th scope="col">Date</th>
-            <th scope="col">Note sur 20</th>
+            <th scope="col">Note</th>
+            <th scope="col">
+              <span className="visually-hidden">Lien</span>
+            </th>
           </tr>
         </thead>
         <tbody>
-          {grades.map((entry) => (
+          {[...grades].reverse().map((entry) => (
             <tr key={entry.attemptId}>
-              <td>
-                <Link to={`/copie/${entry.attemptId}`}>{entry.title}</Link>
+              <td>{entry.title}</td>
+              <td>{shortDate(entry.publishedAt)}</td>
+              <td className="num">
+                <strong>{numberFr(entry.grade)} / 20</strong>
               </td>
-              <td>{dateFr(entry.publishedAt)}</td>
-              <td>{gradeFr(entry.grade)}</td>
+              <td>
+                <Link to={`/copie/${entry.attemptId}`} aria-label={`Voir la copie : ${entry.title}`}>
+                  Voir la copie
+                </Link>
+              </td>
             </tr>
           ))}
         </tbody>
-      </table>
+      </TableBox>
     </figure>
-  );
-}
-
-/** Épreuves à venir et en retard d'un élève (tableau de bord du parent). */
-export function UpcomingAssignments({
-  learnerId,
-  now,
-}: {
-  readonly learnerId: string;
-  readonly now: number;
-}) {
-  const query = useQuery({
-    queryKey: ["learner-assignments", learnerId],
-    queryFn: () => fetchLearnerAssignments(learnerId),
-  });
-  if (query.isPending) return <p role="status">Chargement…</p>;
-  if (query.data === undefined) return <ErrorMessage error={query.error} />;
-  const pending = query.data.assignments.filter((assignment) =>
-    ["upcoming", "open", "in_progress", "closed"].includes(assignment.state),
-  );
-  const late = pending.filter(
-    (assignment) => Date.parse(assignment.dueAt) < now && assignment.state !== "upcoming",
-  );
-  const upcoming = pending.filter((assignment) => Date.parse(assignment.dueAt) >= now);
-  return (
-    <>
-      <h4>À venir</h4>
-      {upcoming.length === 0 ? (
-        <p className="hint">Aucune épreuve à venir.</p>
-      ) : (
-        <ul>
-          {upcoming.map((assignment) => (
-            <li key={assignment.assignmentId}>
-              {assignment.title} — à rendre le {dateFr(assignment.dueAt)}
-            </li>
-          ))}
-        </ul>
-      )}
-      <h4>En retard</h4>
-      {late.length === 0 ? (
-        <p className="hint">Aucune épreuve en retard.</p>
-      ) : (
-        <ul>
-          {late.map((assignment) => (
-            <li key={assignment.assignmentId}>
-              {assignment.title} — attendue le {dateFr(assignment.dueAt)}
-              {assignment.state === "closed"
-                ? " (non rendue)"
-                : assignment.lateAllowed
-                  ? " (encore possible)"
-                  : ""}
-            </li>
-          ))}
-        </ul>
-      )}
-    </>
-  );
-}
-
-/** Progression d'un élève, telle que la voient l'élève et ses parents. */
-export function LearnerDashboard({ learnerId, you }: { readonly learnerId: string; readonly you: boolean }) {
-  const query = useQuery({ queryKey: ["progress", learnerId], queryFn: () => fetchProgress(learnerId) });
-  if (query.isPending) return <p role="status">Chargement…</p>;
-  if (query.data === undefined) return <ErrorMessage error={query.error} />;
-  const progress = query.data;
-  return (
-    <div className="dashboard">
-      <ProgressSummary progress={progress} you={you} />
-      <h3>{you ? "Mes compétences" : "Ses compétences"}</h3>
-      <CompetencyList progress={progress} />
-      <h3>{you ? "Mes notes" : "Ses notes et copies corrigées"}</h3>
-      {progress.subjects.length === 0 ? (
-        <p className="hint">Aucune note publiée pour l'instant.</p>
-      ) : (
-        progress.subjects.map((subject) => <GradeChart key={subject.subjectId} subject={subject} />)
-      )}
-    </div>
   );
 }
