@@ -1,3 +1,4 @@
+export { AUDIT_ACTIONS, type AuditAction } from "./auditActions.js";
 export type { AuditActor, AuditEntry, AuditOutcome, AuditTrail } from "./AuditTrail.js";
 export type { Clock } from "./Clock.js";
 export { allow, assertNever, deny, enforce, hide, type Decision } from "./Decision.js";

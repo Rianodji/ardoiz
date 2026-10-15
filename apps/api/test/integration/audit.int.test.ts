@@ -19,7 +19,7 @@ describe("Journal d'audit en ajout seul (R12)", () => {
     await new PgAuditTrail(pool).record({
       id,
       tutorSpaceId: space,
-      action: "access.denied",
+      action: "identity.read-audit",
       actor: { kind: "guardian", id: ids.next("GuardianId") },
       targetId: ids.next("LearnerId"),
       outcome: "denied",
@@ -38,7 +38,7 @@ describe("Journal d'audit en ajout seul (R12)", () => {
         [entryId],
       ),
     );
-    expect(rows).toEqual([{ action: "access.denied", outcome: "denied", reason_code: "hidden" }]);
+    expect(rows).toEqual([{ action: "identity.read-audit", outcome: "denied", reason_code: "hidden" }]);
   });
 
   it.each([

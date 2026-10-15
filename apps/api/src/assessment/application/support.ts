@@ -1,5 +1,6 @@
 import type { Actor } from "../../identity/index.js";
 import type { AuditEntry } from "../../shared-kernel/AuditTrail.js";
+import type { AuditAction } from "../../shared-kernel/auditActions.js";
 import type { Clock, RandomSource } from "../../shared-kernel/Clock.js";
 import { enforce, type Decision } from "../../shared-kernel/Decision.js";
 import type { IdGenerator } from "../../shared-kernel/ids.js";
@@ -29,7 +30,7 @@ export interface AssessmentDependencies {
 export function auditOf(
   deps: Pick<AssessmentDependencies, "ids" | "clock">,
   actor: Actor,
-  action: string,
+  action: AuditAction,
   outcome: AuditEntry["outcome"],
   details: { targetId?: string; reasonCode?: string } = {},
 ): AuditEntry {
@@ -50,7 +51,7 @@ export async function authorize(
   deps: Pick<AssessmentDependencies, "gateway" | "ids" | "clock">,
   actor: Actor,
   decision: Decision,
-  action: string,
+  action: AuditAction,
   targetId?: string,
 ): Promise<void> {
   if (decision.kind !== "allow") {

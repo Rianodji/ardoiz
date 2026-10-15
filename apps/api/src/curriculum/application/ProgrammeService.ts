@@ -1,6 +1,7 @@
 import { mediaIdsOf, validateLessonContent } from "@ardoiz/content-schema";
 import type { Actor } from "../../identity/index.js";
 import { NotFoundError } from "../../shared-kernel/DomainError.js";
+import type { AuditAction } from "../../shared-kernel/auditActions.js";
 import type { LessonId, ModuleId, SubjectId } from "../../shared-kernel/ids.js";
 import { EmptyLessonError, InvalidLessonContentError } from "../domain/errors.js";
 import { Position, Title } from "../domain/values.js";
@@ -169,7 +170,7 @@ export class ProgrammeService {
     actor: Actor,
     id: LessonId,
     apply: (lesson: LessonRecord) => LessonRecord,
-    auditAction?: string,
+    auditAction?: AuditAction,
   ): Promise<void> {
     await this.deps.gateway.inSpace(actor.tutorSpaceId, async (store) => {
       const lesson = await store.lessonById(id);

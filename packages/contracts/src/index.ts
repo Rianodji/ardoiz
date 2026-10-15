@@ -6,3 +6,4 @@ export * from "./assessment.js";
 export * from "./scheduling.js";
 export * from "./progress.js";
 export * from "./feedback.js";
+export * from "./audit.js";
