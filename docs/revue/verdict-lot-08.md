@@ -140,4 +140,34 @@ Ces modifications ne changent ni les traitements ni les droits : la politique (v
 
 ### 8.5 Second contrôle avant le tag
 
-À remplir par le lead, après S-5 à S-10.
+| | |
+|---|---|
+| **Date** | 2026-10-15 |
+| **Branche relue** | `lot/08-refonte` @ `8f704f4` |
+| **Décision** | S-5 à S-10 **acceptées**. Le feu vert attend S-11 et S-12 (ci-dessous), puis un contrôle court du lead au §8.6 |
+
+Vérifié moi-même :
+- **Textes du lead** commités tels quels (`0f27c5c`). Les commits suivants ne touchent ni `docs/juridique` ni le verdict.
+- **Aucun style en ligne** ni HTML brut ajouté.
+- **Application construite, E2E complet** sous la CSP de production : 17 tests réussis, 41 captures. Voici mes propres rendus :
+
+| Suite | Rendu |
+|---|---|
+| S-5 | « L'élève verra : « À rendre avant samedi 17 octobre à 18 h ». Le corrigé lui sera montré après cette date. » Fidèle à la maquette |
+| S-6 | « Essai 1 · rendu à temps », plus d'empreinte |
+| S-7 | À 1280 × 960, « Mon compte » et « Me déconnecter » collés en bas avec leur filet, comme sur la maquette |
+| S-8 | Un seul titre sur les trois pages. « Mes données » s'ouvre sur « Tes données sur Ardoiz, expliquées simplement », avec ses sections en vrais titres |
+| S-9 | `/confidentialite` à 360 px : plus de débordement, les tableaux défilent dans leur boîte |
+| S-10 | Les trois pages passent axe, les cibles, la tabulation et les 360 px |
+| Textes v2 | Mentions : hébergeur en liste, section « Logiciel libre » avec le lien vers le code source. « Mes données » : rubrique « Combien de temps ? » |
+
+### 8.6 Derniers points avant le tag
+
+| Suite | Constat | Correction attendue |
+|---|---|---|
+| S-11 | **Les tableaux des cours** (`lesson/LessonContentView.tsx`) gardent la classe `table-wrapper`, qui n'a plus de style : c'est le défaut de S-9, signalé par la session elle-même (rapport §10). Ce sont les élèves qui lisent les cours, souvent sur tablette : je ne le laisse pas au J2. | Même boîte que S-9 (défilement, focalisable, nommée), avec un test unitaire. Ajouter un tableau large au cours semé par l'E2E et vérifier 360 px sur l'écran du cours. Supprimer toute référence restante à `table-wrapper`. |
+| S-12 | **Test instable** : `assignmentPreview.test.tsx › dans le formulaire, la phrase suit les dates saisies` échoue chez moi **3 fois sur 3** dans `npm test` complet (« Unable to find role="button" name "Attribuer : Périmètre et aire" »). Il passe quand il est lancé seul, et il passe en CI. Il attend 1 s au plus que l'espace du tuteur, chargé à la demande, apparaisse : c'est trop court sur une machine chargée. | Rendre le test indépendant de la charge : par exemple, rendre la page des épreuves directement plutôt que l'espace entier chargé à la demande, ou attendre explicitement la fin du chargement. Pas de simple allongement aveugle de tous les délais. Preuve dans le rapport : `npm test` complet lancé 5 fois de suite, tout vert. |
+
+Ensuite, contrôle court du lead (S-11, S-12, CI), puis feu vert écrit ici.
+
+**Contrôle court du lead** : à remplir.
