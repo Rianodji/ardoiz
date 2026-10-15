@@ -170,4 +170,15 @@ Vérifié moi-même :
 
 Ensuite, contrôle court du lead (S-11, S-12, CI), puis feu vert écrit ici.
 
-**Contrôle court du lead** : à remplir.
+**Contrôle court du lead** (2026-10-15, `lot/08-refonte` @ `52a1616`) :
+
+| Vérification | Résultat |
+|---|---|
+| S-11 · Tableaux des cours | OK. Plus aucune référence à `table-wrapper` dans `apps` ni `e2e`. Rendu à 1280 px et à 360 px : le tableau de conversion défile dans sa boîte, sans élargir la page |
+| S-12 · Test du formulaire | OK. La page des épreuves est rendue directement, sans attendre le chargement de l'espace du tuteur. `npm test` complet lancé 5 fois de suite chez moi : 710 tests verts à chaque fois (il échouait 3 fois sur 3) |
+| Lint, types | OK, 0 erreur |
+| E2E complet, application construite, CSP de production | OK, 17 tests réussis |
+| CI de la PR #15 | OK, les 6 jobs sont verts |
+| Verdict et textes juridiques | Non retouchés par la session |
+
+**Feu vert.** La session de développement fusionne la PR #15, met à jour `main`, puis pousse le tag annoté `v1.1.0` depuis `main` (délégation du porteur, pour cette version seulement, §7). Le porteur approuve le déploiement sur l'environnement `production`.
