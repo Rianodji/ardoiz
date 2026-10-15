@@ -156,7 +156,7 @@ Suites traitées. Le feu vert du §8 a ensuite été suspendu par le porteur : v
 | S-9 · Tableaux du Markdown | Les tableaux sont rendus comme `TableBox` : boîte `table-box` qui défile horizontalement, `role="region"`, focalisable (`tabIndex=0`). Chacune est nommée par le titre de sa section (« Tableau : 4. Combien de temps ? »), numéroté si une section en contient plusieurs. Les en-têtes en petites capitales viennent des règles `.markdown th`, déjà communes avec `.data-table` | `legalPage.test.tsx` : les trois tableaux de la politique, leurs noms, `tabIndex` et en-têtes de colonnes. Deux tableaux d'une même section ont des noms distincts. E2E : `/confidentialite` à 360 px sans défilement horizontal (la page faisait 526 px). Captures `Confidentialite-360.png` et `Confidentialite-360-tableau.png` |
 | S-10 · Pages juridiques dans l'E2E des écrans | `/mentions-legales` (déjà là) et `/confidentialite` dans le test des écrans publics, `/mes-donnees` dans celui de l'élève. Chacune passe axe-core, la mesure des cibles et la tabulation, puis 360 px de large | `ecrans.spec.ts`. Captures `Mentions-legales.png`, `Confidentialite.png`, `Confidentialite-360.png`, `Eleve-MesDonnees.png`, `Eleve-MesDonnees-360.png` |
 
-Remarque hors des suites demandées : les tableaux d'un **cours** (`lesson/LessonContentView.tsx`) portent encore la classe `table-wrapper`, sans règle CSS. Un large tableau de cours pourrait donc déborder à 360 px. Je ne l'ai pas modifié, faute de demande : je propose de le traiter comme S-9 au J2 (même boîte, nommée).
+Remarque hors des suites demandées : les tableaux d'un **cours** (`lesson/LessonContentView.tsx`) portent encore la classe `table-wrapper`, sans règle CSS. Un large tableau de cours pourrait donc déborder à 360 px. Je ne l'ai pas modifié, faute de demande : je propose de le traiter comme S-9 au J2 (même boîte, nommée). *Traité depuis, à la demande du lead : voir le §11, S-11.*
 
 Captures : les 34 captures de `captures-lot-08/` sont régénérées après ces suites, et 7 s'y ajoutent (`Confidentialite`, `Confidentialite-360`, `Confidentialite-360-tableau`, `Eleve-MesDonnees`, `Eleve-MesDonnees-360`, `Tuteur-Menu-960`, `Tuteur-Menu-600`), soit 41.
 
@@ -179,4 +179,45 @@ npm run test:e2e (application construite, CSP de production) → 17 tests réuss
 
 CI de la PR #15 : vérifiée verte avant l'arrêt (voir la PR).
 
-Suites S-5 à S-10 traitées. Je m'arrête : pas de fusion ni de tag `v1.1.0` avant le feu vert écrit du lead au §8.5 du verdict.
+Suites S-5 à S-10 traitées, acceptées par le lead au §8.5 du verdict.
+
+## 11. Derniers points avant le tag : S-11 et S-12 (verdict §8.6)
+
+| Suite | Fait | Test |
+|---|---|---|
+| Verdict §8.5 et §8.6 | Commité tel quel (`e0c04e0`) | — |
+| S-11 · Tableaux des cours | `lesson/LessonContentView.tsx` rend chaque tableau avec le composant commun `TableBox` : boîte qui défile horizontalement, focalisable (`tabIndex=0`), `role="region"`. Elle est nommée par le titre de sa partie (« Tableau : Le tableau de conversion »), numéroté si une partie en contient plusieurs ; un tableau rangé dans un encadré s'appelle « Tableau ». Les cellules prennent le style des autres tableaux (`data-table`) ; jusqu'ici, elles n'en avaient aucun. Le Markdown des textes juridiques (S-9) passe aussi par `TableBox`, donc une seule boîte pour tous les tableaux. Les sélecteurs `.markdown table/th/td`, devenus inutiles, sont retirés. **Plus aucune référence à `table-wrapper` dans le code** | `apps/web/test/lessonView.test.tsx › « chaque tableau défile dans la boîte commune, focalisable et nommée par sa partie »` : noms de quatre tableaux (deux parties, un doublon numéroté, un dans un encadré), `tabIndex`, classes de la boîte et du tableau. Les tests S-9 de `legalPage.test.tsx` passent toujours avec `TableBox`. E2E : le cours semé (`e2e/server.ts`) a maintenant une partie « Le tableau de conversion » avec un tableau de 7 colonnes (kilomètre … millimètre). Sur l'écran du cours, la boîte nommée est visible et passe axe, les cibles et la tabulation. À 360 px, la page ne défile pas horizontalement, alors que la boîte, elle, défile (`scrollWidth > clientWidth`). Captures `Eleve-Cours.png` et `Eleve-Cours-360-tableau.png` |
+| S-12 · Test instable | **Cause** : le test passait par `renderAt("/tuteur/epreuves")`, donc par la route du tuteur, dont la page est chargée à la demande (`lazy`). Ce module est lourd, car il entraîne l'éditeur du cahier. Sur une machine chargée, son `import()` dépassait la seconde d'attente de `findByRole`. **Correction** : le test importe `TutorAssessmentsPage` et la rend directement (`renderPage` dans `test/support.tsx`, avec un routeur réduit à cette page). Le module est chargé avant le test, et aucune attente ne court pendant un chargement. Aucun délai n'est allongé. Le test S-6 (`gradingAttempt.test.tsx`) passait par le même chemin : il est corrigé de la même façon. Aucun autre test d'interface ne passe par une page chargée à la demande | `npm test` complet lancé 5 fois de suite, ci-dessous |
+
+Captures : `Eleve-Cours.png` change (nouvelle partie et son tableau), et `Eleve-Cours-360-tableau.png` s'ajoute. Toutes les captures sont régénérées par l'E2E : 42 au total.
+
+Recompte : 709 tests unitaires, plus 1 pour S-11 : **710**.
+
+Commits : `e0c04e0` (verdict du lead), puis le commit de S-11 et S-12, qui contient ce paragraphe.
+
+`npm test` complet, 5 fois de suite :
+
+```
+passage 1 : npm test → 46 fichiers, 710 tests réussis (code de sortie 0)
+passage 2 : npm test → 46 fichiers, 710 tests réussis (code de sortie 0)
+passage 3 : npm test → 46 fichiers, 710 tests réussis (code de sortie 0)
+passage 4 : npm test → 46 fichiers, 710 tests réussis (code de sortie 0)
+passage 5 : npm test → 46 fichiers, 710 tests réussis (code de sortie 0)
+```
+
+Sortie des vérifications, après S-11 et S-12 :
+
+```
+npm run lint             → 0 erreur, Prettier conforme
+npm run typecheck        → 0 erreur
+npm test                 → 46 fichiers, 710 tests réussis (5 passages ci-dessus)
+npm run test:integration → 26 fichiers, 449 tests réussis (Postgres réel)
+npm run depcruise        → aucune violation (182 modules, 714 dépendances)
+npm audit --omit=dev     → 0 vulnérabilité
+node tools/check-licenses.mjs → 290 dépendances livrées, toutes permissives
+npm run test:e2e (application construite, CSP de production) → 17 tests réussis, 42 captures
+```
+
+CI de la PR #15 : vérifiée verte avant l'arrêt (voir la PR).
+
+S-11 et S-12 traités. Je m'arrête : pas de fusion ni de tag `v1.1.0` avant le feu vert écrit du lead au §8.6 du verdict.

@@ -1022,13 +1022,11 @@ legend {
   overflow-x: auto;
   max-width: 100%;
 }
-.data-table,
-.markdown table {
+.data-table {
   width: 100%;
   border-collapse: collapse;
 }
-.data-table th,
-.markdown th {
+.data-table th {
   font-family: var(--police-titre);
   font-size: 13px;
   font-weight: 600;
@@ -1040,8 +1038,7 @@ legend {
   border-bottom: 1px solid var(--trait);
   white-space: nowrap;
 }
-.data-table td,
-.markdown td {
+.data-table td {
   padding: var(--e3);
   border-bottom: 1px solid var(--trait);
   vertical-align: middle;

@@ -1,6 +1,7 @@
 import { cleanup, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { json, renderAt, stubServer } from "./support";
+import { GradingAttemptPage } from "../src/pages/TutorAssessmentPages";
+import { json, renderPage, stubServer } from "./support";
 
 afterEach(() => {
   cleanup();
@@ -38,8 +39,6 @@ const ATTEMPT = {
 describe("Copie à corriger (verdict L8, S-6)", () => {
   it("n'affiche pas l'empreinte des réponses : elle reste dans l'API et le journal", async () => {
     stubServer((url) => {
-      if (url === "/api/me")
-        return json(200, { kind: "tutor", id: "tut_1", name: "Dicard", mfaEnrolled: true });
       if (url === "/api/grading/attempts/att_1") return json(200, ATTEMPT);
       if (url === "/api/grading/attempts")
         return json(200, {
@@ -57,10 +56,10 @@ describe("Copie à corriger (verdict L8, S-6)", () => {
           ],
         });
       if (url === "/api/families") return json(200, { guardians: [], learners: [] });
-      if (url === "/api/suggestions") return json(200, { suggestions: [] });
       return undefined;
     });
-    renderAt("/tuteur/corrections/att_1");
+    // La page elle-même, comme pour S-5 : pas d'espace du tuteur chargé à la demande (S-12).
+    renderPage(<GradingAttemptPage />, "/tuteur/corrections/att_1", "/tuteur/corrections/:attemptId");
     expect(await screen.findByText(/Essai 1 · rendu à temps/)).toBeDefined();
     expect(document.body.textContent).not.toMatch(/empreinte/i);
     expect(document.body.textContent).not.toContain("e55aefe5");

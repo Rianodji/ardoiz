@@ -1,8 +1,9 @@
 import { cleanup, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { assignmentPreview } from "../src/pages/assignmentPreview";
+import { TutorAssessmentsPage } from "../src/pages/TutorAssessmentPages";
 import { longDateTime } from "../src/ui/format";
-import { json, renderAt, stubServer } from "./support";
+import { json, renderPage, stubServer } from "./support";
 
 afterEach(() => {
   cleanup();
@@ -33,8 +34,6 @@ describe("Ce que l'élève verra d'une attribution (verdict L8, S-5)", () => {
 
   it("dans le formulaire, la phrase suit les dates saisies", async () => {
     stubServer((url) => {
-      if (url === "/api/me")
-        return json(200, { kind: "tutor", id: "tut_1", name: "Dicard", mfaEnrolled: true });
       if (url === "/api/assessments")
         return json(200, {
           assessments: [
@@ -63,7 +62,8 @@ describe("Ce que l'élève verra d'une attribution (verdict L8, S-5)", () => {
       if (url === "/api/groups") return json(200, { groups: [] });
       return undefined;
     });
-    renderAt("/tuteur/epreuves");
+    // La page elle-même, importée ci-dessus : pas d'espace du tuteur chargé à la demande (S-12).
+    renderPage(<TutorAssessmentsPage />, "/tuteur/epreuves");
     fireEvent.click(await screen.findByRole("button", { name: "Attribuer : Périmètre et aire" }));
     expect(screen.queryByText(/L'élève verra/)).toBeNull();
 

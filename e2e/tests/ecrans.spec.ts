@@ -313,6 +313,8 @@ test("espace élève : accueil, cours, devoir en mode focus, copie corrigée, pr
   await page.goto(`/cours/${state.lessonId}`);
   await expect(page.getByRole("heading", { name: "Convertir des longueurs", level: 1 })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Sommaire du cours" })).toBeVisible();
+  // Verdict L8, S-11 : le tableau du cours est dans la boîte commune, nommée par sa partie.
+  await expect(page.getByRole("region", { name: "Tableau : Le tableau de conversion" })).toBeVisible();
   await checkScreen(page, "Eleve-Cours");
 
   // Mes devoirs (L8, correction 2) : un devoir « bientôt » dit quand il s'ouvre.
@@ -384,6 +386,12 @@ test("espace élève : accueil, cours, devoir en mode focus, copie corrigée, pr
     await checkNarrow(page, `${name} (360 px)`, path, heading);
     if (name === "Eleve-Accueil" || name === "Eleve-Epreuve" || name === "Eleve-MesDonnees")
       await capture(page, `${name}-360`, false);
+    if (name === "Eleve-Cours") {
+      // S-11 : le tableau est plus large que l'écran, et c'est sa boîte qui défile, pas la page.
+      const box = page.getByRole("region", { name: "Tableau : Le tableau de conversion" });
+      expect(await box.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+      await captureElement(box, "Eleve-Cours-360-tableau");
+    }
   }
 });
 

@@ -1,6 +1,7 @@
 import { lexer, type Token, type Tokens } from "marked";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { TableBox } from "../ui";
 
 /**
  * Rendu Markdown → composants React, sans aucun HTML brut (R4, ADR-0005) : le texte passe par
@@ -164,37 +165,29 @@ function blocks(tokens: readonly Token[], context: Context): ReactNode[] {
       case "table": {
         const table = token as Tokens.Table;
         return (
-          // Défile comme TableBox, focalisable et nommé (verdict L8, S-9) : rien ne déborde à 360 px.
-          <div
-            className="table-box"
-            role="region"
-            aria-label={context.tableLabels.get(token) ?? "Tableau"}
-            tabIndex={0}
-            key={key}
-          >
-            <table>
-              <thead>
-                <tr>
-                  {table.header.map((cell, cellIndex) => (
-                    <th key={`${key}-h-${String(cellIndex)}`} scope="col">
-                      {inline(cell.tokens, `${key}-h-${String(cellIndex)}`)}
-                    </th>
+          // Défile dans la boîte commune, focalisable et nommée (verdict L8, S-9) : rien ne déborde à 360 px.
+          <TableBox key={key} label={context.tableLabels.get(token) ?? "Tableau"}>
+            <thead>
+              <tr>
+                {table.header.map((cell, cellIndex) => (
+                  <th key={`${key}-h-${String(cellIndex)}`} scope="col">
+                    {inline(cell.tokens, `${key}-h-${String(cellIndex)}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {table.rows.map((row, rowIndex) => (
+                <tr key={`${key}-r-${String(rowIndex)}`}>
+                  {row.map((cell, cellIndex) => (
+                    <td key={`${key}-${String(rowIndex)}-${String(cellIndex)}`}>
+                      {inline(cell.tokens, `${key}-${String(rowIndex)}-${String(cellIndex)}`)}
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {table.rows.map((row, rowIndex) => (
-                  <tr key={`${key}-r-${String(rowIndex)}`}>
-                    {row.map((cell, cellIndex) => (
-                      <td key={`${key}-${String(rowIndex)}-${String(cellIndex)}`}>
-                        {inline(cell.tokens, `${key}-${String(rowIndex)}-${String(cellIndex)}`)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </TableBox>
         );
       }
       case "space":
