@@ -8,7 +8,7 @@ const BROWSERS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(OPR|Opera)\//, "Opera"],
   [/\bSamsungBrowser\//, "Samsung Internet"],
   [/\b(Firefox|FxiOS)\//, "Firefox"],
-  [/\b(Chrome|Chromium|CriOS)\//, "Chrome"],
+  [/\b(Chrome|Chromium|CriOS|HeadlessChrome)\//, "Chrome"],
   [/\bVersion\/[\d.]+.*\bSafari\//, "Safari"],
 ];
 

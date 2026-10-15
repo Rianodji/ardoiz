@@ -6,6 +6,7 @@ test("l'élève voit sa séance dans l'agenda, sans lien, et l'obtient en cliqua
 }) => {
   const state = e2eState();
   await loginLearner(page, state);
+  await page.goto("/eleve/seances");
   const row = page.getByRole("listitem").filter({ hasText: "Séance de géométrie" });
   await expect(row).toBeVisible();
   // Aucun lien de visio dans la page avant le clic (R9).

@@ -50,20 +50,13 @@ export function TutorTodayPage() {
   const assignments = useQuery({ queryKey: ["assignments"], queryFn: fetchAssignments });
   const assessments = useQuery({ queryKey: ["assessments"], queryFn: fetchAssessments });
   const families = useQuery({ queryKey: FAMILIES_QUERY, queryFn: fetchFamilies });
-  const groups = useQuery({ queryKey: ["groups"], queryFn: fetchGroups });
 
   const nameOf = (id: string) =>
     families.data?.learners.find((learner) => learner.id === id)?.firstName ?? "Élève";
   const titleOf = (assessmentId: string) =>
     assessments.data?.assessments.find((assessment) => assessment.id === assessmentId)?.title ?? "Épreuve";
-  const audienceOf = (learnerIds: readonly string[]) => {
-    const group = groups.data?.groups.find(
-      (candidate) =>
-        candidate.learnerIds.length === learnerIds.length &&
-        candidate.learnerIds.every((id) => learnerIds.includes(id)),
-    );
-    return group === undefined ? learnerIds.map(nameOf).join(", ") : `groupe ${group.name}`;
-  };
+  // La réponse ne dit pas si l'attribution visait un groupe : on nomme les élèves, sans deviner.
+  const audienceOf = (learnerIds: readonly string[]) => learnerIds.map(nameOf).join(", ");
 
   const toGrade = (queue.data?.attempts ?? [])
     .filter((attempt) => attempt.status === "submitted")

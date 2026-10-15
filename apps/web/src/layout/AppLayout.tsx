@@ -149,67 +149,69 @@ function TutorSidebar({
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-head">
-        <Link to="/tuteur" className="brand" aria-label="Ardoiz, aujourd'hui">
-          <Logo />
-          Ardoiz
-        </Link>
-        <button
-          type="button"
-          className="btn btn-secondary sidebar-toggle dark"
-          aria-expanded={open}
-          aria-controls="menu-tuteur"
-          onClick={() => {
-            setOpenOn(open ? null : pathname);
-          }}
-        >
-          Menu
-        </button>
+      <div className="sidebar-inner">
+        <div className="sidebar-head">
+          <Link to="/tuteur" className="brand">
+            <Logo />
+            Ardoiz
+          </Link>
+          <button
+            type="button"
+            className="btn btn-secondary sidebar-toggle dark"
+            aria-expanded={open}
+            aria-controls="menu-tuteur"
+            onClick={() => {
+              setOpenOn(open ? null : pathname);
+            }}
+          >
+            Menu
+          </button>
+        </div>
+        <nav id="menu-tuteur" className="sidebar-nav" aria-label="Menu du tuteur" data-open={open}>
+          {TUTOR_GROUPS.map((group) => (
+            <div key={group.title ?? "accueil"}>
+              {group.title !== null && (
+                <p className="sidebar-group" id={`groupe-${group.title}`}>
+                  {group.title}
+                </p>
+              )}
+              <ul {...(group.title === null ? {} : { "aria-labelledby": `groupe-${group.title}` })}>
+                {group.items.map((item) => {
+                  const counter = counters[item.to];
+                  return (
+                    <li key={item.to}>
+                      <NavEntry
+                        item={item}
+                        pathname={pathname}
+                        extra={
+                          counter !== undefined && counter.count > 0 ? (
+                            <>
+                              <span className="counter" aria-hidden="true">
+                                {counter.count}
+                              </span>
+                              <span className="visually-hidden">, {counter.text}</span>
+                            </>
+                          ) : undefined
+                        }
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+          <ul className="sidebar-bottom">
+            <li>
+              <NavEntry item={{ to: "/compte", label: "Mon compte" }} pathname={pathname} />
+            </li>
+            <li>
+              <button type="button" className="nav-button" onClick={onLogout}>
+                Me déconnecter
+              </button>
+            </li>
+          </ul>
+        </nav>
       </div>
-      <nav id="menu-tuteur" className="sidebar-nav" aria-label="Menu du tuteur" data-open={open}>
-        {TUTOR_GROUPS.map((group) => (
-          <div key={group.title ?? "accueil"}>
-            {group.title !== null && (
-              <p className="sidebar-group" id={`groupe-${group.title}`}>
-                {group.title}
-              </p>
-            )}
-            <ul {...(group.title === null ? {} : { "aria-labelledby": `groupe-${group.title}` })}>
-              {group.items.map((item) => {
-                const counter = counters[item.to];
-                return (
-                  <li key={item.to}>
-                    <NavEntry
-                      item={item}
-                      pathname={pathname}
-                      extra={
-                        counter !== undefined && counter.count > 0 ? (
-                          <>
-                            <span className="counter" aria-hidden="true">
-                              {counter.count}
-                            </span>
-                            <span className="visually-hidden">, {counter.text}</span>
-                          </>
-                        ) : undefined
-                      }
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
-        <ul className="sidebar-bottom">
-          <li>
-            <NavEntry item={{ to: "/compte", label: "Mon compte" }} pathname={pathname} />
-          </li>
-          <li>
-            <button type="button" className="nav-button" onClick={onLogout}>
-              Me déconnecter
-            </button>
-          </li>
-        </ul>
-      </nav>
     </aside>
   );
 }
@@ -227,7 +229,7 @@ function TopBar({
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <Link to={home} className="brand" aria-label="Ardoiz, accueil">
+        <Link to={home} className="brand">
           <Logo />
           Ardoiz
           {kind === "guardian" && <span className="space-label">Espace famille</span>}

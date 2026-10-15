@@ -6,10 +6,12 @@ test("l'élève voit sa progression : ses points arrivent par le relais (CoursTe
 }) => {
   const state = e2eState();
   await loginLearner(page, state);
-  await expect(page.getByRole("heading", { name: "Ma progression" })).toBeVisible();
-  await expect(page.getByText(/Niveau 0/)).toBeVisible();
-  await expect(page.getByText(/· [1-9][0-9]* points/)).toBeVisible();
-  await expect(page.getByText(/1 semaine d'activité/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mes progrès" })).toBeVisible();
+  await expect(page.getByText(/points · niveau 0/)).toBeVisible();
+  await page.goto("/eleve/progres");
+  await expect(page.getByText("Niveau 0", { exact: true })).toBeVisible();
+  await expect(page.locator(".xp-number")).toHaveText(/^[1-9][0-9]*$/);
+  await expect(page.getByRole("heading", { name: "Ma série : 1 semaine" })).toBeVisible();
 });
 
 test("le parent voit le tableau de bord de son enfant et envoie une suggestion, affichée comme du texte", async ({
@@ -18,13 +20,14 @@ test("le parent voit le tableau de bord de son enfant et envoie une suggestion, 
   const state = e2eState();
   await loginGuardian(page, state);
   await page.goto("/famille");
-  await expect(page.getByText("Son tableau de bord")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Suivi de Lina" })).toBeVisible();
   await expect(page.getByText(/· [1-9][0-9]* points/)).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Ses épreuves" })).toBeVisible();
-  await expect(page.getByText(/ — à rendre le /).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ses devoirs" })).toBeVisible();
+  await expect(page.getByText(/à rendre le /).first()).toBeVisible();
+  await page.getByRole("link", { name: "Suggestions" }).click();
   const text = '<img src=x onerror="alert(1)"> Merci pour le cours !';
-  await page.getByLabel(/Ta suggestion/).fill(text);
-  await page.getByRole("button", { name: "Envoyer" }).click();
+  await page.getByLabel("Votre message").fill(text);
+  await page.getByRole("button", { name: "Envoyer au tuteur" }).click();
   await expect(page.getByText(text)).toBeVisible();
   await expect(page.locator("main img")).toHaveCount(0);
 });
@@ -34,8 +37,11 @@ test("le tuteur voit la synthèse et la boîte des suggestions", async ({ page }
   await loginTutor(page, state);
   await page.goto("/tuteur/progression");
   await expect(page.getByRole("heading", { name: "Progression des élèves" })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "Lina" })).toBeVisible();
-  await page.getByRole("button", { name: "Voir et ajuster" }).first().click();
+  await expect(page.getByRole("rowheader", { name: "Lina" })).toBeVisible();
+  await page
+    .getByRole("button", { name: /Voir et ajuster/ })
+    .first()
+    .click();
   await expect(page.getByRole("heading", { name: "Ajuster un niveau" })).toBeVisible();
   await page.goto("/tuteur/suggestions");
   await expect(page.getByRole("heading", { name: "Suggestions des parents" })).toBeVisible();

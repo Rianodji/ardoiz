@@ -23,8 +23,10 @@ test("de l'invitation du parent au tableau de bord, en passant par le cahier et 
   const tutorContext = await browser.newContext({ baseURL: state.baseURL });
   const tutor: Page = await tutorContext.newPage();
   await loginTutor(tutor, state);
+  // L'ancienne adresse de la v1.0 mène à « Élèves et familles ».
   await tutor.goto("/tuteur/familles");
-  await tutor.getByLabel("Inviter un parent (adresse e-mail)").fill(parentEmail);
+  await expect(tutor).toHaveURL(/\/tuteur\/eleves$/);
+  await tutor.getByLabel("Inviter un parent").fill(parentEmail);
   await tutor.getByRole("button", { name: "Envoyer l'invitation" }).click();
   await expect(tutor.getByRole("status")).toBeVisible();
   const api = async <T>(method: string, path: string, data?: unknown): Promise<T> => {
@@ -41,8 +43,8 @@ test("de l'invitation du parent au tableau de bord, en passant par le cahier et 
   // 2. Le parent ouvre le lien reçu par e-mail, crée son compte et donne son consentement.
   const token = await invitationToken(state.mailpitUrl, parentEmail);
   await page.goto(`/invitation#jeton=${token}`);
-  await page.getByLabel(/Ton nom/).fill("Fatou");
-  await page.getByLabel(/Choisis un mot de passe/).fill(state.adultPassword);
+  await page.getByLabel(/Votre nom/).fill("Fatou");
+  await page.getByLabel(/Choisissez un mot de passe/).fill(state.adultPassword);
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "Je donne mon accord" }).click();
   await expect(page.getByRole("heading", { name: "Mes enfants" })).toBeVisible();
@@ -55,7 +57,7 @@ test("de l'invitation du parent au tableau de bord, en passant par le cahier et 
   await creation.getByLabel(/Son mot de passe/).fill(childPassword);
   await creation.getByRole("checkbox").check();
   await creation.getByRole("button", { name: "Je donne mon accord" }).click();
-  await expect(page.getByRole("heading", { name: /Sami/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Suivi de Sami" })).toBeVisible();
   const learners = await page.evaluate(
     async () =>
       (await (await fetch("/api/learners")).json()) as { learners: Array<{ id: string; firstName: string }> },
@@ -95,18 +97,16 @@ test("de l'invitation du parent au tableau de bord, en passant par le cahier et 
   await page.goto("/connexion");
   await page.getByLabel("Code de ton espace").fill(state.spaceCode);
   await page.getByLabel("Ton pseudo").fill("sami");
-  await page.getByLabel("Mot de passe").fill(childPassword);
-  await page.getByRole("button", { name: "Me connecter" }).click();
+  await page.getByLabel("Ton mot de passe", { exact: true }).fill(childPassword);
+  await page.getByRole("button", { name: "Entrer dans Ardoiz" }).click();
   await expect(page.getByRole("heading", { name: /Bonjour Sami/ })).toBeVisible();
   await page.goto(`/cours/${state.lessonId}`);
-  await page.getByRole("button", { name: "J'ai terminé ce cours" }).click();
-  await expect(page.getByText("Bravo, tu as terminé ce cours !")).toBeVisible();
+  await page.getByRole("button", { name: "J'ai fini ce cours" }).click();
+  await expect(page.getByText("Bravo, tu as fini ce cours !")).toBeVisible();
+  // L'accueil met en avant le devoir à faire maintenant (charte §1).
   await page.goto("/eleve");
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: "Parcours : tracer un carré" })
-    .getByRole("button", { name: "Commencer" })
-    .click();
+  await expect(page.getByRole("heading", { name: "Parcours : tracer un carré" })).toBeVisible();
+  await page.getByRole("button", { name: "Commencer le devoir" }).click();
   const area = page.locator(".notebook-canvas");
   await expect(page.locator(".notebook-canvas canvas.interactive")).toBeVisible();
   await area.scrollIntoViewIfNeeded();
@@ -117,11 +117,11 @@ test("de l'invitation du parent au tableau de bord, en passant par le cahier et 
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 20, box.y + 260, { steps: 8 });
   await page.mouse.up();
-  await expect(page.getByText("Enregistré.")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Enregistré", { exact: true })).toBeVisible({ timeout: 20_000 });
   const attemptId = page.url().split("/copie/")[1] ?? "";
-  page.once("dialog", (dialog) => void dialog.accept());
-  await page.getByRole("button", { name: "Rendre ma copie" }).click();
-  await expect(page.getByText("Copie rendue.")).toBeVisible();
+  await page.getByRole("button", { name: "Rendre mon devoir" }).click();
+  await page.getByRole("button", { name: "Oui, rendre mon devoir" }).click();
+  await expect(page.getByText(/Ton devoir est rendu/)).toBeVisible();
 
   // 6. Le tuteur corrige (4 points sur 5) et publie.
   const copy = await api<{ questions: Array<{ id: string }> }>("GET", `/api/grading/attempts/${attemptId}`);
@@ -140,17 +140,13 @@ test("de l'invitation du parent au tableau de bord, en passant par le cahier et 
   expect(login.status()).toBe(200);
   await expect(async () => {
     await page.goto("/famille");
-    const sami = page.locator("article").filter({ hasText: "Sami" });
-    await expect(sami.getByRole("link", { name: "Parcours : tracer un carré" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Suivi de Sami" })).toBeVisible({ timeout: 2_000 });
+    await expect(page.getByRole("link", { name: "Voir la copie : Parcours : tracer un carré" })).toBeVisible({
       timeout: 2_000,
     });
-    await expect(sami.getByText(/moyenne : 16 \/ 20/)).toBeVisible({ timeout: 2_000 });
-    await expect(sami.getByText(/Premier pas/)).toBeVisible({ timeout: 2_000 });
+    await expect(page.getByText(/moyenne : 16 \/ 20/)).toBeVisible({ timeout: 2_000 });
+    await expect(page.getByText(/Premier pas/)).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 30_000 });
-  await page
-    .locator("article")
-    .filter({ hasText: "Sami" })
-    .getByRole("link", { name: "Parcours : tracer un carré" })
-    .click();
-  await expect(page.getByText(/16/).first()).toBeVisible();
+  await page.getByRole("link", { name: "Voir la copie : Parcours : tracer un carré" }).click();
+  await expect(page.getByLabel("Note : 16 sur 20")).toBeVisible();
 });

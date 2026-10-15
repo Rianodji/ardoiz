@@ -451,16 +451,20 @@ function AttemptResult({ data, learner }: { readonly data: LearnerAttempt; reado
     <div className="page medium">
       <p>
         <Link to={learner ? "/eleve/devoirs" : "/famille"}>
-          {learner ? "Retour à mes devoirs" : "Retour"}
+          {learner ? "Retour à mes devoirs" : "Retour au suivi"}
         </Link>
       </p>
       <div className="stack">
         <Card className="result-head">
           {correction !== null && (
-            <p className="grade-stamp" aria-label={`Note : ${numberFr(correction.grade)} sur 20`}>
+            <div
+              className="grade-stamp"
+              role="img"
+              aria-label={`Note : ${numberFr(correction.grade)} sur 20`}
+            >
               <strong aria-hidden="true">{numberFr(correction.grade)}</strong>
               <span aria-hidden="true">sur 20</span>
-            </p>
+            </div>
           )}
           <div className="result-body">
             <p className="kicker">

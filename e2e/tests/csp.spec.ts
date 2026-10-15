@@ -7,7 +7,7 @@ test("la page d'un cours (formule MathML, encadré, vidéo après clic) respecte
   await page.goto(`/cours/${state.lessonId}`);
   await expect(page.getByRole("heading", { name: "Convertir des longueurs", level: 1 })).toBeVisible();
   await expect(page.locator("math")).toHaveCount(1);
-  await page.getByRole("button", { name: /Lancer la vidéo/ }).click();
+  await page.getByRole("button", { name: /Voir la vidéo/ }).click();
   await expect(page.locator("iframe")).toHaveAttribute("src", /youtube-nocookie\.com/);
 });
 

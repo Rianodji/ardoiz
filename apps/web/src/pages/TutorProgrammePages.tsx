@@ -243,7 +243,7 @@ export function TutorProgrammePage() {
                         <Button
                           variant="secondary"
                           aria-expanded={opened === module.id}
-                          aria-label={`Ouvrir le module ${module.title} à…`}
+                          aria-label={`Ouvrir à… : module ${module.title}`}
                           onClick={() => {
                             setOpened(opened === module.id ? null : module.id);
                           }}
@@ -297,7 +297,7 @@ export function TutorProgrammePage() {
                             <Button
                               variant="secondary"
                               aria-expanded={opened === lesson.id}
-                              aria-label={`Ouvrir ${lesson.title} à…`}
+                              aria-label={`Ouvrir à… : ${lesson.title}`}
                               onClick={() => {
                                 setOpened(opened === lesson.id ? null : lesson.id);
                               }}

@@ -1057,7 +1057,7 @@ export function GradingAttemptPage() {
                         id={`${id}-${question.id}-earned`}
                         inputMode="decimal"
                         value={shown}
-                        placeholder="à corriger"
+                        placeholder="—"
                         onChange={(event) => {
                           setMark({ earned: event.target.value });
                         }}

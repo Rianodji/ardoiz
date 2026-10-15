@@ -18,8 +18,9 @@ test("après la déconnexion, plus rien du tuteur, et une page protégée renvoi
     await expect(page.getByRole("link", { name })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Me déconnecter" })).toHaveCount(0);
 
-  // Navigation dans la page (sans rechargement), puis accès direct : la connexion, à chaque fois.
-  await page.goBack();
+  // L'accueil, puis une page du tuteur en accès direct : la connexion, à chaque fois. (La déconnexion
+  // remplace l'entrée de l'historique : « Précédent » ne ramène pas sur une page du tuteur.)
+  await page.goto("/");
   await expect(page).toHaveURL(/\/connexion$/);
   await page.goto("/tuteur/journal");
   await expect(page).toHaveURL(/\/connexion$/);

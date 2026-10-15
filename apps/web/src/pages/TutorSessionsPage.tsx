@@ -431,10 +431,12 @@ export function TutorSessionsPage() {
                         setSelected(selected === occurrence.occurrenceId ? null : occurrence.occurrenceId);
                       }}
                     >
-                      <strong>{occurrence.local.start}</strong> · {occurrence.title}
-                      {occurrence.status === "cancelled" ? " (annulée)" : ""}
-                      <br />
-                      {occurrence.participantIds.map(nameOf).join(", ")}
+                      <strong>{occurrence.local.start}</strong>
+                      <span>
+                        {occurrence.title}
+                        {occurrence.status === "cancelled" ? " (annulée)" : ""}
+                      </span>
+                      <span>{occurrence.participantIds.map(nameOf).join(", ")}</span>
                     </button>
                   ))}
                 </li>

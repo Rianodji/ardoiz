@@ -403,35 +403,38 @@ main:focus {
   flex-shrink: 0;
   background: var(--ardoise);
   color: var(--craie);
+}
+.sidebar-inner {
   display: flex;
   flex-direction: column;
-  padding: var(--e5) var(--e3);
+  padding: var(--e3);
   position: sticky;
   top: 0;
-  height: 100vh;
+  max-height: 100vh;
+  min-height: 100vh;
   overflow-y: auto;
 }
 .sidebar .brand {
   color: var(--craie);
   font-size: 22px;
   padding: 0 var(--e3);
-  min-height: 44px;
+  min-height: var(--cible);
 }
 .sidebar .brand .logo {
   width: 32px;
   height: 32px;
 }
-.sidebar-toggle {
+.sidebar .sidebar-toggle {
   display: none;
 }
 .sidebar-nav {
   display: flex;
   flex-direction: column;
   flex: 1;
-  margin-top: var(--e4);
+  margin-top: var(--e2);
 }
 .sidebar-group {
-  margin: var(--e4) 0 var(--e1);
+  margin: var(--e2) 0 var(--e1);
   padding: 0 var(--e3);
   font-family: var(--police-titre);
   font-size: 12px;
@@ -452,7 +455,7 @@ main:focus {
   justify-content: space-between;
   gap: var(--e2);
   width: 100%;
-  min-height: 44px;
+  min-height: var(--cible);
   padding: 0 var(--e3);
   border-radius: var(--rayon-bouton);
   color: var(--craie);
@@ -546,7 +549,7 @@ main:focus {
 }
 .app[data-space="tutor"] .btn,
 .app[data-space="tutor"] .button {
-  min-height: 44px;
+  min-height: var(--cible);
   padding: 0 var(--e4);
   font-size: 15px;
 }
@@ -635,7 +638,7 @@ main:focus {
   font-size: 14px;
   font-weight: 600;
   line-height: 1.3;
-  white-space: nowrap;
+  max-width: 100%;
 }
 .pill .icon {
   width: 14px;
@@ -798,7 +801,7 @@ textarea {
 }
 .app[data-space="tutor"] input:not([type="checkbox"], [type="radio"]),
 .app[data-space="tutor"] select {
-  min-height: 44px;
+  min-height: var(--cible);
 }
 textarea {
   min-height: 96px;
@@ -844,27 +847,39 @@ input[type="radio"] {
   gap: var(--e4);
 }
 .input-with-button {
-  position: relative;
   display: flex;
+  align-items: stretch;
+  border: 2px solid var(--trait-fort);
+  border-radius: var(--rayon-champ);
+  background: var(--blanc);
+  overflow: hidden;
 }
-.input-with-button input {
-  padding-right: 112px;
+.input-with-button:hover {
+  border-color: var(--texte-2);
+}
+.input-with-button input:not([type="checkbox"], [type="radio"]) {
+  border: none;
+  border-radius: 0;
+  flex: 1;
+  min-width: 0;
 }
 .input-with-button .reveal {
-  position: absolute;
-  right: 6px;
-  top: 6px;
-  bottom: 6px;
-  min-height: 0;
-  padding: 0 var(--e3);
-  border-radius: 8px;
+  flex-shrink: 0;
+  min-width: var(--cible);
+  min-height: var(--cible);
+  padding: 0 var(--e4);
   border: none;
+  border-left: 2px solid var(--trait-fort);
   background: var(--creme-gris);
   color: var(--ardoise);
   font-family: var(--police-titre);
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
+}
+.input-with-button input:focus-visible,
+.input-with-button .reveal:focus-visible {
+  outline-offset: -3px;
 }
 .check-line {
   display: flex;
@@ -951,7 +966,7 @@ legend {
   font-family: var(--police-titre);
   font-weight: 600;
   font-size: 15px;
-  min-height: 44px;
+  min-height: var(--cible);
   padding: 0 var(--e4);
   border: none;
   background: none;
@@ -975,7 +990,6 @@ legend {
 }
 .tabs-pill .tab {
   border-radius: 10px;
-  min-height: 44px;
 }
 .tabs-pill .tab[aria-selected="true"] {
   background: var(--papier);
@@ -986,6 +1000,9 @@ legend {
 
 /* Tableaux : en-têtes en petites capitales grises ; défilement horizontal sur petit écran. */
 .table-box {
+  /* Bloc conteneur : un texte « visually-hidden » (position absolue) reste dans la boîte qui défile,
+     au lieu d'élargir la page sur un téléphone. */
+  position: relative;
   overflow-x: auto;
   max-width: 100%;
 }
@@ -1407,6 +1424,9 @@ legend {
   margin: var(--e2) 0 0;
 }
 .lesson-card h3 a {
+  display: flex;
+  align-items: center;
+  min-height: var(--cible);
   color: var(--ardoise);
   text-decoration: none;
 }
@@ -1458,16 +1478,18 @@ legend {
   padding: 0;
   margin: 0;
 }
-.toc a {
+.toc ol a {
   display: block;
   padding: var(--e2) var(--e3);
   border-radius: 10px;
   color: var(--ardoise);
   text-decoration: none;
   font-size: 17px;
-  min-height: 44px;
+  min-height: var(--cible);
+  display: flex;
+  align-items: center;
 }
-.toc a:hover {
+.toc ol a:hover {
   background: var(--menthe);
 }
 .reading {
@@ -1497,8 +1519,8 @@ legend {
   margin: 0 0 var(--e5);
 }
 .question-dots button {
-  width: 48px;
-  height: 48px;
+  width: var(--cible);
+  height: var(--cible);
   border-radius: 999px;
   border: 2px solid transparent;
   background: var(--creme-gris);
@@ -1843,6 +1865,7 @@ dialog::backdrop {
 .slot {
   display: block;
   width: 100%;
+  min-height: var(--cible);
   text-align: left;
   border: 2px solid transparent;
   border-radius: 8px;
@@ -1853,8 +1876,14 @@ dialog::backdrop {
   font: inherit;
   font-size: 13px;
   line-height: 1.3;
-  overflow-wrap: anywhere;
   cursor: pointer;
+}
+/* Un titre trop long pour la colonne du jour est coupé proprement (nom complet lu par le lecteur d'écran). */
+.slot span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .slot[aria-pressed="true"] {
   border-color: var(--encre);
@@ -1897,6 +1926,7 @@ dialog::backdrop {
   display: block;
 }
 .queue a span {
+  display: block;
   font-size: 13px;
   color: var(--texte-2);
 }
@@ -1914,7 +1944,7 @@ dialog::backdrop {
   gap: var(--e2);
 }
 .icon-actions .btn {
-  width: 44px;
+  width: var(--cible);
   padding: 0;
 }
 .filters {
@@ -2128,8 +2158,8 @@ form.inline,
 .tool {
   font: inherit;
   font-size: 14px;
-  min-height: 44px;
-  min-width: 44px;
+  min-height: var(--cible);
+  min-width: var(--cible);
   padding: 0 var(--e3);
   border: 1px solid var(--trait-fort);
   border-radius: 10px;
@@ -2253,9 +2283,12 @@ img.ProseMirror-separator {
     flex-direction: column;
   }
   .sidebar {
-    position: static;
     width: 100%;
-    height: auto;
+  }
+  .sidebar-inner {
+    position: static;
+    min-height: 0;
+    max-height: none;
     padding: var(--e3) var(--e4);
   }
   .sidebar-head {
@@ -2264,7 +2297,7 @@ img.ProseMirror-separator {
     justify-content: space-between;
     gap: var(--e3);
   }
-  .sidebar-toggle {
+  .sidebar .sidebar-toggle {
     display: inline-flex;
   }
   .sidebar-nav[data-open="false"] {
@@ -2504,6 +2537,9 @@ img.ProseMirror-separator {
   border-bottom: 1px solid var(--trait);
   padding-bottom: var(--e4);
 }
+.grading-question:last-child {
+  border-bottom: none;
+}
 .grading-footer {
   display: flex;
   align-items: center;
@@ -2530,4 +2566,80 @@ img.ProseMirror-separator {
 }
 .form-stack > .btn-wide {
   align-self: stretch;
+}
+
+/* Cibles de la charte §8 : un lien seul (hors d'une phrase) et un « résumé » dépliable sont des commandes. */
+p > a:only-child,
+.data-table a,
+.section-head a,
+.card-head a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--cible);
+  min-width: var(--cible);
+}
+summary {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  min-height: var(--cible);
+  color: var(--vert);
+  font-family: var(--police-titre);
+  font-weight: 600;
+  cursor: pointer;
+}
+summary::before {
+  content: "›";
+  font-size: 1.3em;
+  transition: transform 150ms ease;
+}
+details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.checkbox label {
+  min-height: var(--cible);
+  display: flex;
+  align-items: center;
+}
+code {
+  overflow-wrap: anywhere;
+}
+
+/* En-tête de ligne d'un tableau (le prénom de l'élève) : du texte normal, pas des petites capitales. */
+.data-table th[scope="row"] {
+  font-family: var(--police-texte);
+  font-size: inherit;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ardoise);
+  white-space: normal;
+}
+
+/* Logo (docs/design/logo/ardoiz-logo.svg) : ses couleurs viennent des jetons. */
+.logo-frame {
+  fill: var(--vert);
+}
+.logo-slate {
+  fill: var(--ardoise);
+}
+.logo-chalk {
+  fill: none;
+  stroke: var(--craie);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.logo-accent {
+  fill: none;
+  stroke: var(--menthe-vive);
+  stroke-linecap: round;
+}
+.sidebar .logo-frame {
+  fill: var(--vert);
+}
+/* Tableaux denses du tuteur : une commande ou un court chiffre ne se coupe pas sur deux lignes. */
+.data-table .btn,
+.data-table td.num,
+.skill-split .row-meta {
+  white-space: nowrap;
 }

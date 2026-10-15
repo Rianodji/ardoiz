@@ -91,7 +91,9 @@ export function TutorProgressPage() {
                       <td className="num">
                         {entry.level} · {entry.xp} pts
                       </td>
-                      <td>{entry.streak.paused ? "en pause" : plural(entry.streak.current, "semaine")}</td>
+                      <td className="num">
+                        {entry.streak.paused ? "en pause" : plural(entry.streak.current, "semaine")}
+                      </td>
                       <td>
                         <SkillSplit
                           acquired={counts.acquired + counts.exceeded}

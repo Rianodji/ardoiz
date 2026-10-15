@@ -32,6 +32,10 @@ describe("Nom lisible des appareils connectés (L8, correction 4)", () => {
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 OPR/122.0.0.0",
       "Opera sur Windows",
     ],
+    [
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.0.0 Safari/537.36",
+      "Chrome sur Linux",
+    ],
   ])("reconnaît %s", (userAgent, expected) => {
     expect(describeUserAgent(userAgent)).toBe(expected);
   });
