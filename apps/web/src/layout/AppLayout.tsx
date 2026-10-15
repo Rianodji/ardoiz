@@ -8,7 +8,7 @@ import { fetchSuggestions } from "../api/progress";
 import { ME_QUERY, useMe, type Me } from "../auth/session";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Icon, Logo, type IconNode } from "../ui";
-import { BookText, ClipboardCheck, House, Star } from "../ui/icons";
+import { BookText, ClipboardCheck, House, Star, User } from "../ui/icons";
 import { FocusContext } from "./focus";
 
 interface NavItem {
@@ -242,7 +242,7 @@ function TopBar({
         {kind === "learner" && (
           <>
             <Link to="/compte" className="nav-secondary learner-account-link">
-              Moi
+              <Icon icon={User} /> Moi
             </Link>
             <nav className="main-nav" aria-label="Navigation principale">
               {LEARNER_NAV.map((item) => (
@@ -252,7 +252,9 @@ function TopBar({
                 to="/compte"
                 className={pathname === "/compte" ? "nav-secondary active" : "nav-secondary"}
               >
-                Moi
+                <span className="nav-label">
+                  <Icon icon={User} /> Moi
+                </span>
               </NavLink>
             </nav>
           </>

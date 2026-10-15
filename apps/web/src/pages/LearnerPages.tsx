@@ -8,7 +8,16 @@ import { useMe } from "../auth/session";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { BADGE_LABELS, LEARNER_LEVEL_LABELS, LEVEL_STEPS } from "../components/ProgressViews";
 import { Button, ButtonLink, Card, Icon, Notice, PageHeader, Pill, ProgressBar } from "../ui";
-import { hourFr, longDate, longDateTime, numberFr, plural, todayTitle, weekdayHour } from "../ui/format";
+import {
+  hourFr,
+  longDate,
+  longDateTime,
+  NBSP,
+  numberFr,
+  plural,
+  todayTitle,
+  weekdayHour,
+} from "../ui/format";
 import {
   AppWindow,
   Award,
@@ -170,7 +179,8 @@ function SessionSummary({ occurrence, now }: { readonly occurrence: Occurrence; 
   return (
     <>
       <h3>
-        {day.charAt(0).toUpperCase() + day.slice(1)} à {hourFr(occurrence.startsAt)}
+        {day.charAt(0).toUpperCase() + day.slice(1)} à{NBSP}
+        {hourFr(occurrence.startsAt)}
       </h3>
       <p className="hint">
         {occurrence.title} ·{" "}

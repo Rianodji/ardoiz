@@ -16,7 +16,7 @@ import { ErrorMessage } from "../components/ErrorMessage";
 import { Badges, CompetencyList, competencyCounts, GradeChart } from "../components/ProgressViews";
 import { useReauth } from "../components/useReauth";
 import { Button, Card, Field, Notice, PageHeader, Pill, Stat, Tabs } from "../ui";
-import { hourFr, longDate, numberFr, plural, weekdayHour } from "../ui/format";
+import { longDate, longDateTime, numberFr, plural, weekdayHour } from "../ui/format";
 import { BookText, Calendar, Check, Clock, Lock } from "../ui/icons";
 import { Agenda, parisToday, useNow } from "./AgendaPages";
 import { PasswordField } from "./LoginPage";
@@ -237,10 +237,8 @@ export function ChildAssignments({
           <div className="row-main">
             <p className="row-title">{assignment.title}</p>
             <p className="row-meta">
-              {assignment.state === "upcoming"
-                ? `S'ouvre le ${longDate(assignment.opensAt)} à ${hourFr(assignment.opensAt)}, `
-                : ""}
-              à rendre le {longDate(assignment.dueAt)} à {hourFr(assignment.dueAt)}
+              {assignment.state === "upcoming" ? `S'ouvre le ${longDateTime(assignment.opensAt)}, ` : ""}à
+              rendre le {longDateTime(assignment.dueAt)}
             </p>
           </div>
           {assignment.state === "upcoming" ? (
@@ -259,7 +257,7 @@ export function ChildAssignments({
           <div className="row-main">
             <p className="row-title">{assignment.title}</p>
             <p className="row-meta">
-              Attendu le {longDate(assignment.dueAt)} à {hourFr(assignment.dueAt)}
+              Attendu le {longDateTime(assignment.dueAt)}
               {assignment.state === "closed"
                 ? " · non rendu"
                 : assignment.lateAllowed

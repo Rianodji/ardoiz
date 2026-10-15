@@ -137,7 +137,7 @@ describe("Tableau de bord d'un élève (L6, R17)", () => {
       />,
     );
     expect(screen.getByText("Fractions").closest("li")?.textContent).toMatch(
-      /à rendre le mardi 20 octobre à 10 h/,
+      /à rendre le mardi 20 octobre à\s10\sh/,
     );
     expect(screen.getByText("Unités").closest("li")?.textContent).toMatch(/non rendu/);
     expect(screen.queryByText(/Déjà rendue/)).toBeNull();

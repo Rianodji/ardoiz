@@ -9,11 +9,29 @@ const partsOf = (iso: string | number | Date, options: Intl.DateTimeFormatOption
   return (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
 };
 
-/** « 18 h » ou « 18 h 30 ». */
+/**
+ * Espace insécable : une heure ne se coupe jamais en fin de ligne, ni de son « à »
+ * (verdict L8, S-1 : « jeudi 15 octobre à 2 h / 55 » se coupait en deux lignes).
+ */
+export const NBSP = "\u00a0";
+
+/** Un seul format d'heure partout (charte §7, verdict L8 S-2) : « 18 h », « 2 h 55 ». */
+function clockFr(hour: number, minute: number): string {
+  return minute === 0
+    ? `${String(hour)}${NBSP}h`
+    : `${String(hour)}${NBSP}h${NBSP}${String(minute).padStart(2, "0")}`;
+}
+
+/** « 18 h » ou « 18 h 30 », en heure de Paris. */
 export function hourFr(iso: string | number | Date): string {
   const part = partsOf(iso, { hour: "numeric", minute: "2-digit", hourCycle: "h23" });
-  const minute = part("minute");
-  return `${String(Number(part("hour")))} h${minute === "00" ? "" : ` ${minute}`}`;
+  return clockFr(Number(part("hour")), Number(part("minute")));
+}
+
+/** Une heure locale « 14:05 » (agenda, déjà en heure de Paris) écrite « 14 h 05 ». */
+export function localHourFr(time: string): string {
+  const [hour = 0, minute = 0] = time.split(":").map(Number);
+  return clockFr(hour, minute);
 }
 
 /** « jeudi 16 octobre ». */
@@ -24,12 +42,12 @@ export function longDate(iso: string | number | Date): string {
 
 /** « jeudi 16 octobre à 18 h ». */
 export function longDateTime(iso: string | number | Date): string {
-  return `${longDate(iso)} à ${hourFr(iso)}`;
+  return `${longDate(iso)} à${NBSP}${hourFr(iso)}`;
 }
 
 /** « jeudi 18 h » : échéance proche, dans la semaine. */
 export function weekdayHour(iso: string | number | Date): string {
-  return `${partsOf(iso, { weekday: "long" })("weekday")} ${hourFr(iso)}`;
+  return `${partsOf(iso, { weekday: "long" })("weekday")}${NBSP}${hourFr(iso)}`;
 }
 
 /** « 16 oct. ». */
@@ -38,16 +56,9 @@ export function shortDate(iso: string | number | Date): string {
   return `${part("day")} ${part("month")}`;
 }
 
-/** « 16 oct. à 18:12 » (journal d'audit, appareils). */
+/** « 16 oct. à 18 h 12 » (journal d'audit, appareils, file de correction). */
 export function shortDateTime(iso: string | number | Date): string {
-  const part = partsOf(iso, {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-  return `${part("day")} ${part("month")} à ${part("hour")}:${part("minute")}`;
+  return `${shortDate(iso)} à${NBSP}${hourFr(iso)}`;
 }
 
 /** « Mardi 14 octobre » : la date du jour, en tête d'un accueil. */

@@ -67,7 +67,7 @@ describe("Agenda de l'élève (R9)", () => {
     expect(now?.hasAttribute("disabled")).toBe(false);
     expect(later?.hasAttribute("disabled")).toBe(true);
     // L'heure d'ouverture est écrite en clair, en heure de Paris (charte §7, H8).
-    expect(later?.textContent).toBe("Rejoindre · possible dès 17 h 45");
+    expect(later?.textContent).toBe("Rejoindre · possible dès\u00a017\u00a0h\u00a045");
     expect(document.body.textContent).not.toContain("meet.jit.si");
     expect(
       [...document.querySelectorAll("[href]")].map((element) => element.getAttribute("href")),

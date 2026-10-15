@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { fetchAgenda, joinOccurrence, type Occurrence } from "../api/scheduling";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Button, Card, Icon, PageHeader, Pill } from "../ui";
-import { hourFr } from "../ui/format";
+import { hourFr, localHourFr, NBSP } from "../ui/format";
 import { Calendar, ChevronLeft, ChevronRight, Video, X } from "../ui/icons";
 
 /** Heure de l'appareil, rafraîchie toutes les 30 s : le bouton « Rejoindre » s'active sans recharger. */
@@ -75,7 +75,8 @@ export function JoinButton({ occurrence, now }: { readonly occurrence: Occurrenc
         </Button>
       ) : (
         <button type="button" className="btn join-waiting" disabled>
-          Rejoindre · possible dès {hourFr(occurrence.linkAvailableFrom)}
+          Rejoindre · possible dès{NBSP}
+          {hourFr(occurrence.linkAvailableFrom)}
         </button>
       )}
       <ErrorMessage error={join.error} />
@@ -137,7 +138,8 @@ export function Agenda({
               <li key={occurrence.occurrenceId}>
                 <div className="row-main">
                   <p className="row-title">
-                    {occurrence.local.start} – {occurrence.local.end} · {occurrence.title}
+                    {localHourFr(occurrence.local.start)} – {localHourFr(occurrence.local.end)} ·{" "}
+                    {occurrence.title}
                   </p>
                   {nameOf !== undefined && occurrence.participantIds.length > 0 && (
                     <p className="row-meta">Avec {occurrence.participantIds.map(nameOf).join(", ")}</p>

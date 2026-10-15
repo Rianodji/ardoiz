@@ -348,6 +348,7 @@ main:focus {
   display: none;
   min-height: var(--cible);
   align-items: center;
+  gap: var(--e2);
   color: var(--lien);
 }
 .main-nav .nav-secondary {

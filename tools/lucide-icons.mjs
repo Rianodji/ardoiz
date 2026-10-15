@@ -11,6 +11,7 @@ const [nodesPath, version] = process.argv.slice(2);
 const nodes = JSON.parse(readFileSync(nodesPath, "utf8"));
 const WANT = [
   "house",
+  "user",
   "book-text",
   "clipboard-check",
   "star",

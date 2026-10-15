@@ -13,6 +13,10 @@ export const House: IconNode = [
     },
   ],
 ];
+export const User: IconNode = [
+  ["path", { d: "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" }],
+  ["circle", { cx: "12", cy: "7", r: "4" }],
+];
 export const BookText: IconNode = [
   ["path", { d: "M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" }],
   ["path", { d: "M8 11h8" }],

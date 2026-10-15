@@ -12,7 +12,7 @@ import {
 } from "../api/scheduling";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { Button, Card, Field, PageHeader, Pill } from "../ui";
-import { plural } from "../ui/format";
+import { localHourFr, plural } from "../ui/format";
 import { ChevronLeft, ChevronRight, X } from "../ui/icons";
 import { mondayOf, parisToday } from "./AgendaPages";
 
@@ -271,7 +271,8 @@ function OccurrenceDetail({
     <Card aria-labelledby="seance-choisie" className="highlight">
       <div className="card-head">
         <h2 id="seance-choisie">
-          {occurrence.title} · {day}, {occurrence.local.start} – {occurrence.local.end}
+          {occurrence.title} · {day}, {localHourFr(occurrence.local.start)} –{" "}
+          {localHourFr(occurrence.local.end)}
         </h2>
         <Button variant="quiet" icon={X} onClick={onClose}>
           Fermer
@@ -431,7 +432,7 @@ export function TutorSessionsPage() {
                         setSelected(selected === occurrence.occurrenceId ? null : occurrence.occurrenceId);
                       }}
                     >
-                      <strong>{occurrence.local.start}</strong>
+                      <strong>{localHourFr(occurrence.local.start)}</strong>
                       <span>
                         {occurrence.title}
                         {occurrence.status === "cancelled" ? " (annulée)" : ""}
