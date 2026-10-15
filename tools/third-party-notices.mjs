@@ -47,6 +47,38 @@ for (const pkg of packages) {
     parts.push(`--- ${file}`, readFileSync(join(pkg.directory, file), "utf8").trimEnd(), "");
 }
 
+// Ressources recopiées dans la SPA, hors npm (L8) : polices auto-hébergées (OFL-1.1) et icônes Lucide (ISC).
+const VENDORED = [
+  {
+    title: "Lexend (police variable, sous-ensemble latin) — OFL-1.1",
+    source:
+      "Fichier apps/web/src/assets/fonts/lexend-latin-wght.woff2, issu de @fontsource-variable/lexend 5.3.0.",
+    license: "apps/web/src/assets/fonts/OFL-Lexend.txt",
+  },
+  {
+    title: "Atkinson Hyperlegible (400, 700, italique 400 ; sous-ensemble latin) — OFL-1.1",
+    source:
+      "Fichiers apps/web/src/assets/fonts/atkinson-hyperlegible-latin-*.woff2, issus de @fontsource/atkinson-hyperlegible 5.3.0.",
+    license: "apps/web/src/assets/fonts/OFL-Atkinson-Hyperlegible.txt",
+  },
+  {
+    title: "Lucide 1.57.0 (icônes recopiées une à une) — ISC ; icônes dérivées de Feather — MIT",
+    source: "Tracés recopiés dans apps/web/src/ui/icons.ts depuis lucide-static 1.57.0.",
+    license: "apps/web/src/ui/LICENSE-lucide.txt",
+  },
+];
+for (const entry of VENDORED) {
+  parts.push(
+    rule,
+    entry.title,
+    rule,
+    entry.source,
+    "",
+    readFileSync(join(ROOT, entry.license), "utf8").trimEnd(),
+    "",
+  );
+}
+
 // libvips (LGPL-3.0-or-later), embarquée par sharp, liée dynamiquement et non modifiée (Q14).
 const libvips = join(ROOT, "node_modules/@img/sharp-libvips-linux-x64");
 const vips = existsSync(join(libvips, "versions.json"))
