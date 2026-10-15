@@ -107,7 +107,7 @@ describe("Vidéo YouTube après un clic (R13, M12)", () => {
       ["src", "href", "srcset"].map((name) => element.getAttribute(name) ?? ""),
     );
     expect(sources.filter((source) => /youtube|ytimg|google/i.test(source))).toEqual([]);
-    fireEvent.click(screen.getByRole("button", { name: /Lancer la vidéo/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Voir la vidéo/ }));
     const iframe = container.querySelector("iframe");
     expect(iframe?.getAttribute("src")).toBe(
       "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&autoplay=1",

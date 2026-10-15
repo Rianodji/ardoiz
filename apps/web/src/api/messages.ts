@@ -73,8 +73,61 @@ const MESSAGES: Readonly<Record<string, string>> = {
   "feedback.invalid-status": "Choisis « lue » ou « traitée ».",
 };
 
-const GENERIC = "Un problème est survenu. Réessaie dans un moment ; si ça continue, préviens ton tuteur.";
+/**
+ * Les mêmes messages pour un adulte, vouvoyé (charte §7). Seuls les messages qui s'adressent à la
+ * personne changent ; un message neutre (« Cette séance a été annulée. ») sert aux deux.
+ */
+const ADULT_MESSAGES: Readonly<Record<string, string>> = {
+  "network.unavailable": "Impossible de joindre Ardoiz. Vérifiez votre connexion internet, puis réessayez.",
+  "application.not-found": "Cette page n'existe pas, ou vous n'y avez pas accès.",
+  "application.forbidden": "Vous n'avez pas le droit de faire cette action.",
+  "http.origin-rejected": "Cette action a été bloquée par sécurité. Rechargez la page, puis réessayez.",
+  "http.invalid-request": "Certaines informations ne sont pas valides. Vérifiez le formulaire.",
+  "http.unauthenticated": "Votre session est terminée. Reconnectez-vous pour continuer.",
+  "identity.invalid-credentials": "Identifiant ou mot de passe incorrect. Vérifiez et réessayez.",
+  "identity.invalid-totp":
+    "Ce code n'est pas le bon. Saisissez le code à 6 chiffres affiché en ce moment dans votre application.",
+  "identity.mfa-required": "Saisissez d'abord le code de votre application d'authentification.",
+  "identity.mfa-enrollment-required": "Activez d'abord la double authentification pour continuer.",
+  "identity.reauthentication-required": "Pour cette action, confirmez d'abord votre mot de passe.",
+  "identity.weak-password":
+    "Ce mot de passe est trop simple : choisissez-en un plus long (12 caractères pour un adulte, 8 pour un élève) et moins courant.",
+  "identity.username-taken": "Ce pseudo est déjà pris dans cet espace. Choisissez-en un autre.",
+  "identity.last-guardianship":
+    "C'est le dernier parent lié à cet enfant : pour arrêter, utilisez plutôt « Retirer mon accord ».",
+  "identity.invalid-school-level": "Choisissez une classe dans la liste.",
+  "http.too-many-requests": "Trop d'essais d'un coup. Attendez un peu, puis réessayez.",
+  "scheduling.link-not-available":
+    "Le lien de la séance s'ouvre 15 minutes avant le début. Revenez un peu plus tard.",
+  "scheduling.link-to-replace": "Le lien de cette séance n'est plus valable : créez-en un nouveau.",
+  "scheduling.in-the-past": "Cette date est déjà passée : choisissez une date à venir.",
+  "assessment.not-yet-open": "Cette épreuve n'est pas encore ouverte.",
+  "assessment.no-attempts-left": "Toutes les tentatives de cette épreuve ont été utilisées.",
+  "assessment.already-published":
+    "Cette correction est déjà publiée. Pour changer une note, faites une rectification.",
+  "assessment.reason-required": "Indiquez le motif de la rectification (au moins 5 caractères).",
+  "assessment.invalid-unit": "Choisissez une unité de la liste.",
+  "assessment.invalid-correct-options": "Cochez au moins une bonne réponse parmi les options.",
+  "assessment.invalid-questions": "Ajoutez au moins une question avant d'attribuer l'épreuve.",
+  "progress.invalid-justification": "Expliquez votre choix en 5 à 500 caractères.",
+  "progress.invalid-level": "Choisissez un niveau dans la liste.",
+  "feedback.invalid-body":
+    "Votre message doit contenir du texte, 2 000 caractères au plus, sans caractère de contrôle.",
+  "feedback.invalid-category": "Choisissez un sujet dans la liste.",
+  "feedback.invalid-status": "Choisissez « lue » ou « traitée ».",
+};
 
-export function messageFor(error: unknown): string {
-  return error instanceof ApiError ? (MESSAGES[error.code] ?? GENERIC) : GENERIC;
+const GENERIC = "Un problème est survenu. Réessaie dans un moment ; si ça continue, préviens ton tuteur.";
+const ADULT_GENERIC =
+  "Un problème est survenu. Réessayez dans un moment ; si cela continue, prévenez le tuteur.";
+
+export type Audience = "learner" | "adult";
+
+export function messageFor(error: unknown, audience: Audience = "learner"): string {
+  if (!(error instanceof ApiError)) return audience === "adult" ? ADULT_GENERIC : GENERIC;
+  if (audience === "adult") return ADULT_MESSAGES[error.code] ?? MESSAGES[error.code] ?? ADULT_GENERIC;
+  return MESSAGES[error.code] ?? GENERIC;
 }
+
+/** Pour les tests : les codes qui ont un message d'élève. */
+export const MESSAGE_CODES = Object.keys(MESSAGES);

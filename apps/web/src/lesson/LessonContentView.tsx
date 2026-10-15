@@ -18,10 +18,36 @@ const CALLOUT_LABELS = { info: "À savoir", astuce: "Astuce", attention: "Attent
  * rendu, et un nœud inattendu n'est pas rendu du tout.
  */
 export function LessonContentView({ content }: { readonly content: LessonContent }) {
+  const anchors = new Map(lessonOutline(content).map((entry) => [entry.index, entry.id]));
   return (
     <div className="lesson-content">
-      {content.content.map((node, index) => block(node, `b${String(index)}`))}
+      {content.content.map((node, index) => block(node, `b${String(index)}`, anchors.get(index)))}
     </div>
+  );
+}
+
+/**
+ * Sommaire d'un cours (maquette Eleve-Cours) : ses grands titres, dans l'ordre. L'ancre est dérivée de
+ * la position, jamais du texte saisi par le tuteur.
+ */
+export function lessonOutline(
+  content: LessonContent,
+): ReadonlyArray<{ readonly index: number; readonly id: string; readonly text: string }> {
+  return content.content.flatMap((node, index) =>
+    node.type === "heading" && node.attrs.level === 1
+      ? [
+          {
+            index,
+            id: `partie-${String(index + 1)}`,
+            text: (node.content ?? [])
+              .map((child) =>
+                child.type === "text" ? child.text : child.type === "math_inline" ? child.attrs.latex : " ",
+              )
+              .join("")
+              .trim(),
+          },
+        ]
+      : [],
   );
 }
 
@@ -74,14 +100,19 @@ function blocks(nodes: readonly BlockNode[], key: string): ReactNode[] {
   return nodes.map((node, index) => block(node, `${key}.${String(index)}`));
 }
 
-function block(node: BlockNode, key: string): ReactNode {
+function block(node: BlockNode, key: string, anchor?: string): ReactNode {
   switch (node.type) {
     case "paragraph":
       return <p key={key}>{inline(node.content, key)}</p>;
     case "heading": {
       // Le titre du cours est le h1 de la page : les titres du contenu commencent au h2.
       const content = inline(node.content, key);
-      if (node.attrs.level === 1) return <h2 key={key}>{content}</h2>;
+      if (node.attrs.level === 1)
+        return (
+          <h2 key={key} id={anchor} tabIndex={anchor === undefined ? undefined : -1}>
+            {content}
+          </h2>
+        );
       if (node.attrs.level === 2) return <h3 key={key}>{content}</h3>;
       return <h4 key={key}>{content}</h4>;
     }

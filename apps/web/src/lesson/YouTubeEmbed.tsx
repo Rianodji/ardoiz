@@ -1,5 +1,7 @@
 import { youtubeEmbedUrl } from "@ardoiz/content-schema";
 import { useState } from "react";
+import { Icon } from "../ui";
+import { Play } from "../ui/icons";
 
 /**
  * Vidéo YouTube (R13, M12) : avant le clic, une simple vignette locale — aucune requête vers Google.
@@ -19,10 +21,12 @@ export function YouTubeEmbed({ videoId }: { readonly videoId: string }) {
         }}
       >
         <span aria-hidden="true" className="video-play">
-          ▶
+          <Icon icon={Play} />
         </span>
-        <span>Lancer la vidéo</span>
-        <span className="hint">La vidéo vient de YouTube : elle ne se charge que si tu cliques.</span>
+        <span>
+          <strong className="video-title">Voir la vidéo</strong>
+          <span className="hint">La vidéo se charge depuis YouTube seulement quand tu cliques.</span>
+        </span>
       </button>
     );
   }

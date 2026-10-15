@@ -13,7 +13,7 @@ export function useMe() {
 
 /** Page d'accueil de chaque espace : élève, parent, tuteur (trois espaces visuellement distincts). */
 export function homePathFor(me: Me): string {
-  if (me.kind === "tutor") return me.mfaEnrolled ? "/tuteur/familles" : "/double-authentification/activer";
+  if (me.kind === "tutor") return me.mfaEnrolled ? "/tuteur" : "/double-authentification/activer";
   if (me.kind === "guardian") return "/famille";
   return "/eleve";
 }

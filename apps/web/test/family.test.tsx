@@ -33,7 +33,7 @@ describe("Retrait du consentement, vu par le parent (verdict L7, S-1)", () => {
     renderAt("/famille");
     expect(
       await screen.findByText(
-        /Ses données seront supprimées le 12 novembre 2026\. Pour annuler, contacte le tuteur avant cette date\./,
+        /Ses données seront supprimées le 12 novembre 2026\. Pour annuler, contactez le tuteur avant cette date\./,
       ),
     ).toBeTruthy();
   });
@@ -41,7 +41,7 @@ describe("Retrait du consentement, vu par le parent (verdict L7, S-1)", () => {
   it("sans retrait : aucun message de suppression", async () => {
     serve(learner("active", null));
     renderAt("/famille");
-    expect(await screen.findByRole("heading", { name: /Lina/ })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Suivi de Lina" })).toBeTruthy();
     expect(screen.queryByText(/seront supprimées/)).toBeNull();
   });
 });

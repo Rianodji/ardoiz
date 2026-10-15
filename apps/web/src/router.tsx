@@ -1,8 +1,15 @@
-import { lazy, Suspense } from "react";
-import { createBrowserRouter, type RouteObject } from "react-router";
+import { lazy, Suspense, type ComponentType } from "react";
+import { createBrowserRouter, Navigate, type RouteObject } from "react-router";
 import { RequireRole } from "./auth/session";
 import { AppLayout } from "./layout/AppLayout";
-import { AccountPage, HomePage, LearnerHomePage, LegalPage } from "./pages/AccountPages";
+import { AccountPage, HomePage, LegalPage } from "./pages/AccountPages";
+import { LearnerAgendaPage } from "./pages/AgendaPages";
+import {
+  LearnerAssignmentsPage,
+  LearnerHomePage,
+  LearnerLessonsPage,
+  LearnerProgressPage,
+} from "./pages/LearnerPages";
 import { AttemptPage } from "./pages/AssessmentPages";
 import { FamilyPage } from "./pages/FamilyPage";
 import { InvitationPage } from "./pages/InvitationPage";
@@ -11,17 +18,31 @@ import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ForgotPasswordPage, NewPasswordPage } from "./pages/PasswordPages";
 import { TotpEnrollPage, TotpVerifyPage } from "./pages/TotpPages";
-import { GroupsPage, ReferentialPage, TutorProgrammePage } from "./pages/TutorProgrammePages";
-import { GradingAttemptPage, GradingQueuePage, TutorAssessmentsPage } from "./pages/TutorAssessmentPages";
-import { SuggestionsInboxPage } from "./pages/SuggestionPages";
-import { TutorProgressPage } from "./pages/TutorProgressPage";
-import { TutorSessionsPage } from "./pages/TutorSessionsPage";
-import { AuditPage, TutorFamiliesPage } from "./pages/TutorPages";
+import { GuardianSuggestionsPage, SuggestionsInboxPage } from "./pages/SuggestionPages";
 
-/** L'éditeur (TipTap) n'est chargé que par le tuteur, à la demande : la page des élèves reste légère. */
-const LessonEditorPage = lazy(() =>
-  import("./pages/LessonEditorPage").then((module) => ({ default: module.LessonEditorPage })),
-);
+/** Une page chargée à la demande, depuis l'export nommé de son module. */
+function lazyPage<K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) {
+  return lazy(() => load().then((module) => ({ default: module[name] })));
+}
+
+/**
+ * L'espace du tuteur (et son éditeur TipTap) n'est chargé que par le tuteur, à la demande : le paquet
+ * principal, celui de l'élève et du parent, reste léger (L8 : budget de 30 ko compressés).
+ */
+const tutorPages = () => import("./pages/TutorPages");
+const programmePages = () => import("./pages/TutorProgrammePages");
+const assessmentPages = () => import("./pages/TutorAssessmentPages");
+const TutorTodayPage = lazyPage(tutorPages, "TutorTodayPage");
+const TutorFamiliesPage = lazyPage(tutorPages, "TutorFamiliesPage");
+const AuditPage = lazyPage(tutorPages, "AuditPage");
+const TutorProgrammePage = lazyPage(programmePages, "TutorProgrammePage");
+const ReferentialPage = lazyPage(programmePages, "ReferentialPage");
+const TutorAssessmentsPage = lazyPage(assessmentPages, "TutorAssessmentsPage");
+const GradingQueuePage = lazyPage(assessmentPages, "GradingQueuePage");
+const GradingAttemptPage = lazyPage(assessmentPages, "GradingAttemptPage");
+const TutorProgressPage = lazyPage(() => import("./pages/TutorProgressPage"), "TutorProgressPage");
+const TutorSessionsPage = lazyPage(() => import("./pages/TutorSessionsPage"), "TutorSessionsPage");
+const LessonEditorPage = lazyPage(() => import("./pages/LessonEditorPage"), "LessonEditorPage");
 
 export const routes: RouteObject[] = [
   {
@@ -69,29 +90,22 @@ export const routes: RouteObject[] = [
         ),
       },
       {
-        path: "eleve",
+        path: "famille/suggestions",
         element: (
-          <RequireRole roles={["learner"]}>
-            <LearnerHomePage />
+          <RequireRole roles={["guardian"]}>
+            <GuardianSuggestionsPage />
           </RequireRole>
         ),
       },
-      {
-        path: "tuteur/familles",
-        element: (
-          <RequireRole roles={["tutor"]}>
-            <TutorFamiliesPage />
-          </RequireRole>
-        ),
-      },
-      {
-        path: "tuteur/journal",
-        element: (
-          <RequireRole roles={["tutor"]}>
-            <AuditPage />
-          </RequireRole>
-        ),
-      },
+      ...(
+        [
+          ["eleve", <LearnerHomePage key="accueil" />],
+          ["eleve/cours", <LearnerLessonsPage key="cours" />],
+          ["eleve/devoirs", <LearnerAssignmentsPage key="devoirs" />],
+          ["eleve/progres", <LearnerProgressPage key="progres" />],
+          ["eleve/seances", <LearnerAgendaPage key="seances" />],
+        ] as const
+      ).map(([path, page]) => ({ path, element: <RequireRole roles={["learner"]}>{page}</RequireRole> })),
       {
         path: "cours/:lessonId",
         element: (
@@ -110,23 +124,30 @@ export const routes: RouteObject[] = [
       },
       ...(
         [
+          ["tuteur", <TutorTodayPage key="aujourdhui" />],
+          ["tuteur/eleves", <TutorFamiliesPage key="eleves" />],
+          ["tuteur/journal", <AuditPage key="journal" />],
+          // Anciennes adresses (v1.0) : les groupes sont rangés dans « Élèves et familles » (charte §6).
+          ["tuteur/familles", <Navigate key="familles" to="/tuteur/eleves" replace />],
+          ["tuteur/groupes", <Navigate key="groupes" to="/tuteur/eleves?onglet=groupes" replace />],
           ["tuteur/programme", <TutorProgrammePage key="programme" />],
           ["tuteur/epreuves", <TutorAssessmentsPage key="epreuves" />],
           ["tuteur/seances", <TutorSessionsPage key="seances" />],
           ["tuteur/corrections", <GradingQueuePage key="corrections" />],
           ["tuteur/corrections/:attemptId", <GradingAttemptPage key="correction" />],
           ["tuteur/referentiel", <ReferentialPage key="referentiel" />],
-          ["tuteur/groupes", <GroupsPage key="groupes" />],
           ["tuteur/progression", <TutorProgressPage key="progression" />],
           ["tuteur/suggestions", <SuggestionsInboxPage key="suggestions" />],
-          [
-            "tuteur/cours/:lessonId",
-            <Suspense key="editeur" fallback={<p role="status">Chargement de l'éditeur…</p>}>
-              <LessonEditorPage />
-            </Suspense>,
-          ],
+          ["tuteur/cours/:lessonId", <LessonEditorPage key="editeur" />],
         ] as const
-      ).map(([path, page]) => ({ path, element: <RequireRole roles={["tutor"]}>{page}</RequireRole> })),
+      ).map(([path, page]) => ({
+        path,
+        element: (
+          <RequireRole roles={["tutor"]}>
+            <Suspense fallback={<p role="status">Chargement…</p>}>{page}</Suspense>
+          </RequireRole>
+        ),
+      })),
       { path: "*", element: <NotFoundPage /> },
     ],
   },
