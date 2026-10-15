@@ -105,7 +105,7 @@ Pour tenir le budget, l'espace du tuteur entier est chargé à la demande (comme
 
 - **Essai réel** : le mode focus et le menu du bas sont vérifiés en émulation (tablette 820 × 1180, téléphone 360 px). À regarder sur la tablette de l'élève, comme au L7.
 - **axe-core ne voit que Chromium** et que ce qu'il sait mesurer ; la lecture au lecteur d'écran n'a pas été faite.
-- **Menu latéral du tuteur sur un écran de moins de 720 px de haut** : le menu défile dans sa colonne (toutes les entrées restent atteignables), mais « Me déconnecter » peut être hors de vue.
+- **Menu latéral du tuteur sur un écran de moins de 720 px de haut** : le menu défile dans sa colonne (toutes les entrées restent atteignables), mais « Me déconnecter » peut être hors de vue. *Corrigé depuis : voir le §10, S-7.*
 - **Excalidraw** est exclu des vérifications axe et des mesures de cibles (bibliothèque tierce, couverte par ses propres tests L4).
 - Le test unitaire de la correction 1 ne reproduisait pas le défaut dans jsdom tant qu'il ne vérifiait que l'affichage : la nouvelle page de connexion se réabonne à « qui est connecté », ce qui masquait l'ancien défaut. Il vérifie maintenant aussi qu'aucun appel à `/api/me` n'est nécessaire ; l'E2E reste la preuve principale.
 - Le lien `p > a:only-child` (et les liens de tableau) reçoivent une hauteur de 48 ou 56 px pour la règle des cibles : c'est voulu, mais tout nouveau lien seul dans un paragraphe en héritera.
