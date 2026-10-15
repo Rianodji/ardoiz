@@ -295,7 +295,7 @@ test("espace élève : accueil, cours, devoir en mode focus, copie corrigée, pr
   // Mes devoirs (L8, correction 2) : un devoir « bientôt » dit quand il s'ouvre.
   await page.goto("/eleve/devoirs");
   const upcoming = page.getByRole("listitem").filter({ hasText: "Périmètre et aire" });
-  await expect(upcoming.getByText(/^Bientôt : s'ouvre le \w+ \d+ \w+ à \d+ h/)).toBeVisible();
+  await expect(upcoming.getByText(/^Bientôt : s'ouvre le \w+ \d+ \w+ à\s\d+\sh/)).toBeVisible();
   await expect(upcoming.getByText(/^S'ouvre le /)).toBeVisible();
   await checkScreen(page, "Eleve-Devoirs");
 
@@ -420,7 +420,7 @@ test("espace tuteur : aujourd'hui, programme, compétences, épreuves, correctio
     await expect(page.getByRole("heading", { name: heading, level: 1 })).toBeVisible();
     await page.waitForLoadState("networkidle");
     if (name === "Tuteur-Accueil") {
-      await expect(page.getByRole("link", { name: /Corriger la copie de Lina/ })).toBeVisible();
+      await expect(page.getByRole("link", { name: /Corriger la copie de Lina/ }).first()).toBeVisible();
       await expect(page.getByRole("link", { name: /^Corrections\W+1 copie à corriger$/ })).toBeVisible();
     }
     if (name === "Tuteur-Epreuves") {

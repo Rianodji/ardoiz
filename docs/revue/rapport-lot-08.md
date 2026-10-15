@@ -15,7 +15,7 @@ La charte « l'ardoise et le cahier » est appliquée à tous les écrans : jeto
 | Critère (`plan/jalons.md`, L8) | Statut | Preuve |
 |---|---|---|
 | Chaque écran correspond à sa maquette (structure, hiérarchie, couleurs, textes), captures jointes, écarts justifiés | Fait | 34 captures dans [`captures-lot-08/`](captures-lot-08/) (mêmes noms que les maquettes) ; écarts au §5 |
-| Aucune règle métier ni contrat d'API ne change, sauf les cinq corrections ; toute la suite reste verte, matrice des droits comprise | Fait | §4 : 694 tests unitaires, 449 tests d'intégration (dont la matrice des droits), 17 E2E. Seuls changements côté API : `HEAD` (correction 5) et le **type** des codes d'audit (correction 3), sans changement du JSON servi |
+| Aucune règle métier ni contrat d'API ne change, sauf les cinq corrections ; toute la suite reste verte, matrice des droits comprise | Fait | §4 : 693 tests unitaires (697 après les suites, §9), 449 tests d'intégration (dont la matrice des droits), 17 E2E. Seuls changements côté API : `HEAD` (correction 5) et le **type** des codes d'audit (correction 3), sans changement du JSON servi |
 | E2E sous la CSP de production sur tous les écrans refaits, sans ouverture nouvelle de la CSP | Fait | `e2e/tests/ecrans.spec.ts` : 27 écrans, la fixture fait échouer toute violation de CSP et toute ressource `/assets/` en erreur. `hardening.ts` n'est pas modifié |
 | Exigences du §8 testées en E2E : contrastes, cibles 48/56 px, tabulation avec focus visible, pas de défilement horizontal à 360 px | Fait | `e2e/a11y.ts` et `ecrans.spec.ts` : axe-core (WCAG 2.2 A et AA, contrastes compris) ; mesure de chaque élément interactif ; parcours à la touche Tab avec anneau ≥ 2 px ; 25 écrans à 360 px |
 | Paquet principal : pas plus de 30 ko compressés en plus | Fait | +13,1 ko (gzip -9), mesure au §6. Polices à part : 92,7 ko de WOFF2 |
@@ -40,7 +40,7 @@ Lancées réellement sur la branche, après le dernier commit de code :
 ```
 npm run lint             → 0 erreur, Prettier conforme
 npm run typecheck        → 0 erreur (5 workspaces + e2e)
-npm test                 → 41 fichiers, 694 tests réussis
+npm test                 → 41 fichiers, 693 tests réussis (recompté, voir §9)
 npm run test:integration → 26 fichiers, 449 tests réussis (Postgres 16.14 réel)
 npm run depcruise        → aucune violation (182 modules)
 npm audit --audit-level=high → 0 vulnérabilité
@@ -110,4 +110,36 @@ Pour tenir le budget, l'espace du tuteur entier est chargé à la demande (comme
 - Le test unitaire de la correction 1 ne reproduisait pas le défaut dans jsdom tant qu'il ne vérifiait que l'affichage : la nouvelle page de connexion se réabonne à « qui est connecté », ce qui masquait l'ancien défaut. Il vérifie maintenant aussi qu'aucun appel à `/api/me` n'est nécessaire ; l'E2E reste la preuve principale.
 - Le lien `p > a:only-child` (et les liens de tableau) reçoivent une hauteur de 48 ou 56 px pour la règle des cibles : c'est voulu, mais tout nouveau lien seul dans un paragraphe en héritera.
 
-Lot 08 prêt pour revue.
+
+## 9. Suites du verdict
+
+| Suite | Fait | Test |
+|---|---|---|
+| Fichiers du lead (verdict, charte §5 à 48 px, README « L8 accepté ») | Commités tels quels | — |
+| S-1 · Heures insécables | `ui/format.ts` : espace insécable (`NBSP`) entre l'heure, « h » et les minutes, et entre « à » et l'heure. Les rares phrases écrites à la main (« Jeudi 15 octobre à 6 h 10 », « possible dès 17 h 45 ») utilisent le même `NBSP` | `apps/web/test/format.test.ts › « S-1 : l'heure ne se coupe jamais, ni de son « à », ni de son jour »` ; capture `Eleve-Accueil.png` (« à 6 h 10 » passe à la ligne d'un bloc) |
+| S-2 · Un seul format « 2 h 55 » | Un seul formateur (`clockFr`) : `hourFr` (instant ISO), `localHourFr` (heure locale « 14:05 » de l'agenda), `shortDateTime` (journal, appareils, file de correction : « 15 oct. à 5 h 58 »). Agenda du parent et semaine du tuteur passent par `localHourFr` | `format.test.ts › « S-2 : un seul format… »` et « aucun format horaire « hh:mm » ne sort du formateur » ; capture `Tuteur-Journal.png` |
+| S-4 · Icône sur « Moi » | Icône Lucide `user` (ajoutée à `tools/lucide-icons.mjs`) sur les deux liens « Moi » de l'élève | `apps/web/test/learnerMenu.test.tsx › « chaque entrée a une icône et un mot, « Moi » compris »` |
+| S-3 · Une seule source des codes d'audit | Non traité, prévu au J2 par le verdict | — |
+| Recompte des tests | **693** au commit relu, comme le lead. Mon « 694 » venait d'un passage lancé avant que je retire un test de `opening.test.tsx`. Les suites ajoutent 4 tests : **697** | `npm test` ci-dessous |
+| Captures | Les 34 captures de `captures-lot-08/` régénérées après les suites, par l'E2E (`E2E_CAPTURES`) | — |
+
+Trois assertions d'E2E ont été ajustées : une expression régulière qui attendait une espace ordinaire avant l'heure (`\s` désormais), et deux qui supposaient un niveau ou un nombre de copies fixes, alors que le niveau dépend des données semées par les autres tests (`\d+`, `.first()`).
+
+Commits des suites : `a941aba` (fichiers du lead), `20b861e` (S-1, S-2, S-4), puis le commit qui contient ce paragraphe (tests E2E, captures, rapport).
+
+Sortie des vérifications, après les suites :
+
+```
+npm run lint             → 0 erreur, Prettier conforme
+npm run typecheck        → 0 erreur
+npm test                 → 43 fichiers, 697 tests réussis
+npm run test:integration → 26 fichiers, 449 tests réussis (Postgres réel)
+npm run depcruise        → aucune violation (182 modules, 714 dépendances)
+npm audit --audit-level=high → 0 vulnérabilité
+node tools/check-licenses.mjs → 290 dépendances livrées, toutes permissives
+npx playwright test (E2E, CSP de production) → 17 tests réussis
+```
+
+CI de la PR #15 : voir la PR (vérifiée verte avant l'arrêt).
+
+Suites traitées ; j'attends le feu vert du §8 du verdict avant de fusionner et de poser le tag `v1.1.0`.

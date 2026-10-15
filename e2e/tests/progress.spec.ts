@@ -7,9 +7,9 @@ test("l'élève voit sa progression : ses points arrivent par le relais (CoursTe
   const state = e2eState();
   await loginLearner(page, state);
   await expect(page.getByRole("heading", { name: "Mes progrès" })).toBeVisible();
-  await expect(page.getByText(/points · niveau 0/)).toBeVisible();
+  await expect(page.getByText(/points · niveau \d+/)).toBeVisible();
   await page.goto("/eleve/progres");
-  await expect(page.getByText("Niveau 0", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Niveau \d+$/)).toBeVisible();
   await expect(page.locator(".xp-number")).toHaveText(/^[1-9][0-9]*$/);
   await expect(page.getByRole("heading", { name: "Ma série : 1 semaine" })).toBeVisible();
 });
