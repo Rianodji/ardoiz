@@ -159,10 +159,14 @@ export function LegalPage({ document }: { readonly document: LegalDocument }) {
   return (
     <div className="page narrow">
       <Card as="article" className="legal">
-        <h1>{TITLES[document]}</h1>
+        {/* Un seul titre (verdict L8, S-8) : celui du document une fois chargé, le nom de la page avant. */}
+        {text.data === undefined ? (
+          <h1>{TITLES[document]}</h1>
+        ) : (
+          <Markdown source={text.data.markdown} pageTitle={TITLES[document]} />
+        )}
         {text.isPending && <p role="status">Chargement…</p>}
         <ErrorMessage error={text.error} />
-        {text.data !== undefined && <Markdown source={text.data.markdown} />}
       </Card>
     </div>
   );

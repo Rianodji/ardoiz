@@ -14,7 +14,7 @@ La charte « l'ardoise et le cahier » est appliquée à tous les écrans : jeto
 
 | Critère (`plan/jalons.md`, L8) | Statut | Preuve |
 |---|---|---|
-| Chaque écran correspond à sa maquette (structure, hiérarchie, couleurs, textes), captures jointes, écarts justifiés | Fait | 34 captures dans [`captures-lot-08/`](captures-lot-08/) (mêmes noms que les maquettes) ; écarts au §5 |
+| Chaque écran correspond à sa maquette (structure, hiérarchie, couleurs, textes), captures jointes, écarts justifiés | Fait | 41 captures (34, puis 7 de plus au §10) dans [`captures-lot-08/`](captures-lot-08/) (mêmes noms que les maquettes) ; écarts au §5 |
 | Aucune règle métier ni contrat d'API ne change, sauf les cinq corrections ; toute la suite reste verte, matrice des droits comprise | Fait | §4 : 693 tests unitaires (697 après les suites, §9), 449 tests d'intégration (dont la matrice des droits), 17 E2E. Seuls changements côté API : `HEAD` (correction 5) et le **type** des codes d'audit (correction 3), sans changement du JSON servi |
 | E2E sous la CSP de production sur tous les écrans refaits, sans ouverture nouvelle de la CSP | Fait | `e2e/tests/ecrans.spec.ts` : 27 écrans, la fixture fait échouer toute violation de CSP et toute ressource `/assets/` en erreur. `hardening.ts` n'est pas modifié |
 | Exigences du §8 testées en E2E : contrastes, cibles 48/56 px, tabulation avec focus visible, pas de défilement horizontal à 360 px | Fait | `e2e/a11y.ts` et `ecrans.spec.ts` : axe-core (WCAG 2.2 A et AA, contrastes compris) ; mesure de chaque élément interactif ; parcours à la touche Tab avec anneau ≥ 2 px ; 25 écrans à 360 px |
@@ -142,4 +142,41 @@ npx playwright test (E2E, CSP de production) → 17 tests réussis
 
 CI de la PR #15 : voir la PR (vérifiée verte avant l'arrêt).
 
-Suites traitées ; j'attends le feu vert du §8 du verdict avant de fusionner et de poser le tag `v1.1.0`.
+Suites traitées. Le feu vert du §8 a ensuite été suspendu par le porteur : voir le §10.
+
+## 10. Second contrôle : suites S-5 à S-10 (verdict §8.3 et §8.4)
+
+| Suite | Fait | Test |
+|---|---|---|
+| Fichiers du lead (verdict §8, `mentions-legales.md` v2, `confidentialite-version-eleve.md` v2, README des textes juridiques) | Commités tels quels dans `0f27c5c`. Le texte de consentement n'est pas touché | — |
+| S-5 · « L'élève verra : … » | Nouvelle fonction pure `pages/assignmentPreview.ts`, avec le formateur commun (`longDateTime`). Le formulaire la recalcule à chaque changement d'un champ. « S'ouvre le … » n'apparaît que pour une ouverture encore à venir (après l'ouverture du formulaire). Rien tant que l'échéance n'est pas une date valide. La phrase est annoncée aux lecteurs d'écran (`aria-live="polite"`) | `apps/web/test/assignmentPreview.test.tsx` : 3 tests de la fonction (échéance seule, ouverture à venir ou passée, date invalide) et 1 test du formulaire (la phrase suit l'échéance, puis l'ouverture, puis une nouvelle échéance). E2E `ecrans.spec.ts` (épreuves) : la phrase apparaît dès que la date est saisie. Capture `Tuteur-Epreuves.png` |
+| S-6 · Empreinte retirée de la file de correction | La ligne « Essai 1 · rendu à temps » n'affiche plus l'empreinte. Elle reste dans l'API (`answersSha256`) et dans le journal | `apps/web/test/gradingAttempt.test.tsx` : ni « empreinte » ni le début de l'empreinte dans la page. E2E : pas d'« empreinte » sur l'écran Corrections. Capture `Tuteur-Corrections.png` |
+| S-7 · « Mon compte » et « Me déconnecter » en bas du menu | **Cause** : `.sidebar-nav ul { margin: 0 }`, plus spécifique que `.sidebar-bottom`, annulait son `margin-top: auto` (et son espacement au-dessus du filet). Le bloc restait donc sous « Journal d'audit ». Avec la fenêtre de 720 px de l'E2E, le menu remplissait juste la hauteur, et les captures ne le montraient pas. **Correction** : sélecteur `.sidebar-nav .sidebar-bottom`. Sur un écran bas, la colonne n'est plus figée à la hauteur de l'écran : le bas du menu suit les entrées et la page le fait apparaître en défilant. **Seuil à 800 px de haut, et non 720 px** : le menu entier mesure environ 770 px. Entre 720 et 800 px, une colonne figée gardait son propre défilement et coupait « Me déconnecter », ce que montrait la capture pleine page à 720 px | E2E `ecrans.spec.ts` (tuteur). À 1280 × 960, sur le journal : le bas du bouton est à moins de 80 px du bas de l'écran, page en haut comme page défilée de 800 px, et plus de 100 px séparent « Journal d'audit » de « Mon compte ». À 1280 × 720 et à 1280 × 600 : le menu n'a pas de défilement propre, et « Me déconnecter » est atteignable. À 600 px, il est hors de vue au départ et apparaît quand la page défile. **Ce test échouait avant la correction** (bas du bouton à 737 px sur 960). Captures `Tuteur-Menu-960.png` (à comparer à la maquette `Tuteur-Accueil.png`) et `Tuteur-Menu-600.png` (page entière) |
+| S-8 · Un seul titre sur les pages juridiques | `Markdown` reçoit `pageTitle`. Le premier titre `#` du document devient alors le `<h1>`, et les sections `##` sont des `<h2>` (sans décalage). Le titre fixe de la page ne sert plus qu'au chargement, ou si un texte n'a pas de titre `#`. Les textes restent affichés sans modification. Le formulaire de consentement, inséré dans une page qui a déjà son titre, garde l'ancien décalage | `apps/web/test/legalPage.test.tsx` : un seul `h1` sur `/mentions-legales`, `/confidentialite` et `/mes-donnees` (« Tes données sur Ardoiz, expliquées simplement »), sections en `h2`. Cas d'un texte sans `#`, et du texte inséré (niveaux décalés). E2E : un seul `h1` sur les trois pages |
+| S-9 · Tableaux du Markdown | Les tableaux sont rendus comme `TableBox` : boîte `table-box` qui défile horizontalement, `role="region"`, focalisable (`tabIndex=0`). Chacune est nommée par le titre de sa section (« Tableau : 4. Combien de temps ? »), numéroté si une section en contient plusieurs. Les en-têtes en petites capitales viennent des règles `.markdown th`, déjà communes avec `.data-table` | `legalPage.test.tsx` : les trois tableaux de la politique, leurs noms, `tabIndex` et en-têtes de colonnes. Deux tableaux d'une même section ont des noms distincts. E2E : `/confidentialite` à 360 px sans défilement horizontal (la page faisait 526 px). Captures `Confidentialite-360.png` et `Confidentialite-360-tableau.png` |
+| S-10 · Pages juridiques dans l'E2E des écrans | `/mentions-legales` (déjà là) et `/confidentialite` dans le test des écrans publics, `/mes-donnees` dans celui de l'élève. Chacune passe axe-core, la mesure des cibles et la tabulation, puis 360 px de large | `ecrans.spec.ts`. Captures `Mentions-legales.png`, `Confidentialite.png`, `Confidentialite-360.png`, `Eleve-MesDonnees.png`, `Eleve-MesDonnees-360.png` |
+
+Remarque hors des suites demandées : les tableaux d'un **cours** (`lesson/LessonContentView.tsx`) portent encore la classe `table-wrapper`, sans règle CSS. Un large tableau de cours pourrait donc déborder à 360 px. Je ne l'ai pas modifié, faute de demande : je propose de le traiter comme S-9 au J2 (même boîte, nommée).
+
+Captures : les 34 captures de `captures-lot-08/` sont régénérées après ces suites, et 7 s'y ajoutent (`Confidentialite`, `Confidentialite-360`, `Confidentialite-360-tableau`, `Eleve-MesDonnees`, `Eleve-MesDonnees-360`, `Tuteur-Menu-960`, `Tuteur-Menu-600`), soit 41.
+
+Recompte : 697 tests unitaires avant ces suites, 12 de plus (4 pour S-5, 1 pour S-6, 7 pour S-8 et S-9) : **709**.
+
+Commits : `0f27c5c` (fichiers du lead), puis le commit des suites S-5 à S-10, qui contient ce paragraphe (code, tests, E2E, captures, rapport).
+
+Sortie des vérifications, après ces suites :
+
+```
+npm run lint             → 0 erreur, Prettier conforme
+npm run typecheck        → 0 erreur
+npm test                 → 46 fichiers, 709 tests réussis
+npm run test:integration → 26 fichiers, 449 tests réussis (Postgres réel)
+npm run depcruise        → aucune violation (182 modules, 714 dépendances)
+npm audit --omit=dev     → 0 vulnérabilité
+node tools/check-licenses.mjs → 290 dépendances livrées, toutes permissives
+npm run test:e2e (application construite, CSP de production) → 17 tests réussis
+```
+
+CI de la PR #15 : vérifiée verte avant l'arrêt (voir la PR).
+
+Suites S-5 à S-10 traitées. Je m'arrête : pas de fusion ni de tag `v1.1.0` avant le feu vert écrit du lead au §8.5 du verdict.

@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -180,4 +180,12 @@ export async function capture(page: Page, name: string, fullPage = true): Promis
     await document.fonts.ready;
   });
   await page.screenshot({ path: join(directory, `${name}.png`), fullPage, animations: "disabled" });
+}
+
+/** Capture d'un seul élément (un tableau qui défile, par exemple), mêmes conditions que `capture`. */
+export async function captureElement(element: Locator, name: string): Promise<void> {
+  const directory = process.env["E2E_CAPTURES"];
+  if (directory === undefined || directory === "") return;
+  mkdirSync(directory, { recursive: true });
+  await element.screenshot({ path: join(directory, `${name}.png`), animations: "disabled" });
 }

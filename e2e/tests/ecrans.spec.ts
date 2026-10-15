@@ -1,5 +1,12 @@
 import type { APIRequestContext, Page } from "@playwright/test";
-import { axeViolations, capture, horizontalOverflow, keyboardFocusProblems, smallTargets } from "../a11y.js";
+import {
+  axeViolations,
+  capture,
+  captureElement,
+  horizontalOverflow,
+  keyboardFocusProblems,
+  smallTargets,
+} from "../a11y.js";
 import {
   e2eState,
   expect,
@@ -252,7 +259,7 @@ function seededIds(): Seeded {
   return seeded;
 }
 
-test("écrans publics : connexion (élève, adulte), mentions légales", async ({ page }) => {
+test("écrans publics : connexion (élève, adulte), mentions légales, confidentialité", async ({ page }) => {
   await page.goto("/connexion");
   await expect(page.getByRole("heading", { name: "Se connecter" })).toBeVisible();
   await checkScreen(page, "Connexion");
@@ -261,10 +268,26 @@ test("écrans publics : connexion (élève, adulte), mentions légales", async (
   await checkScreen(page, "Connexion-adulte");
   await page.goto("/mentions-legales");
   await expect(page.getByRole("heading", { name: "Mentions légales", level: 1 })).toBeVisible();
+  // Verdict L8, S-8 : un seul titre, celui du document.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
   await checkScreen(page, "Mentions-legales");
+  await page.goto("/confidentialite");
+  await expect(page.getByRole("heading", { name: "Politique de confidentialité", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  // Verdict L8, S-9 : les tableaux défilent dans une boîte nommée.
+  await expect(page.getByRole("region", { name: /^Tableau : / })).toHaveCount(3);
+  await checkScreen(page, "Confidentialite");
   await page.setViewportSize({ width: 360, height: 780 });
   await checkNarrow(page, "Connexion (360 px)", "/connexion", "Se connecter");
   await capture(page, "Connexion-360", false);
+  await checkNarrow(page, "Mentions légales (360 px)", "/mentions-legales", "Mentions légales");
+  await checkNarrow(page, "Confidentialité (360 px)", "/confidentialite", "Politique de confidentialité");
+  // Le tableau qui débordait (526 px) : il défile maintenant dans sa boîte, la page garde 360 px.
+  await captureElement(
+    page.getByRole("region", { name: "Tableau : 2. Quelles données, pourquoi, sur quelle base ?" }),
+    "Confidentialite-360-tableau",
+  );
+  await capture(page, "Confidentialite-360", false);
 });
 
 test("espace élève : accueil, cours, devoir en mode focus, copie corrigée, progrès, séances, compte", async ({
@@ -329,6 +352,14 @@ test("espace élève : accueil, cours, devoir en mode focus, copie corrigée, pr
   await expect(page.getByRole("heading", { name: "Mon compte" })).toBeVisible();
   await checkScreen(page, "Eleve-Compte");
 
+  // Verdict L8, S-8 et S-10 : « Mes données », sous le seul titre du texte de l'élève.
+  await page.goto("/mes-donnees");
+  await expect(
+    page.getByRole("heading", { name: "Tes données sur Ardoiz, expliquées simplement", level: 1 }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+  await checkScreen(page, "Eleve-MesDonnees");
+
   // Tablette en portrait : le menu passe en bas de l'écran (charte §6).
   await page.setViewportSize({ width: 820, height: 1180 });
   await page.goto("/eleve");
@@ -348,9 +379,11 @@ test("espace élève : accueil, cours, devoir en mode focus, copie corrigée, pr
     ["Eleve-Progres", "/eleve/progres", "Mes progrès"],
     ["Eleve-Seances", "/eleve/seances", "Mes séances"],
     ["Eleve-Compte", "/compte", "Mon compte"],
+    ["Eleve-MesDonnees", "/mes-donnees", "Tes données sur Ardoiz, expliquées simplement"],
   ] as const) {
     await checkNarrow(page, `${name} (360 px)`, path, heading);
-    if (name === "Eleve-Accueil" || name === "Eleve-Epreuve") await capture(page, `${name}-360`, false);
+    if (name === "Eleve-Accueil" || name === "Eleve-Epreuve" || name === "Eleve-MesDonnees")
+      await capture(page, `${name}-360`, false);
   }
 });
 
@@ -436,6 +469,18 @@ test("espace tuteur : aujourd'hui, programme, compétences, épreuves, correctio
       await page.getByRole("button", { name: "Attribuer : Devoir surveillé" }).click();
       await expect(page.getByLabel("S'ouvre")).toHaveValue("now");
       await expect(page.getByLabel("Date d'ouverture")).toHaveCount(0);
+      // Verdict L8, S-5 : ce que l'élève verra, calculé dans le navigateur dès que la date est choisie.
+      await expect(page.getByText(/^L'élève verra/)).toHaveCount(0);
+      const due = new Date(Date.now() + 2 * 24 * 3_600_000);
+      const pad = (value: number) => String(value).padStart(2, "0");
+      await page
+        .getByLabel("À rendre avant")
+        .fill(`${String(due.getFullYear())}-${pad(due.getMonth() + 1)}-${pad(due.getDate())}T18:00`);
+      await expect(
+        page.getByText(
+          /^L'élève verra : « À rendre avant \p{L}+ \d+ \p{L}+ à\s18\sh »\. Le corrigé lui sera montré après cette date\.$/u,
+        ),
+      ).toBeVisible();
     }
     if (name === "Tuteur-Eleves") {
       await page.getByRole("button", { name: "Fiche de Lina" }).click();
@@ -451,6 +496,10 @@ test("espace tuteur : aujourd'hui, programme, compétences, épreuves, correctio
         .first()
         .click();
       await expect(page.getByRole("heading", { name: "Ajuster un niveau" })).toBeVisible();
+    }
+    if (name === "Tuteur-Corrections") {
+      // Verdict L8, S-6 : l'empreinte des réponses n'est plus à l'écran.
+      await expect(page.getByText(/empreinte/i)).toHaveCount(0);
     }
     if (name === "Tuteur-Journal") {
       // L8, correction 3 : des phrases en français, jamais les codes internes.
@@ -468,6 +517,59 @@ test("espace tuteur : aujourd'hui, programme, compétences, épreuves, correctio
     }
     await checkScreen(page, name);
   }
+
+  // Verdict L8, S-7 : « Mon compte » et « Me déconnecter » collés en bas de la colonne, sous un filet,
+  // même quand la page défile ; sur un écran bas, ils suivent le menu et la page les fait apparaître.
+  const menu = page.getByRole("navigation", { name: "Menu du tuteur" });
+  const logout = menu.getByRole("button", { name: "Me déconnecter" });
+  await page.setViewportSize({ width: 1280, height: 960 });
+  await page.goto("/tuteur/journal");
+  await expect(page.getByRole("heading", { name: "Journal d'audit", level: 1 })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  for (const scroll of [0, 800]) {
+    await page.evaluate((y) => {
+      window.scrollTo(0, y);
+    }, scroll);
+    const bottom = await logout.boundingBox();
+    expect(
+      bottom === null ? 0 : bottom.y + bottom.height,
+      `bas du menu, page à ${String(scroll)} px`,
+    ).toBeGreaterThan(960 - 80);
+    await expect(logout).toBeInViewport();
+  }
+  const journal = await menu.getByRole("link", { name: /Journal d'audit/ }).boundingBox();
+  const account = await menu.getByRole("link", { name: "Mon compte" }).boundingBox();
+  expect((account?.y ?? 0) - ((journal?.y ?? 0) + (journal?.height ?? 0))).toBeGreaterThan(100);
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
+  await capture(page, "Tuteur-Menu-960", false);
+
+  // Écran bas (600 px), et la fenêtre de 720 px des autres tests : même comportement.
+  for (const height of [720, 600]) {
+    await page.setViewportSize({ width: 1280, height });
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Journal d'audit", level: 1 })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    const own = await page
+      .locator(".sidebar-inner")
+      .evaluate((inner) => inner.scrollHeight - inner.clientHeight);
+    expect(own, `défilement propre du menu à ${String(height)} px`).toBeLessThanOrEqual(0);
+    await logout.scrollIntoViewIfNeeded();
+    await expect(logout).toBeInViewport();
+  }
+  await page.evaluate(() => {
+    window.scrollTo(0, 0);
+  });
+  // À 600 px, le bas du menu est hors de vue au départ : c'est la page qui défile, et il apparaît.
+  await expect(logout).not.toBeInViewport();
+  await page.evaluate(() => {
+    window.scrollTo(0, 400);
+  });
+  await expect(logout).toBeInViewport();
+  await expect(menu.getByRole("link", { name: "Mon compte" })).toBeInViewport();
+  // Page entière : le bas du menu suit les entrées, la page le fait apparaître.
+  await capture(page, "Tuteur-Menu-600");
 
   await page.setViewportSize({ width: 360, height: 780 });
   for (const [name, path, heading] of screens) await checkNarrow(page, `${name} (360 px)`, path, heading);

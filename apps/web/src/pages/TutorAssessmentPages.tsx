@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { Button, ButtonLink, Card, Field, Notice, PageHeader, Pill } from "../ui";
-import { longDateTime, numberFr, plural, shortDateTime } from "../ui/format";
+import { numberFr, plural, shortDateTime } from "../ui/format";
 import { Check, ClipboardList, Minus, Pencil, Plus } from "../ui/icons";
 import {
   assignAssessment,
@@ -25,6 +25,7 @@ import { fetchCompetencyChoices, fetchGroups, fetchProgramme } from "../api/curr
 import { fetchFamilies } from "../api/identity";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { formulasOf, NotebookField } from "../notebook/NotebookField";
+import { assignmentPreview } from "./assignmentPreview";
 
 /** Unités proposées pour une question numérique : le serveur valide contre le même catalogue fermé. */
 const UNIT_CHOICES = [
@@ -401,6 +402,8 @@ function AssignForm({
   const [maxAttempts, setMaxAttempts] = useState("1");
   const [lateAllowed, setLateAllowed] = useState(false);
   const [autoPublish, setAutoPublish] = useState(false);
+  // Instant d'ouverture du formulaire : une ouverture choisie après lui est « à venir » (S-5).
+  const [now] = useState(() => Date.now());
   const assign = useMutation({
     mutationFn: () => {
       const [kind, targetId = ""] = audience.split(":");
@@ -421,8 +424,12 @@ function AssignForm({
       onDone();
     },
   });
-  const due = dueAt === "" ? null : new Date(dueAt);
-  const opens = opening === "later" && opensAt !== "" ? new Date(opensAt) : null;
+  // Recalculée à chaque changement d'un champ (verdict L8, S-5).
+  const preview = assignmentPreview(
+    opening === "later" && opensAt !== "" ? new Date(opensAt) : null,
+    dueAt === "" ? null : new Date(dueAt),
+    now,
+  );
   return (
     <Card aria-labelledby={`attribuer-${assessment.id}`}>
       <div className="card-head">
@@ -553,15 +560,9 @@ function AssignForm({
             Publier la note dès que tout est corrigé automatiquement
           </label>
         </div>
-        {due !== null && !Number.isNaN(due.getTime()) && (
+        {preview !== null && (
           <Notice>
-            <p>
-              L'élève verra :{" "}
-              {opens !== null && !Number.isNaN(opens.getTime())
-                ? `« S'ouvre le ${longDateTime(opens)} », puis `
-                : ""}
-              « À rendre avant {longDateTime(due)} ». Le corrigé lui sera montré après cette date.
-            </p>
+            <p aria-live="polite">{preview}</p>
           </Notice>
         )}
         <ErrorMessage error={assign.error} />
@@ -1011,7 +1012,6 @@ export function GradingAttemptPage() {
         </div>
         <p className="hint">
           Essai {data.number} · {data.late ? "rendu en retard" : "rendu à temps"}
-          {data.answersSha256 === null ? "" : ` · empreinte ${data.answersSha256.slice(0, 12)}…`}
         </p>
         <ol className="stack plain">
           {data.questions.map((question, position) => {
